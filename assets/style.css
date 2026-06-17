@@ -1,0 +1,75 @@
+
+    :root{
+      --bg:#f6f8fb; --card:#fff; --line:#dbe3ef; --text:#0f172a; --muted:#64748b;
+      --accent:#0f172a; --accent2:#1d4ed8; --soft:#eef3f9; --danger:#b91c1c;
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0;font-family:Inter,Arial,sans-serif;background:var(--bg);color:var(--text)}
+    body{padding:16px}
+    .wrap{max-width:1380px;margin:0 auto;display:grid;gap:24px}
+    @media(min-width:1100px){.wrap{grid-template-columns:1.15fr .85fr}}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:18px;box-shadow:0 6px 18px rgba(15,23,42,.05)}
+    .title{font-size:30px;font-weight:800;margin:0 0 6px}
+    .muted{color:var(--muted)}
+    .grid{display:grid;gap:14px}
+    .g2{grid-template-columns:1fr}
+    @media(min-width:760px){.g2{grid-template-columns:1fr 1fr}}
+    .g3{grid-template-columns:1fr}
+    @media(min-width:920px){.g3{grid-template-columns:1fr 1fr 1fr}}
+    label{display:block;font-size:13px;font-weight:700;margin:0 0 6px}
+    input,select,textarea{width:100%;border:1px solid var(--line);border-radius:14px;padding:11px 12px;font-size:16px;background:#fff}
+    textarea{min-height:110px;resize:vertical}
+    .btns{display:flex;flex-wrap:wrap;gap:8px}
+    button{border:1px solid var(--line);background:#fff;border-radius:14px;padding:11px 14px;font-size:14px;cursor:pointer}
+    button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+    button.soft{background:var(--soft)}
+    button.danger{background:#fff1f2;color:var(--danger);border-color:#fecdd3}
+    .section-title{font-size:18px;font-weight:800;margin:0 0 12px}
+    .summary-box{background:#0f172a;color:#fff;border-radius:22px;padding:18px}
+    .summary-big{font-size:38px;font-weight:800;margin:8px 0}
+    .rows{display:grid;gap:10px}
+    .row{display:flex;justify-content:space-between;gap:12px;font-size:14px}
+    .row strong{font-size:15px}
+    .divider{height:1px;background:var(--line);margin:6px 0}
+    .sticky{position:static}
+    @media(min-width:1100px){.sticky{position:sticky;top:16px}}
+    .chip{display:inline-block;background:var(--soft);padding:5px 10px;border-radius:999px;font-size:12px;font-weight:700;margin-bottom:10px}
+    .extra-card{border:1px solid var(--line);border-radius:18px;padding:14px;background:#fff}
+    .extra-grid{display:grid;gap:10px;grid-template-columns:1fr;align-items:end}
+    @media(min-width:920px){.extra-grid{grid-template-columns:1.8fr .6fr .8fr .8fr auto;align-items:end}}
+    .selected-item,.saved-item{background:#f8fafc;border:1px solid var(--line);border-radius:16px;padding:10px 12px}
+    .topbar{display:flex;flex-direction:column;gap:12px}
+    @media(min-width:760px){.topbar{flex-direction:row;justify-content:space-between;align-items:center}}
+    .hidden{display:none!important}
+    .notice{padding:10px 12px;border-radius:14px;background:#f8fafc;border:1px solid var(--line);font-size:14px;color:var(--muted)}
+    .remove-wrap{display:flex;justify-content:flex-end;align-items:flex-end;height:100%}
+    .remove-wrap button{margin:0}
+    .print-area{display:none}
+    .toast{position:fixed;right:16px;bottom:16px;background:#fff;border:1px solid var(--line);padding:12px 14px;border-radius:14px;box-shadow:0 10px 28px rgba(15,23,42,.12);max-width:320px;z-index:50}
+    .version-badge{position:fixed;right:12px;top:12px;z-index:45;background:#fff;border:1px solid var(--line);border-radius:999px;padding:6px 10px;font-size:12px;color:var(--muted);box-shadow:0 6px 18px rgba(15,23,42,.08)}
+    @media(max-width:760px){.version-badge{top:auto;right:10px;bottom:10px;font-size:11px}}
+    @media print{
+      body>*:not(.print-area){display:none!important}
+      .print-area{display:block!important}
+      body{background:#fff;padding:0}
+    }
+  
+.auth-card{border-color:#c7d2fe;background:linear-gradient(180deg,#fff,#f8fafc)}
+.auth-card input{background:#fff}
+@media(max-width:760px){
+  body{padding:10px}
+  .card{border-radius:18px;padding:14px}
+  .summary-big{font-size:30px}
+}
+
+/* Free GitHub Pages version: password gate */
+body.locked .wrap > .grid > .card:not(#authCard),
+body.locked .wrap > .sticky,
+body.locked #printArea,
+body.locked #shareModal {
+  display: none !important;
+}
+body.locked #authCard {
+  max-width: 760px;
+  margin: 10vh auto 0;
+}

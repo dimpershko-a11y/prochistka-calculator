@@ -1,0 +1,9 @@
+{
+  "name": "PRO-CHISTKA калькулятор",
+  "short_name": "PRO-CHISTKA",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f6f8fb",
+  "theme_color": "#0f172a",
+  "icons": []
+}
