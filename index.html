@@ -1,48 +1,44 @@
+<!doctype html>
 <html lang="ru"><head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
-<title>PRO-CHISTKA — калькулятор</title>
-<!-- SITE_VERSION: localStorage priority fixed for web hosting -->
+<title>Калькулятор стоимости уборки</title>
 
-<link href="assets/style.css" rel="stylesheet"/><link href="manifest.json" rel="manifest"/><meta content="#0f172a" name="theme-color"/></head>
-<body>
-<div class="version-badge" id="calcVersionBadge">v3.0-free</div>
+<link href="assets/style.css" rel="stylesheet"/><link href="manifest.json" rel="manifest"/><meta content="#0f172a" name="theme-color"/><script defer="defer" src="config.js"></script><script defer="defer" src="assets/app.js"></script></head>
+<body><div class="version-badge" id="versionBadge">v4.0-config</div>
+<div class="login-overlay hidden" id="loginOverlay">
+<div class="login-card">
+<div class="login-title">PRO-CHISTKA</div>
+<div class="muted" style="margin-bottom:14px">Введите пароль для доступа к калькулятору</div>
+<input autocomplete="current-password" id="appPasswordInput" placeholder="Пароль" type="password"/>
+<button class="primary" id="appPasswordBtn" style="width:100%;margin-top:10px">Войти</button>
+<div class="muted" id="appPasswordError" style="font-size:13px;margin-top:10px"></div>
+</div>
+</div>
 <div class="wrap">
 <div class="grid" style="gap:24px">
 <div class="card">
 <div class="topbar">
 <div>
 <h1 class="title">Калькулятор стоимости уборки</h1>
-<div class="muted">Мини-приложение для ПК и телефона. Заказы сохраняются локально. Для переноса между телефоном и ПК используйте экспорт/импорт.</div>
+<div class="muted">Работает на ПК и телефоне. Всё сохраняется в этом браузере.</div>
 </div>
 <div class="btns">
 <button id="demoBtn">Пример</button>
 <button id="tariffsBtn">Тарифы</button>
 <button class="soft" id="settingsBtn">Настройки</button>
 <button id="saveOrderBtn">Сохранить заказ</button>
-<button id="exportOrdersBtn" type="button">Экспорт заказов</button>
-          <button id="exportBackupBtn" type="button">Резервная копия</button>
-          <button id="importDataBtn" type="button">Импорт</button>
-          <input id="importDataFile" class="hidden" type="file" accept="application/json,.json">
 <button class="hidden" id="downloadHtmlBtn">Скачать HTML</button>
 <button id="clearBtn">Очистить</button>
+
+<button id="exportOrdersBtn" type="button">Экспорт заказов</button>
+<button id="importOrdersBtn" type="button">Импорт заказов</button>
+<button id="exportBackupBtn" type="button">Резервная копия</button>
+<button id="importBackupBtn" type="button">Восстановить</button>
+<input accept="application/json,.json" class="hidden" id="importOrdersFile" type="file"/>
+<input accept="application/json,.json" class="hidden" id="importBackupFile" type="file"/>
 </div>
 </div>
-</div><div class="card" id="authCard">
-<div class="topbar" style="margin-bottom:12px">
-<div>
-<div class="section-title">Вход в мини-приложение</div>
-<div class="muted" id="authHint">Введите рабочий пароль. Это временная бесплатная версия без облачной базы: перенос заказов выполняется через экспорт/импорт файла.</div>
-</div>
-<div class="btns">
-<button class="hidden" id="logoutBtn" type="button">Выйти</button>
-</div>
-</div>
-<div class="grid g3" id="loginFields">
-<div><label>Пароль</label><input autocomplete="current-password" id="loginPassword" placeholder="Пароль" type="password"/></div>
-<div><label> </label><button class="primary" id="loginBtn" type="button">Войти</button></div>
-</div>
-<div class="notice" id="authStatus" style="margin-top:10px">Локальные данные сохраняются в этом браузере. Для переноса на другое устройство используйте экспорт и импорт JSON-файла.</div>
 </div>
 <div class="card hidden" id="tariffsCard">
 <div class="topbar" style="margin-bottom:12px">
@@ -126,7 +122,7 @@
 <div><label>Логотип компании</label><input accept="image/png,image/jpeg,image/webp,image/svg+xml" id="brandLogo" type="file"/></div>
 <div><label> </label><button id="removeLogoBtn" type="button">Удалить логотип</button></div>
 </div>
-<div class="notice" id="brandLogoPreview" style="margin-top:10px">Логотип не загружен.</div>
+<div class="notice" id="brandLogoPreview" style="margin-top:10px">Логотип пока не выбран.</div>
 <div style="margin-top:14px">
 <label>Блоки в PDF</label>
 <div class="grid g2" id="pdfBlocksWrap"><div class="extra-card"><div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
@@ -240,7 +236,7 @@
 <div><label>Время, ч</label><input data-edit-extra="6" data-field="time" min="0" step="0.1" type="number" value="0.3"/></div>
 <div class="btns" style="align-items:end"><button data-extra-up="6" type="button">↑</button><button data-extra-down="6" type="button">↓</button><button class="danger" data-extra-delete="6" type="button">Удалить</button></div>
 </div></div><div class="extra-card"><div class="grid g3">
-<div><label>Название</label><input data-edit-extra="7" data-field="name" value="Озонирование"/></div>
+<div><label>Название</label><input data-edit-extra="7" data-field="name" value="Озонирование, час"/></div>
 <div><label>Ед. изм.</label><input data-edit-extra="7" data-field="unit" value="час"/></div>
 <div><label>Категория / блок</label><input data-edit-extra="7" data-field="category" value="Другое"/></div>
 <div><label>Цена</label><input data-edit-extra="7" data-field="price" min="0" type="number" value="1000"/></div>
@@ -341,7 +337,7 @@
 <div><label>Название</label><input data-edit-extra="1776950127402" data-field="name" value="Сбор мусора больше 10 кг, час"/></div>
 <div><label>Ед. изм.</label><input data-edit-extra="1776950127402" data-field="unit" value="час"/></div>
 <div><label>Категория / блок</label><input data-edit-extra="1776950127402" data-field="category" value="Мусор"/></div>
-<div><label>Цена</label><input data-edit-extra="1776950127402" data-field="price" min="0" type="number" value="850"/></div>
+<div><label>Цена</label><input data-edit-extra="1776950127402" data-field="price" min="0" type="number" value="750"/></div>
 <div><label>Время, ч</label><input data-edit-extra="1776950127402" data-field="time" min="0" step="0.1" type="number" value="1"/></div>
 <div class="btns" style="align-items:end"><button data-extra-up="1776950127402" type="button">↑</button><button data-extra-down="1776950127402" type="button">↓</button><button class="danger" data-extra-delete="1776950127402" type="button">Удалить</button></div>
 </div></div><div class="extra-card"><div class="grid g3">
@@ -355,7 +351,7 @@
 <div><label>Название</label><input data-edit-extra="1776950570267" data-field="name" value="Сбор строительного мусора и материалов, час"/></div>
 <div><label>Ед. изм.</label><input data-edit-extra="1776950570267" data-field="unit" value="час"/></div>
 <div><label>Категория / блок</label><input data-edit-extra="1776950570267" data-field="category" value="Мусор"/></div>
-<div><label>Цена</label><input data-edit-extra="1776950570267" data-field="price" min="0" type="number" value="950"/></div>
+<div><label>Цена</label><input data-edit-extra="1776950570267" data-field="price" min="0" type="number" value="850"/></div>
 <div><label>Время, ч</label><input data-edit-extra="1776950570267" data-field="time" min="0" step="0.1" type="number" value="1"/></div>
 <div class="btns" style="align-items:end"><button data-extra-up="1776950570267" type="button">↑</button><button data-extra-down="1776950570267" type="button">↓</button><button class="danger" data-extra-delete="1776950570267" type="button">Удалить</button></div>
 </div></div><div class="extra-card"><div class="grid g3">
@@ -416,6 +412,22 @@
 <div class="btns" style="align-items:end"><button data-extra-up="1778597390543" type="button">↑</button><button data-extra-down="1778597390543" type="button">↓</button><button class="danger" data-extra-delete="1778597390543" type="button">Удалить</button></div>
 </div></div></div>
 </div>
+<div class="card">
+<div class="topbar" style="margin-bottom:10px">
+<div>
+<div class="section-title">Описание услуг / что входит в услугу</div>
+<div class="muted">Шаблон сохраняется отдельно для каждого вида уборки.</div>
+</div>
+<button class="primary" id="saveIncludedBtn">Сохранить шаблон</button>
+</div>
+<div class="muted" style="margin-bottom:10px">Редактируется шаблон для: <strong id="includedTypeLabel">После ремонта</strong></div>
+<textarea id="includedServices"></textarea>
+</div>
+<div>
+<div class="chip">Описание работ по окнам / остеклению</div>
+<div class="muted" style="font-size:13px;margin-bottom:10px">Этот текст добавляется в смету только если в заказ добавлены услуги из категории «Окна».</div>
+<textarea id="windowServicesDescription"></textarea>
+</div>
 </div>
 </div>
 <div class="card">
@@ -430,17 +442,7 @@
 <div><label>Загрязнённость</label><select id="dirtiness"><option value="low">Обычная</option><option value="medium">Повышенная</option><option value="high">Сильная</option></select></div>
 </div>
 </div>
-<div class="card">
-<div class="topbar" style="margin-bottom:10px">
-<div>
-<div class="section-title">Что входит в уборку</div>
-<div class="muted">Шаблон сохраняется отдельно для каждого вида уборки.</div>
-</div>
-<button class="primary" id="saveIncludedBtn">Сохранить шаблон</button>
-</div>
-<div class="muted" style="margin-bottom:10px">Редактируется шаблон для: <strong id="includedTypeLabel">После ремонта</strong></div>
-<textarea id="includedServices"></textarea>
-</div>
+
 <div class="grid g2">
 <div class="card">
 <div class="section-title">Выезд</div>
@@ -634,7 +636,7 @@
 <div><label>Цена</label><input data-extra="1778597390543" data-field="price" min="0" type="number" value="1000"/></div>
 <div><label>Время, ч</label><input data-extra="1778597390543" data-field="time" min="0" step="0.1" type="number" value="2"/></div>
 <div style="align-self:end"><button data-remove="1778597390543">Удалить</button></div>
-</div></div></div></details><details class="extra-card" style="padding: 0px;"><summary style="list-style:none;cursor:pointer;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;font-weight:800"><span>Окна</span><span class="muted" style="font-weight:600">10 поз.</span></summary><div class="grid" style="gap:12px;padding:0 14px 14px"><div class="extra-card" style="margin: 0px;"><div class="extra-grid">
+</div></div></div></details><details class="extra-card" open="" style="padding: 0px;"><summary style="list-style:none;cursor:pointer;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;font-weight:800"><span>Окна</span><span class="muted" style="font-weight:600">10 поз.</span></summary><div class="grid" style="gap:12px;padding:0 14px 14px"><div class="extra-card" style="margin: 0px;"><div class="extra-grid">
 <div>
 <label>Название услуги</label>
 <input data-extra="12" data-field="name" value="Окно одностороннее, открывающаяся секция"/>
@@ -741,7 +743,7 @@
 <div class="muted" style="font-size:14px;margin-top:6px">час · ~ 1.0 ч</div>
 </div>
 <div><label>Кол-во</label><input data-extra="1776950127402" data-field="qty" min="0" type="number" value="0"/></div>
-<div><label>Цена</label><input data-extra="1776950127402" data-field="price" min="0" type="number" value="850"/></div>
+<div><label>Цена</label><input data-extra="1776950127402" data-field="price" min="0" type="number" value="750"/></div>
 <div><label>Время, ч</label><input data-extra="1776950127402" data-field="time" min="0" step="0.1" type="number" value="1"/></div>
 <div style="align-self:end"><button data-remove="1776950127402">Удалить</button></div>
 </div></div><div class="extra-card" style="margin: 0px;"><div class="extra-grid">
@@ -761,7 +763,7 @@
 <div class="muted" style="font-size:14px;margin-top:6px">час · ~ 1.0 ч</div>
 </div>
 <div><label>Кол-во</label><input data-extra="1776950570267" data-field="qty" min="0" type="number" value="0"/></div>
-<div><label>Цена</label><input data-extra="1776950570267" data-field="price" min="0" type="number" value="950"/></div>
+<div><label>Цена</label><input data-extra="1776950570267" data-field="price" min="0" type="number" value="850"/></div>
 <div><label>Время, ч</label><input data-extra="1776950570267" data-field="time" min="0" step="0.1" type="number" value="1"/></div>
 <div style="align-self:end"><button data-remove="1776950570267">Удалить</button></div>
 </div></div><div class="extra-card" style="margin: 0px;"><div class="extra-grid">
@@ -801,27 +803,19 @@
 <div class="section-title">Итог расчёта</div>
 <div class="summary-box">
 <div style="font-size:14px;color:#cbd5e1">Рекомендованная цена для клиента</div>
-<div class="summary-big" id="recommendedPrice">12 000 ₽</div>
+<div class="summary-big" id="recommendedPrice">0 ₽</div>
 <div style="font-size:14px;color:#cbd5e1">Берётся максимум из рыночной цены и цены по твоей экономике.</div>
 </div>
 <div class="rows" style="margin-top:14px">
-<div class="row"><span class="muted">База без коэффициентов</span><span id="sumBaseRaw">12 000 ₽</span></div>
-<div class="row"><span class="muted">Заставленность</span><span id="sumClutterK">× 1.00 → 12 000 ₽</span></div>
-<div class="row"><span class="muted">Загрязнённость</span><span id="sumDirtK">× 1.00 → 12 000 ₽</span></div>
-<div class="row"><span class="muted">Минималка по типу уборки</span><span id="sumMin">0 ₽</span></div>
-<div class="row"><strong>База по уборке к расчёту</strong><strong id="sumBase">12 000 ₽</strong></div>
+<div class="row"><span class="muted">База по уборке</span><span id="sumBase">0 ₽</span></div>
 <div class="row"><span class="muted">Доп. услуги</span><span id="sumExtras">0 ₽</span></div>
 <div class="row"><span class="muted">Выезд</span><span id="sumTravel">0 ₽</span></div>
-<div class="row"><strong>Рыночная сумма до скидки</strong><strong id="sumMarketBefore">12 000 ₽</strong></div>
+<div class="row"><span class="muted">Скидка</span><span id="sumDiscount">− 0 ₽</span></div>
 <div class="divider"></div>
+<div class="row"><strong>Цена по рынку после скидки</strong><strong id="sumMarket">0 ₽</strong></div>
 <div class="row"><span class="muted">ФОТ бригады</span><span id="sumPayroll">0 ₽</span></div>
 <div class="row"><span class="muted">Желаемая прибыль</span><span id="sumProfit">0 ₽</span></div>
-<div class="row"><strong>Цена по экономике</strong><strong id="sumCost">0 ₽</strong></div>
-<div class="row"><span class="muted">Корректировка до экономики</span><span id="sumEconomyCorrection">0 ₽</span></div>
-<div class="row"><span class="muted">Скидка</span><span id="sumDiscount">− 0 ₽</span></div>
-<div class="row"><span class="muted">Защита от продажи ниже прямых затрат</span><span id="sumFloorCorrection">0 ₽</span></div>
-<div class="divider"></div>
-<div class="row"><strong>Итог для клиента</strong><strong id="sumMarket">12 000 ₽</strong></div>
+<div class="row"><strong>Цена по себестоимости + прибыль</strong><strong id="sumCost">0 ₽</strong></div>
 <div class="divider"></div>
 <div class="row"><span class="muted">Время на базовую уборку</span><span id="timeBase">0.0 ч</span></div>
 <div class="row"><span class="muted">Время на доп. услуги</span><span id="timeExtras">0.0 ч</span></div>
@@ -834,7 +828,7 @@
 </div>
 <div style="margin-top:18px">
 <div class="section-title" style="font-size:16px">Что входит в уборку</div>
-<div class="selected-item" id="includedPreview"><div>• Сухая и влажная уборка доступных поверхностей, полов, корпусной мебели внутри и снаружи, выключателей, розеток, плинтусов, карнизов, труб, радиаторов отопления, зеркал, подоконников.</div><div>• Обеспыливание стен сухим или влажным способом в зависимости от типа покрытия.</div><div>• Обеспыливание потолка мопом сухим или влажным способом в зависимости от типа покрытия, по требованию Заказчика.</div><div>• Обеспыливание осветительных приборов, за исключением хрустальных и сложных люстр.</div><div>• Уборка санузла, включая: обеспыливание мебели, чистку сантехники от налета и пыли, влажную уборку стен и полов, обеспыливание видимых труб, мойку зеркал и стеклянных перегородок; при возможности — перемещение техники для уборки за ней.</div><div>• Удаление следов скотча, краски, клея, цементного раствора и иных аналогичных загрязнений с доступных поверхностей, за исключением эпоксидного клея и эпоксидной затирки.</div><div>• Сухая чистка мебели пылесосом.</div><div>• Сбор и вынос строительного мусора весом до 20 кг.</div><div>• • Окна •</div><div>• Удаление защитной плёнки с рам.</div><div>• Сбор пылесосом максимального количества сухих загрязнений.</div><div>• Влажная уборка рам, включая лицевую часть, верх, низ, боковины и углы.</div><div>• Удаление следов скотча, краски, клея, цементного раствора и иных аналогичных загрязнений с рам и стекла.</div><div>• • •</div><div>• Всё необходимое для клининга (техника и моющие средства) привозим самостоятельно и включены в стоимость. </div><div>• • •</div><div>• Работаем по договору.</div><div>• • •</div><div>• Приём оплаты: наличные, перевод, QR код СБП, ссылка СБП, карта VISA|MasterCard|МИР, Долями (рассрочка) от Т-банка, безналичным платежом для юридических лиц.</div></div>
+<div class="selected-item" id="includedPreview"><div>• Сухая и влажная уборка доступных поверхностей, полов, корпусной мебели внутри и снаружи, выключателей, розеток, плинтусов, карнизов, труб, радиаторов отопления, зеркал, подоконников.</div><div>• Обеспыливание стен сухим или влажным способом в зависимости от типа покрытия.</div><div>• Обеспыливание потолка мопом сухим или влажным способом в зависимости от типа покрытия, по требованию Заказчика.</div><div>• Обеспыливание осветительных приборов, за исключением хрустальных и сложных люстр.</div><div>• Уборка санузла, включая: обеспыливание мебели, чистку сантехники от налета и пыли, влажную уборку стен и полов, обеспыливание видимых труб, мойку зеркал и стеклянных перегородок; при возможности — перемещение техники для уборки за ней.</div><div>• Удаление следов скотча, краски, клея, цементного раствора и иных аналогичных загрязнений с доступных поверхностей, за исключением эпоксидного клея и эпоксидной затирки.</div><div>• Сухая чистка мебели пылесосом.</div><div>• Сбор и вынос строительного мусора весом до 20 кг.</div><div>• • •</div><div>• Всё необходимое для клининга (техника и моющие средства) привозим самостоятельно и включены в стоимость. </div><div>• • •</div><div>• Работаем по договору.</div><div>• • •</div><div>• Приём оплаты: наличные, перевод, QR код СБП, ссылка СБП, карта VISA|MasterCard|МИР, Долями (рассрочка) от Т-банка, безналичным платежом для юридических лиц.</div></div>
 </div>
 <div style="margin-top:18px">
 <div class="section-title" style="font-size:16px">Выбранные доп.услуги</div>
@@ -846,7 +840,7 @@
 </div>
 <div class="selected-item" style="margin-top:16px">
 <div><strong>Клиент:</strong> <span id="cardClient">—</span></div>
-<div><strong>Объект:</strong> <span id="cardObject">Квартира</span></div>
+<div><strong>Объект:</strong> <span id="cardObject">—</span></div>
 <div><strong>Площадь:</strong> <span id="cardArea">0 м²</span></div>
 <div><strong>Уборка:</strong> <span id="cardCleanType">После ремонта</span></div>
 <div><strong>Заставленность:</strong> <span id="cardClutter">Минимальная</span></div>
@@ -855,7 +849,6 @@
 </div>
 <div class="card">
 <div class="section-title">Сохранённые заказы</div>
-<div class="notice" id="cloudStatus" style="margin-bottom:10px">Локальный режим: заказы хранятся в этом браузере. Для переноса между устройствами используйте «Экспорт заказов» и «Импорт».</div>
 <div class="grid" id="savedOrdersWrap"><div class="notice">Пока нет сохранённых заказов.</div></div>
 </div>
 </div>
@@ -873,7 +866,7 @@
 </div>
 </div>
 <div class="print-area" id="printArea"></div>
-<div class="toast hidden" id="toast">Услуга добавлена</div>
+<div class="toast hidden" id="toast">Логотип удалён</div>
 
 
-<script src="config.js"></script><script src="assets/app.js"></script></body></html>
+</body></html>
