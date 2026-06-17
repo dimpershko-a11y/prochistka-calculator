@@ -5,13 +5,14 @@
 <title>Калькулятор стоимости уборки</title>
 
 <link href="assets/style.css" rel="stylesheet"/><link href="manifest.json" rel="manifest"/><meta content="#0f172a" name="theme-color"/><script defer="defer" src="config.js"></script><script defer="defer" src="assets/app.js"></script></head>
-<body><div class="version-badge" id="versionBadge">v4.0-config</div>
+<body><div class="version-badge" id="versionBadge">v4.1-edit-lock</div>
 <div class="login-overlay hidden" id="loginOverlay">
 <div class="login-card">
 <div class="login-title">PRO-CHISTKA</div>
-<div class="muted" style="margin-bottom:14px">Введите пароль для доступа к калькулятору</div>
+<div class="muted" style="margin-bottom:14px">Введите пароль для доступа к изменениям</div>
 <input autocomplete="current-password" id="appPasswordInput" placeholder="Пароль" type="password"/>
-<button class="primary" id="appPasswordBtn" style="width:100%;margin-top:10px">Войти</button>
+<button class="primary" id="appPasswordBtn" style="width:100%;margin-top:10px">Открыть изменения</button>
+<button id="appPasswordCancelBtn" style="width:100%;margin-top:8px">Отмена</button>
 <div class="muted" id="appPasswordError" style="font-size:13px;margin-top:10px"></div>
 </div>
 </div>
@@ -47,6 +48,7 @@
 <div class="muted">Здесь меняются базовые ставки и коэффициенты.</div>
 </div>
 <div class="btns">
+<button class="primary" id="saveTariffsSettingsBtn" type="button">Сохранить настройки</button>
 <button class="danger" id="resetStorageBtn">Сбросить всё сохранённое</button>
 </div>
 </div>
@@ -110,6 +112,7 @@
 <div class="section-title">Настройки</div>
 <div class="muted">Здесь настраиваются PDF, компания, способы оплаты, основная информация и редактор доп.услуг.</div>
 </div>
+<div class="btns"><button class="primary" id="saveSettingsBtn" type="button">Сохранить настройки</button></div>
 </div>
 <div class="grid" style="gap:18px">
 <div>
@@ -189,6 +192,22 @@
 <div><label>Список техники</label><textarea id="equipmentText" placeholder="Например: пылесос, парогенератор, лестница, удлинитель"></textarea></div>
 <div><label>Информация о химии / сертификатах</label><textarea id="chemistryText" placeholder="Например: используем сертифицированную профессиональную химию..."></textarea></div>
 </div>
+</div>
+<div class="card">
+<div class="topbar" style="margin-bottom:10px">
+<div>
+<div class="section-title">Описание услуг / что входит в услугу</div>
+<div class="muted">Шаблон сохраняется отдельно для каждого вида уборки.</div>
+</div>
+<button class="primary" id="saveIncludedBtn">Сохранить шаблон</button>
+</div>
+<div class="muted" style="margin-bottom:10px">Редактируется шаблон для: <strong id="includedTypeLabel">После ремонта</strong></div>
+<textarea id="includedServices"></textarea>
+</div>
+<div>
+<div class="chip">Описание работ по окнам / остеклению</div>
+<div class="muted" style="font-size:13px;margin-bottom:10px">Этот текст добавляется в смету только если в заказ добавлены услуги из категории «Окна».</div>
+<textarea id="windowServicesDescription"></textarea>
 </div>
 <div>
 <div class="chip">Редактор доп.услуг</div>
@@ -412,22 +431,7 @@
 <div class="btns" style="align-items:end"><button data-extra-up="1778597390543" type="button">↑</button><button data-extra-down="1778597390543" type="button">↓</button><button class="danger" data-extra-delete="1778597390543" type="button">Удалить</button></div>
 </div></div></div>
 </div>
-<div class="card">
-<div class="topbar" style="margin-bottom:10px">
-<div>
-<div class="section-title">Описание услуг / что входит в услугу</div>
-<div class="muted">Шаблон сохраняется отдельно для каждого вида уборки.</div>
-</div>
-<button class="primary" id="saveIncludedBtn">Сохранить шаблон</button>
-</div>
-<div class="muted" style="margin-bottom:10px">Редактируется шаблон для: <strong id="includedTypeLabel">После ремонта</strong></div>
-<textarea id="includedServices"></textarea>
-</div>
-<div>
-<div class="chip">Описание работ по окнам / остеклению</div>
-<div class="muted" style="font-size:13px;margin-bottom:10px">Этот текст добавляется в смету только если в заказ добавлены услуги из категории «Окна».</div>
-<textarea id="windowServicesDescription"></textarea>
-</div>
+
 </div>
 </div>
 <div class="card">

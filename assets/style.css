@@ -56,5 +56,9 @@
 .login-overlay{position:fixed;inset:0;background:rgba(15,23,42,.72);z-index:100;display:flex;align-items:center;justify-content:center;padding:18px}
 .login-card{background:#fff;border-radius:22px;padding:22px;max-width:360px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.25);border:1px solid var(--line)}
 .login-title{font-size:26px;font-weight:900;margin-bottom:6px}
-body.locked .wrap{filter:blur(3px);pointer-events:none;user-select:none}
 @media(max-width:760px){.version-badge{right:8px;top:8px;font-size:11px}.topbar .btns button{flex:1 1 auto}}
+
+.service-name-field{min-height:54px;overflow:hidden;resize:vertical;line-height:1.35;font-weight:700;font-size:15px;white-space:pre-wrap}
+.service-name-field[readonly]{border-color:transparent;background:transparent;padding:0;box-shadow:none;cursor:default;color:var(--text)}
+input:disabled, textarea:disabled{background:#f8fafc;color:#64748b;cursor:not-allowed}
+body:not(.edit-unlocked) [data-edit-extra], body:not(.edit-unlocked) [data-kind], body:not(.edit-unlocked) [data-pay-id]{background:#f8fafc}

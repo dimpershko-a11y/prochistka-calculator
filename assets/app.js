@@ -1,6 +1,6 @@
 const STORAGE_KEY = 'prochistka_calc_app_v4';
 const APP_CONFIG = window.PROCHISTKA_CONFIG || {};
-const APP_VERSION = APP_CONFIG.APP_VERSION || 'v4.0-config';
+const APP_VERSION = APP_CONFIG.APP_VERSION || 'v4.1-edit-lock';
 const defaults = APP_CONFIG.defaults || {};
 defaults.brand = defaults.brand || {name:'PRO-CHISTKA', phone:'', tagline:'Клининговые услуги', site:'', logoDataUrl:''};
 defaults.baseRates = defaults.baseRates || {};
@@ -67,16 +67,57 @@ function exportOrders(){ downloadJson({type:'prochistka_orders', version:APP_VER
 function importOrdersFile(file){ readJsonFile(file, data=>{ const incoming = Array.isArray(data.savedOrders)?data.savedOrders:(Array.isArray(data)?data:[]); if(!incoming.length){ toast('В файле нет заказов'); return; } const map=new Map((state.savedOrders||[]).map(o=>[String(o.id),o])); incoming.forEach(o=>map.set(String(o.id||Date.now()+Math.random()), o)); state.savedOrders=Array.from(map.values()).slice(0,50); saveState(); renderSavedOrders(); toast('Заказы импортированы'); }); }
 function exportBackup(){ downloadJson({type:'prochistka_full_backup', version:APP_VERSION, exportedAt:new Date().toISOString(), state}, `prochistka-backup-${Date.now()}.json`); }
 function importBackupFile(file){ readJsonFile(file, data=>{ const incoming=data.state||data; if(!incoming || typeof incoming!=='object'){ toast('В файле нет резервной копии'); return; } state=mergeState(incoming); saveState(); fillForm(); renderTariffs(); renderExtras(); renderSettingsPanel(); recalc(); toast('Резервная копия восстановлена'); }); }
+function isEditUnlocked(){
+  const pass = APP_CONFIG.APP_PASSWORD || APP_CONFIG.appPassword || '';
+  return !pass || sessionStorage.getItem('prochistka_edit_ok') === '1';
+}
+function setEditUnlocked(){
+  sessionStorage.setItem('prochistka_edit_ok','1');
+  document.body.classList.add('edit-unlocked');
+}
+function requestEditAccess(afterUnlock){
+  if(isEditUnlocked()){
+    document.body.classList.add('edit-unlocked');
+    if(typeof afterUnlock === 'function') afterUnlock();
+    return true;
+  }
+  const overlay=$('loginOverlay');
+  const input=$('appPasswordInput');
+  const err=$('appPasswordError');
+  if(err) err.textContent='';
+  if(input) input.value='';
+  window.__pendingEditAction = afterUnlock || null;
+  if(overlay) overlay.classList.remove('hidden');
+  setTimeout(()=>input && input.focus(),50);
+  return false;
+}
 function setupAccess(){
   const pass = APP_CONFIG.APP_PASSWORD || APP_CONFIG.appPassword || '';
-  const overlay=$('loginOverlay'); if(!overlay || !pass) return;
-  const ok = sessionStorage.getItem('prochistka_access_ok') === '1';
-  if(ok){ overlay.classList.add('hidden'); document.body.classList.remove('locked'); return; }
-  overlay.classList.remove('hidden'); document.body.classList.add('locked');
-  const input=$('appPasswordInput'), btn=$('appPasswordBtn'), err=$('appPasswordError');
-  const check=()=>{ if(String(input.value)===String(pass)){ sessionStorage.setItem('prochistka_access_ok','1'); overlay.classList.add('hidden'); document.body.classList.remove('locked'); } else { err.textContent='Неверный пароль'; } };
-  btn.onclick=check; input.onkeydown=e=>{ if(e.key==='Enter') check(); };
-  setTimeout(()=>input.focus(),50);
+  const overlay=$('loginOverlay'); if(!overlay) return;
+  overlay.classList.add('hidden');
+  if(!pass){ document.body.classList.add('edit-unlocked'); return; }
+  if(isEditUnlocked()) document.body.classList.add('edit-unlocked');
+  const input=$('appPasswordInput'), btn=$('appPasswordBtn'), err=$('appPasswordError'), cancel=$('appPasswordCancelBtn');
+  const close=()=>{ overlay.classList.add('hidden'); window.__pendingEditAction=null; };
+  const check=()=>{
+    if(String(input.value)===String(pass)){
+      setEditUnlocked();
+      overlay.classList.add('hidden');
+      const cb=window.__pendingEditAction; window.__pendingEditAction=null;
+      renderExtras();
+      if(typeof cb === 'function') cb();
+      toast('Доступ к изменениям открыт');
+    } else {
+      err.textContent='Неверный пароль';
+    }
+  };
+  if(btn) btn.onclick=check;
+  if(cancel) cancel.onclick=close;
+  if(input) input.onkeydown=e=>{ if(e.key==='Enter') check(); if(e.key==='Escape') close(); };
+}
+function saveSettingsNow(){
+  saveState();
+  toast('Настройки сохранены');
 }
 
 function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.remove('hidden'); clearTimeout(window._tt); window._tt=setTimeout(()=>t.classList.add('hidden'),2500); }
@@ -211,23 +252,25 @@ function renderExtras(){ const wrap=$('extrasWrap'); wrap.innerHTML=''; const gr
     details.addEventListener('toggle', ()=>setExtraGroupOpen(cat, details.open));
     groups[cat].forEach(item=>{
       const div=document.createElement('div'); div.className='extra-card'; div.style.margin='0';
+      const edit = isEditUnlocked();
       div.innerHTML=`<div class="extra-grid">
         <div>
           <label>Название услуги</label>
-          <input value="${esc(item.name)}" data-extra="${item.id}" data-field="name">
+          <textarea class="service-name-field" rows="2" data-extra="${item.id}" data-field="name" ${edit?'':'readonly'}>${esc(item.name)}</textarea>
           <div class="muted" style="font-size:14px;margin-top:6px">${esc(item.unit)} · ~ ${hours(item.time)}</div>
         </div>
         <div><label>Кол-во</label><input type="number" min="0" value="${num(item.qty)}" data-extra="${item.id}" data-field="qty"></div>
-        <div><label>Цена</label><input type="number" min="0" value="${num(item.price)}" data-extra="${item.id}" data-field="price"></div>
-        <div><label>Время, ч</label><input type="number" min="0" step="0.1" value="${num(item.time)}" data-extra="${item.id}" data-field="time"></div>
-        <div style="align-self:end">${item.builtIn?'':`<button data-remove="${item.id}">Удалить</button>`}</div>
+        <div><label>Цена</label><input type="number" min="0" value="${num(item.price)}" data-extra="${item.id}" data-field="price" ${edit?'':'disabled'}></div>
+        <div><label>Время, ч</label><input type="number" min="0" step="0.1" value="${num(item.time)}" data-extra="${item.id}" data-field="time" ${edit?'':'disabled'}></div>
+        <div style="align-self:end">${(!item.builtIn && edit)?`<button data-remove="${item.id}">Удалить</button>`:''}</div>
       </div>`;
       content.appendChild(div);
     });
     wrap.appendChild(details);
   });
-  document.querySelectorAll('[data-extra]').forEach(inp=>inp.oninput=(e)=>{ const id=Number(e.target.dataset.extra); const field=e.target.dataset.field; const item=state.extras.find(x=>x.id===id); if(!item)return; item[field]=field==='name'?e.target.value:num(e.target.value); saveState(); recalc(); renderSelectedExtras(); if(field==='name'||state.form.showOnlySelected) renderExtras(); });
-  document.querySelectorAll('[data-remove]').forEach(btn=>btn.onclick=()=>{ const id=Number(btn.dataset.remove); state.extras=state.extras.filter(x=>x.id!==id); saveState(); renderExtras(); recalc(); toast('Услуга удалена'); });
+  document.querySelectorAll('[data-extra]').forEach(inp=>inp.oninput=(e)=>{ const id=Number(e.target.dataset.extra); const field=e.target.dataset.field; if(field!=='qty' && !isEditUnlocked()){ requestEditAccess(()=>renderExtras()); return; } const item=state.extras.find(x=>x.id===id); if(!item)return; item[field]=field==='name'?e.target.value:num(e.target.value); saveState(); recalc(); renderSelectedExtras(); if(field==='name'||state.form.showOnlySelected) renderExtras(); });
+  document.querySelectorAll('[data-remove]').forEach(btn=>btn.onclick=()=>requestEditAccess(()=>{ const id=Number(btn.dataset.remove); state.extras=state.extras.filter(x=>x.id!==id); saveState(); renderExtras(); recalc(); toast('Услуга удалена'); }));
+  document.querySelectorAll('.service-name-field').forEach(el=>{ el.style.height='auto'; el.style.height=(el.scrollHeight+2)+'px'; });
 }
 function calc(){
   const f=state.form, rate=state.baseRates[f.cleanType], clutter=state.clutter[f.clutter], dirt=state.dirtiness[f.dirtiness];
@@ -332,13 +375,15 @@ function downloadCurrentHtml(){
   }
 }
 function bind(){
-  $('tariffsBtn').onclick=()=>{ state.ui.showTariffs=!state.ui.showTariffs; $('tariffsCard').classList.toggle('hidden', !state.ui.showTariffs); saveState(); };
-  $('settingsBtn').onclick=()=>{ state.ui.showSettings=!state.ui.showSettings; $('settingsCard').classList.toggle('hidden', !state.ui.showSettings); if(state.ui.showSettings) renderSettingsPanel(); saveState(); };
+  $('tariffsBtn').onclick=()=>requestEditAccess(()=>{ state.ui.showTariffs=!state.ui.showTariffs; $('tariffsCard').classList.toggle('hidden', !state.ui.showTariffs); if(state.ui.showTariffs) renderTariffs(); saveState(); });
+  $('settingsBtn').onclick=()=>requestEditAccess(()=>{ state.ui.showSettings=!state.ui.showSettings; $('settingsCard').classList.toggle('hidden', !state.ui.showSettings); if(state.ui.showSettings) renderSettingsPanel(); saveState(); });
+  if($('saveSettingsBtn')) $('saveSettingsBtn').onclick=saveSettingsNow;
+  if($('saveTariffsSettingsBtn')) $('saveTariffsSettingsBtn').onclick=saveSettingsNow;
   if($('exportOrdersBtn')) $('exportOrdersBtn').onclick=exportOrders;
   if($('importOrdersBtn')) $('importOrdersBtn').onclick=()=>$('importOrdersFile').click();
   if($('importOrdersFile')) $('importOrdersFile').onchange=e=>importOrdersFile(e.target.files?.[0]);
   if($('exportBackupBtn')) $('exportBackupBtn').onclick=exportBackup;
-  if($('importBackupBtn')) $('importBackupBtn').onclick=()=>$('importBackupFile').click();
+  if($('importBackupBtn')) $('importBackupBtn').onclick=()=>requestEditAccess(()=>$('importBackupFile').click());
   if($('importBackupFile')) $('importBackupFile').onchange=e=>importBackupFile(e.target.files?.[0]);
   $('closeShareBtn').onclick=()=>$('shareModal').classList.add('hidden');
   $('copyEstimateBtn').onclick=copyEstimate; $('printPdfBtn').onclick=printEstimate; $('downloadHtmlBtn').onclick=downloadCurrentHtml;
@@ -353,7 +398,7 @@ function bind(){
   $('includedServices').oninput=(e)=>{ state.includedByType[state.form.cleanType]=e.target.value; saveState(); renderIncludedPreview(); };
   $('saveOrderBtn').onclick=()=>{ const r=calc(); state.savedOrders.unshift({id:Date.now(), clientName:state.form.clientName||'Без имени', objectType:state.form.objectType, area:num(state.form.area), cleanType:r.rate.label, recommendedPrice:r.recommendedPrice, brigadeHours:r.brigadeHours, normHours:r.normHours, createdAt:new Date().toLocaleString('ru-RU')}); state.savedOrders=state.savedOrders.slice(0,10); saveState(); renderSavedOrders(); toast('Заказ сохранён'); };
   $('clearBtn').onclick=()=>{ state.form=clone(defaults.form); state.extras=state.extras.map(x=>({...x, qty:0})); fillForm(); renderExtras(); recalc(); toast('Форма очищена'); };
-  $('resetStorageBtn').onclick=()=>{ if(!confirm('Сбросить все сохранённые данные в этом браузере?')) return; localStorage.removeItem(STORAGE_KEY); state=clone(defaults); fillForm(); renderTariffs(); renderExtras(); recalc(); toast('Все данные сброшены'); };
+  $('resetStorageBtn').onclick=()=>requestEditAccess(()=>{ if(!confirm('Сбросить все сохранённые данные в этом браузере?')) return; localStorage.removeItem(STORAGE_KEY); state=clone(defaults); fillForm(); renderTariffs(); renderExtras(); recalc(); toast('Все данные сброшены'); });
   $('demoBtn').onclick=()=>{ state.form={...state.form, clientName:'Ирина', objectType:'Квартира', area:68, cleanType:'general', discount:5, clutter:'medium', dirtiness:'medium', travelType:'km15', travelKm:20, workers:2, workerPay:4000, profitPercent:35, notes:'Есть кот. Уборка нужна в пятницу после 11:00.'}; state.extras=state.extras.map(x=>({...x, qty:({1:1,9:1,14:4,18:1}[x.id]||0)})); fillForm(); renderExtras(); recalc(); toast('Подставлен пример'); };
   $('showOnlySelected').onchange=e=>{ state.form.showOnlySelected=e.target.checked; saveState(); renderExtras(); };
   ['clientName','objectType','area','discount','travelKm','workers','workerPay','profitPercent','notes'].forEach(id=>$(id).oninput=e=>{ state.form[id]=['area','discount','travelKm','workers','workerPay','profitPercent'].includes(id)?num(e.target.value):e.target.value; recalc(); });
@@ -361,8 +406,8 @@ function bind(){
   ['brandName','brandPhone','brandTagline','brandSite'].forEach(id=>$(id).oninput=e=>{ const map={brandName:'name',brandPhone:'phone',brandTagline:'tagline',brandSite:'site'}; state.brand[map[id]]=e.target.value; saveState(); renderBrandLogoPreview(); });
   $('brandLogo').onchange=e=>{ const file=e.target.files&&e.target.files[0]; if(!file) return; if(file.size>2*1024*1024){ toast('Логотип слишком большой. Лучше до 2 МБ'); e.target.value=''; return; } const reader=new FileReader(); reader.onload=()=>{ state.brand.logoDataUrl=String(reader.result||''); saveState(); renderBrandLogoPreview(); toast('Логотип сохранён'); $('brandLogo').value=''; }; reader.readAsDataURL(file); };
   $('removeLogoBtn').onclick=()=>{ if(!state.brand.logoDataUrl){ toast('Логотип не загружен'); return; } state.brand.logoDataUrl=''; saveState(); renderBrandLogoPreview(); toast('Логотип удалён'); };
-  $('addExtraBtn').onclick=()=>{ const name=$('newExtraName').value.trim(), unit=$('newExtraUnit').value.trim()||'шт', price=num($('newExtraPrice').value), time=num($('newExtraTime').value), category=$('newExtraCategory').value.trim()||'Другое'; if(!name||!price){ toast('Заполни название и цену'); return; } state.extras.push({id:Date.now(), name, unit, price, qty:0, time, category, builtIn:false}); $('newExtraName').value=''; $('newExtraPrice').value=''; $('newExtraTime').value=''; saveState(); renderExtras(); recalc(); toast('Услуга добавлена'); };
+  $('addExtraBtn').onclick=()=>requestEditAccess(()=>{ const name=$('newExtraName').value.trim(), unit=$('newExtraUnit').value.trim()||'шт', price=num($('newExtraPrice').value), time=num($('newExtraTime').value), category=$('newExtraCategory').value.trim()||'Другое'; if(!name||!price){ toast('Заполни название и цену'); return; } state.extras.push({id:Date.now(), name, unit, price, qty:0, time, category, builtIn:false}); $('newExtraName').value=''; $('newExtraPrice').value=''; $('newExtraTime').value=''; saveState(); renderExtras(); recalc(); toast('Услуга добавлена'); });
 }
-function fillForm(){ $('clientName').value=state.form.clientName; $('objectType').value=state.form.objectType; $('area').value=state.form.area; $('discount').value=state.form.discount; $('travelKm').value=state.form.travelKm; $('workers').value=state.form.workers; $('workerPay').value=state.form.workerPay; $('profitPercent').value=state.form.profitPercent; $('notes').value=state.form.notes; $('showOnlySelected').checked=!!state.form.showOnlySelected; $('tariffsCard').classList.toggle('hidden', !state.ui.showTariffs); $('settingsCard').classList.toggle('hidden', !state.ui.showSettings); populateMainSelects(); $('includedServices').value=state.includedByType[state.form.cleanType]||''; renderSettingsPanel(); }
+function fillForm(){ if(!isEditUnlocked()){ state.ui.showTariffs=false; state.ui.showSettings=false; } $('clientName').value=state.form.clientName; $('objectType').value=state.form.objectType; $('area').value=state.form.area; $('discount').value=state.form.discount; $('travelKm').value=state.form.travelKm; $('workers').value=state.form.workers; $('workerPay').value=state.form.workerPay; $('profitPercent').value=state.form.profitPercent; $('notes').value=state.form.notes; $('showOnlySelected').checked=!!state.form.showOnlySelected; $('tariffsCard').classList.toggle('hidden', !state.ui.showTariffs); $('settingsCard').classList.toggle('hidden', !state.ui.showSettings); populateMainSelects(); $('includedServices').value=state.includedByType[state.form.cleanType]||''; renderSettingsPanel(); }
 fillForm(); renderTariffs(); bind(); renderExtras(); renderSettingsPanel(); recalc(); if($('versionBadge')) $('versionBadge').textContent=APP_VERSION; setupAccess();
 if('serviceWorker' in navigator){ window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{})); }
