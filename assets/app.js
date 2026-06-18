@@ -1,16 +1,17 @@
 const STORAGE_KEY = 'prochistka_calc_app_v4';
 const APP_CONFIG = window.PROCHISTKA_CONFIG || {};
-const APP_VERSION = APP_CONFIG.APP_VERSION || 'v4.1-edit-lock';
+const APP_VERSION = APP_CONFIG.APP_VERSION || 'v4.3.1-pdf-clean';
 const defaults = APP_CONFIG.defaults || {};
 defaults.brand = defaults.brand || {name:'PRO-CHISTKA', phone:'', tagline:'Клининговые услуги', site:'', logoDataUrl:''};
+defaults.pdfHeader = defaults.pdfHeader || {useLogo:false,fontFamily:'Arial, sans-serif',nameFontSize:30,taglineFontSize:13,contactFontSize:13,nameWeight:800,nameLetterSpacing:1.2,taglineLetterSpacing:0.2,contactLetterSpacing:0.2,nameLineHeight:1.05,taglineLineHeight:1.25,uppercaseName:true,nameColor:'#0f172a',taglineColor:'#475569',contactColor:'#0f172a',borderColor:'#0f172a',borderWidth:2,paddingBottom:16,marginBottom:22};
 defaults.baseRates = defaults.baseRates || {};
 defaults.clutter = defaults.clutter || {};
 defaults.dirtiness = defaults.dirtiness || {};
 defaults.includedByType = defaults.includedByType || {};
 defaults.serviceDescriptions = defaults.serviceDescriptions || {windows:''};
-defaults.pdfSettings = defaults.pdfSettings || {order:['client','included','extras','pricing','payment_methods','main_info','notes'], visible:{client:true,included:true,extras:true,pricing:true,payment_methods:true,main_info:true,notes:true}};
+defaults.pdfSettings = defaults.pdfSettings || {order:['client','included','extras','pricing','main_info','useful_info','notes'], visible:{client:true,included:true,extras:true,pricing:true,main_info:true,useful_info:true,notes:true}};
 defaults.paymentMethods = defaults.paymentMethods || [];
-defaults.mainInfo = defaults.mainInfo || {equipmentText:'', chemistryText:''};
+defaults.mainInfo = defaults.mainInfo || {equipmentText:'', chemistryText:'', usefulInfo:'Всё необходимое для клининга — техника и моющие средства — привозим самостоятельно.\nРаботаем по договору.\nПриём оплаты: наличные, перевод, QR-код СБП, ссылка СБП, карта VISA/MasterCard/МИР, Долями от Т-Банка, безналичный расчёт для юридических лиц.'};
 defaults.extras = defaults.extras || [];
 defaults.form = defaults.form || {clientName:'',objectType:'Квартира',area:0,cleanType:'general',discount:0,clutter:'low',dirtiness:'low',travelType:'kad',travelKm:20,workers:0,payMode:'fixed',workerPay:0,profitPercent:0,notes:'',showOnlySelected:false};
 defaults.savedOrders = [];
@@ -22,6 +23,7 @@ function mergeState(parsed){
     ...d,...parsed,
     brand:{...d.brand,...(parsed.brand||{})},
     baseRates:{...d.baseRates,...(parsed.baseRates||{})},
+    pdfHeader:{...d.pdfHeader,...(parsed.pdfHeader||{})},
     clutter:{...d.clutter,...(parsed.clutter||{})},
     dirtiness:{...d.dirtiness,...(parsed.dirtiness||{})},
     includedByType:{...d.includedByType,...(parsed.includedByType||{})},
@@ -36,6 +38,35 @@ function mergeState(parsed){
   };
 }
 let state; try{ const raw=localStorage.getItem(STORAGE_KEY); state=raw?mergeState(JSON.parse(raw)):mergeState(clone(defaults)); }catch(e){state=mergeState(clone(defaults))}
+// Миграция: новая шапка PDF по умолчанию текстовая, старый тяжёлый base64-логотип удаляем из локального состояния.
+if(state.pdfHeader && state.pdfHeader.useLogo === false && state.brand && state.brand.logoDataUrl && String(state.brand.logoDataUrl).length > 10000){ state.brand.logoDataUrl=''; try{saveState();}catch(e){} }
+
+function migrateV43(){
+  state.pdfSettings = state.pdfSettings || clone(defaults.pdfSettings);
+  state.pdfSettings.order = (state.pdfSettings.order||defaults.pdfSettings.order).map(k=>k==='payment_methods'?'useful_info':k);
+  if(!state.pdfSettings.order.includes('useful_info')){
+    const notesIdx = state.pdfSettings.order.indexOf('notes');
+    if(notesIdx>=0) state.pdfSettings.order.splice(notesIdx,0,'useful_info'); else state.pdfSettings.order.push('useful_info');
+  }
+  state.pdfSettings.visible = {...(state.pdfSettings.visible||{})};
+  if(state.pdfSettings.visible.payment_methods !== undefined && state.pdfSettings.visible.useful_info === undefined){ state.pdfSettings.visible.useful_info = state.pdfSettings.visible.payment_methods; }
+  if(state.pdfSettings.visible.useful_info === undefined) state.pdfSettings.visible.useful_info = true;
+  delete state.pdfSettings.visible.payment_methods;
+  state.mainInfo = state.mainInfo || {};
+  if(!state.mainInfo.usefulInfo){
+    const pay = Array.isArray(state.paymentMethods)&&state.paymentMethods.length ? state.paymentMethods.map(x=>`${x.title}${x.text?' — '+x.text:''}`).join('\n') : '';
+    state.mainInfo.usefulInfo = (defaults.mainInfo&&defaults.mainInfo.usefulInfo) || pay || '';
+  }
+  state.ui = state.ui || {};
+  if(state.ui.lastMigration !== 'v4.3.1-pdf-clean'){
+    state.ui.extraGroupsOpen = {};
+    delete state.ui.extraGroupsCollapsed;
+    state.ui.lastMigration = 'v4.3.1-pdf-clean';
+  }
+  saveState();
+}
+migrateV43();
+
 function saveState(){localStorage.setItem(STORAGE_KEY, JSON.stringify(state));}
 const $=id=>document.getElementById(id);
 const money=n=>new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(Math.round(Number(n)||0))+' ₽';
@@ -132,7 +163,7 @@ function moveItem(arr, from, to){
   return copy;
 }
 function renderPdfBlocks(){
-  const labels = {client:'Шапка и данные клиента', included:'Что входит в уборку', extras:'Дополнительные услуги', pricing:'Стоимость и итоги', payment_methods:'Способы оплаты', main_info:'Основная информация', notes:'Заметки'};
+  const labels = {client:'Шапка и данные клиента', included:'Что входит в уборку', extras:'Дополнительные услуги', pricing:'Стоимость и итоги', useful_info:'Дополнительная информация', main_info:'Основная информация', notes:'Заметки'};
   const wrap = $('pdfBlocksWrap'); if(!wrap) return;
   wrap.innerHTML = '';
   state.pdfSettings.order.forEach((key)=>{
@@ -198,8 +229,11 @@ function renderSettingsPanel(){
   if($('brandPhone')) $('brandPhone').value=state.brand.phone;
   if($('brandTagline')) $('brandTagline').value=state.brand.tagline;
   if($('brandSite')) $('brandSite').value=state.brand.site;
+  setPdfHeaderInputs();
+  bindPdfHeaderInputs();
   if($('equipmentText')) $('equipmentText').value=state.mainInfo.equipmentText||'';
   if($('chemistryText')) $('chemistryText').value=state.mainInfo.chemistryText||'';
+  if($('usefulInfoText')) $('usefulInfoText').value=state.mainInfo.usefulInfo||'';
   if($('windowServicesDescription')) $('windowServicesDescription').value=state.serviceDescriptions?.windows||'';
   renderBrandLogoPreview();
   renderPdfBlocks();
@@ -242,8 +276,8 @@ function renderTariffs(){
 }
 function populateMainSelects(){ fillSelect('cleanType', state.baseRates, state.form.cleanType); fillSelect('clutter', state.clutter, state.form.clutter); fillSelect('dirtiness', state.dirtiness, state.form.dirtiness); fillSelect('travelType', {kad:{label:'В пределах КАД'},km15:{label:'До 15 км от КАД'},km20plus:{label:'20+ км'}}, state.form.travelType); $('includedTypeLabel').textContent=state.baseRates[state.form.cleanType].label; $('includedServices').value=state.includedByType[state.form.cleanType]||''; }
 function getGroupedExtras(){ const arr=state.form.showOnlySelected?state.extras.filter(x=>num(x.qty)>0):state.extras; const map={}; arr.forEach(x=>{ const c=x.category||'Другое'; (map[c]||(map[c]=[])).push(x); }); return map; }
-function isExtraGroupOpen(cat){ return !(state.ui.extraGroupsCollapsed && state.ui.extraGroupsCollapsed[cat]); }
-function setExtraGroupOpen(cat, isOpen){ state.ui.extraGroupsCollapsed=state.ui.extraGroupsCollapsed||{}; state.ui.extraGroupsCollapsed[cat]=!isOpen; saveState(); }
+function isExtraGroupOpen(cat){ return !!(state.ui.extraGroupsOpen && state.ui.extraGroupsOpen[cat]); }
+function setExtraGroupOpen(cat, isOpen){ state.ui.extraGroupsOpen=state.ui.extraGroupsOpen||{}; state.ui.extraGroupsOpen[cat]=!!isOpen; saveState(); }
 function renderExtras(){ const wrap=$('extrasWrap'); wrap.innerHTML=''; const groups=getGroupedExtras(); const cats=Object.keys(groups); if(!cats.length){ wrap.innerHTML='<div class="notice">Нет услуг для отображения.</div>'; return; }
   cats.forEach(cat=>{
     const details=document.createElement('details'); details.className='extra-card'; details.style.padding='0'; details.open=isExtraGroupOpen(cat);
@@ -275,8 +309,16 @@ function renderExtras(){ const wrap=$('extrasWrap'); wrap.innerHTML=''; const gr
 function calc(){
   const f=state.form, rate=state.baseRates[f.cleanType], clutter=state.clutter[f.clutter], dirt=state.dirtiness[f.dirtiness];
   const area=num(f.area), workers=num(f.workers), workerPay=num(f.workerPay), profitPercent=num(f.profitPercent), discount=Math.min(100,num(f.discount));
-  const priceK=(clutter.priceK||1)*(dirt.priceK||1); const timeK=(clutter.timeK||1)*(dirt.timeK||1);
-  const baseRaw=Math.max(area*(rate.rate||0)*priceK, rate.min||0);
+  const clutterPriceK=Number(clutter.priceK)||1, dirtPriceK=Number(dirt.priceK)||1;
+  const clutterTimeK=Number(clutter.timeK)||1, dirtTimeK=Number(dirt.timeK)||1;
+  const priceK=clutterPriceK*dirtPriceK;
+  const timeK=clutterTimeK*dirtTimeK;
+  const baseNoK=area*(rate.rate||0);
+  const baseAfterClutter=baseNoK*clutterPriceK;
+  const baseWithK=baseAfterClutter*dirtPriceK;
+  const minBase=rate.min||0;
+  const minBaseApplied=baseWithK < minBase;
+  const baseRaw=Math.max(baseWithK, minBase);
   const extrasTotal=state.extras.reduce((s,x)=>s+num(x.qty)*num(x.price),0);
   const travelTotal=f.travelType==='km20plus'?(1500+num(f.travelKm)*15):(f.travelType==='km15'?1500:0);
   const subtotal=baseRaw+extrasTotal+travelTotal;
@@ -293,30 +335,92 @@ function calc(){
   const priceBeforeDiscount=Math.max(subtotal, costBasedPrice);
   const recommendedPrice=Math.max(priceBeforeDiscount-discountValue, directCostFloor);
   const selectedExtras=state.extras.filter(x=>num(x.qty)>0);
-  return {rate,clutter,dirt,baseRaw,extrasTotal,travelTotal,discountValue,marketPrice,payroll,targetProfitValue,costBasedPrice,directCostFloor,priceBeforeDiscount,recommendedPrice,baseHours,extrasHours,normHours,brigadeHours,selectedExtras};
+  const economyGap=Math.max(0, costBasedPrice-marketPrice);
+  const economyTopup=Math.max(0, recommendedPrice-marketPrice);
+  const maxAllowedDiscount = subtotal>0 ? Math.max(0, Math.min(100, (1 - costBasedPrice/subtotal)*100)) : 0;
+  const breakEvenNoProfit = payroll+travelTotal+extrasTotal;
+  return {rate,clutter,dirt,clutterPriceK,dirtPriceK,clutterTimeK,dirtTimeK,priceK,timeK,baseNoK,baseAfterClutter,baseWithK,minBase,minBaseApplied,baseRaw,extrasTotal,travelTotal,subtotal,discountValue,marketPrice,payroll,targetProfitValue,costBasedPrice,directCostFloor,breakEvenNoProfit,priceBeforeDiscount,recommendedPrice,economyGap,economyTopup,maxAllowedDiscount,baseHours,extrasHours,normHours,brigadeHours,selectedExtras};
 }
 function renderIncludedPreview(){ const lines=getIncludedLines(); $('includedPreview').innerHTML=lines.length?lines.map(x=>`<div>• ${esc(x)}</div>`).join(''):'<div class="muted">Пока не заполнено.</div>'; }
-function renderBrandLogoPreview(){ const wrap=$('brandLogoPreview'); if(!wrap) return; if(state.brand.logoDataUrl){ wrap.innerHTML=`<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><img src="${state.brand.logoDataUrl}" alt="Логотип" style="max-height:70px;max-width:220px;object-fit:contain;border:1px solid #dbe3ef;border-radius:10px;background:#fff;padding:6px"><span class="muted">Логотип будет показан в печатной смете.</span></div>`; } else { wrap.innerHTML='Логотип пока не выбран.'; } }
+function renderBrandLogoPreview(){ const wrap=$('brandLogoPreview'); if(!wrap) return; const useLogo=!!(state.pdfHeader&&state.pdfHeader.useLogo); if(!useLogo){ wrap.innerHTML='Текстовая шапка активна. Логотип-картинка в PDF не используется.'; return; } if(state.brand.logoDataUrl){ wrap.innerHTML=`<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><img src="${state.brand.logoDataUrl}" alt="Логотип" style="max-height:70px;max-width:220px;object-fit:contain;border:1px solid #dbe3ef;border-radius:10px;background:#fff;padding:6px"><span class="muted">Логотип будет показан в печатной смете.</span></div>`; } else { wrap.innerHTML='Логотип пока не выбран.'; } }
+function setPdfHeaderInputs(){
+  const h=state.pdfHeader||{};
+  const set=(id,val)=>{ const el=$(id); if(el) el.value=val ?? ''; };
+  set('pdfHeaderFontFamily',h.fontFamily||'Arial, sans-serif');
+  set('pdfHeaderNameSize',h.nameFontSize||30);
+  set('pdfHeaderNameWeight',h.nameWeight||800);
+  set('pdfHeaderNameLetterSpacing',h.nameLetterSpacing??0);
+  set('pdfHeaderTaglineSize',h.taglineFontSize||13);
+  set('pdfHeaderTaglineLetterSpacing',h.taglineLetterSpacing??0);
+  set('pdfHeaderContactSize',h.contactFontSize||13);
+  set('pdfHeaderContactLetterSpacing',h.contactLetterSpacing??0);
+  set('pdfHeaderUppercaseName',String(h.uppercaseName!==false));
+  set('pdfHeaderNameColor',h.nameColor||'#0f172a');
+  set('pdfHeaderTaglineColor',h.taglineColor||'#475569');
+  set('pdfHeaderContactColor',h.contactColor||'#0f172a');
+  set('pdfHeaderBorderColor',h.borderColor||'#0f172a');
+  set('pdfHeaderBorderWidth',h.borderWidth??2);
+  set('pdfHeaderPaddingBottom',h.paddingBottom??16);
+  set('pdfHeaderMarginBottom',h.marginBottom??22);
+  set('pdfHeaderUseLogo',String(!!h.useLogo));
+}
+function bindPdfHeaderInputs(){
+  const fields={
+    pdfHeaderFontFamily:['fontFamily','string'], pdfHeaderNameSize:['nameFontSize','number'], pdfHeaderNameWeight:['nameWeight','number'], pdfHeaderNameLetterSpacing:['nameLetterSpacing','number'],
+    pdfHeaderTaglineSize:['taglineFontSize','number'], pdfHeaderTaglineLetterSpacing:['taglineLetterSpacing','number'], pdfHeaderContactSize:['contactFontSize','number'], pdfHeaderContactLetterSpacing:['contactLetterSpacing','number'],
+    pdfHeaderUppercaseName:['uppercaseName','bool'], pdfHeaderNameColor:['nameColor','string'], pdfHeaderTaglineColor:['taglineColor','string'], pdfHeaderContactColor:['contactColor','string'], pdfHeaderBorderColor:['borderColor','string'],
+    pdfHeaderBorderWidth:['borderWidth','number'], pdfHeaderPaddingBottom:['paddingBottom','number'], pdfHeaderMarginBottom:['marginBottom','number'], pdfHeaderUseLogo:['useLogo','bool']
+  };
+  Object.entries(fields).forEach(([id,[key,type]])=>{ const el=$(id); if(!el || el.dataset.boundPdfHeader) return; el.dataset.boundPdfHeader='1'; const handler=e=>{ state.pdfHeader=state.pdfHeader||{}; let v=e.target.value; if(type==='number') v=Number(v)||0; if(type==='bool') v=String(v)==='true'; state.pdfHeader[key]=v; if(key==='useLogo') renderBrandLogoPreview(); saveState(); }; el.oninput=handler; el.onchange=handler; });
+}
 function renderSelectedExtras(){ const {selectedExtras}=calc(); const wrap=$('selectedExtrasWrap'); wrap.innerHTML=''; if(!selectedExtras.length){ wrap.innerHTML='<div class="notice">Пока ничего не выбрано.</div>'; return; } selectedExtras.forEach(x=>{ const div=document.createElement('div'); div.className='selected-item'; div.innerHTML=`<div style="display:flex;justify-content:space-between;gap:8px"><span>${esc(x.name)} × ${num(x.qty)}</span><span>${money(num(x.qty)*num(x.price))}</span></div>`; wrap.appendChild(div); }); }
 function renderSavedOrders(){ const wrap=$('savedOrdersWrap'); wrap.innerHTML=''; if(!state.savedOrders.length){ wrap.innerHTML='<div class="notice">Пока нет сохранённых заказов.</div>'; return; } state.savedOrders.forEach(o=>{ const div=document.createElement('div'); div.className='saved-item'; div.innerHTML=`<div style="font-weight:700">${esc(o.clientName)} · ${esc(o.objectType)}</div><div class="muted" style="margin:4px 0">${esc(o.cleanType)} · ${o.area} м²</div><div style="display:flex;justify-content:space-between;gap:8px"><span>${money(o.recommendedPrice)}</span><span class="muted">${hours(o.brigadeHours)}</span></div><div class="muted" style="font-size:12px;margin-top:4px">Нормо-часы: ${hours(o.normHours)}</div><div class="muted" style="font-size:12px;margin-top:2px">${esc(o.createdAt)}</div>`; wrap.appendChild(div); }); }
+function renderEconomyWarning(r){
+  const el=$('economyWarning'); if(!el) return;
+  if(r.economyGap>0){
+    const noDiscountText = r.maxAllowedDiscount>0 ? `допустимая скидка не выше ${r.maxAllowedDiscount.toFixed(1)}%` : 'убрать скидку полностью';
+    el.classList.remove('hidden');
+    el.innerHTML = `<strong>Внимание: цена объекта ниже экономики на ${money(r.economyGap)}.</strong><br>
+      Рекомендованная цена уже поднята до безопасного уровня: ${money(r.recommendedPrice)}.<br>
+      Варианты: поднять цену на ${money(r.economyTopup)}, ${noDiscountText} или уменьшить желаемый % прибыли.`;
+  } else {
+    el.classList.add('hidden');
+    el.innerHTML='';
+  }
+}
 function recalc(){
   const r=calc();
-  $('recommendedPrice').textContent=money(r.recommendedPrice); $('sumBase').textContent=money(r.baseRaw); $('sumExtras').textContent=money(r.extrasTotal); $('sumTravel').textContent=money(r.travelTotal); $('sumDiscount').textContent='− '+money(r.discountValue); $('sumMarket').textContent=money(r.marketPrice); $('sumPayroll').textContent=money(r.payroll); $('sumProfit').textContent=money(r.targetProfitValue); $('sumCost').textContent=money(r.costBasedPrice); $('timeBase').textContent=hours(r.baseHours); $('timeExtras').textContent=hours(r.extrasHours); $('timeNorm').textContent=hours(r.normHours); $('timeBrigade').textContent=hours(r.brigadeHours); $('brigadeLabel').textContent=`Примерное время уборки бригады (${num(state.form.workers)} чел.)`;
+  $('recommendedPrice').textContent=money(r.recommendedPrice);
+  if($('sumBaseRawNoK')) $('sumBaseRawNoK').textContent=money(r.baseNoK);
+  if($('sumClutterK')) $('sumClutterK').textContent='× '+r.clutterPriceK.toFixed(2);
+  if($('sumAfterClutter')) $('sumAfterClutter').textContent=money(r.baseAfterClutter);
+  if($('sumDirtK')) $('sumDirtK').textContent='× '+r.dirtPriceK.toFixed(2);
+  if($('sumBaseMin')) $('sumBaseMin').textContent=money(r.minBase)+(r.minBaseApplied?' применена':'');
+  $('sumBase').textContent=money(r.baseRaw); $('sumExtras').textContent=money(r.extrasTotal); $('sumTravel').textContent=money(r.travelTotal); $('sumDiscount').textContent='− '+money(r.discountValue); $('sumMarket').textContent=money(r.marketPrice); $('sumPayroll').textContent=money(r.payroll); $('sumProfit').textContent=money(r.targetProfitValue); $('sumCost').textContent=money(r.costBasedPrice); if($('sumEconomyTopup')) $('sumEconomyTopup').textContent=money(r.economyTopup); $('timeBase').textContent=hours(r.baseHours); $('timeExtras').textContent=hours(r.extrasHours); $('timeNorm').textContent=hours(r.normHours); $('timeBrigade').textContent=hours(r.brigadeHours); $('brigadeLabel').textContent=`Примерное время уборки бригады (${num(state.form.workers)} чел.)`;
   $('cardClient').textContent=state.form.clientName||'—'; $('cardObject').textContent=state.form.objectType||'—'; $('cardArea').textContent=`${num(state.form.area)} м²`; $('cardCleanType').textContent=r.rate.label; $('cardClutter').textContent=r.clutter.label; $('cardDirt').textContent=r.dirt.label;
   $('travelKmBox').classList.toggle('hidden', state.form.travelType!=='km20plus');
   $('workerPayLabel').textContent=state.form.payMode==='hourly' ? 'Почасовая ставка 1 сотрудника, ₽/час' : 'ЗП 1 сотрудника, ₽';
   $('travelHint').textContent=state.form.travelType==='kad'?'Выезд в пределах КАД: бесплатно':state.form.travelType==='km15'?'Выезд до 15 км от КАД: 1 500 ₽':`Выезд 20+ км: ${money(1500 + num(state.form.travelKm)*15)}`;
-  renderIncludedPreview(); renderSelectedExtras(); renderSavedOrders(); saveState(); return r;
+  renderEconomyWarning(r); renderIncludedPreview(); renderSelectedExtras(); renderSavedOrders(); if(!$('pdfPreviewModal')?.classList.contains('hidden')) refreshPdfPreview(); saveState(); return r;
 }
-function estimateText(){ const r=calc(); const included=getIncludedText()||'Не заполнено'; const extras=r.selectedExtras.length?r.selectedExtras.map(x=>`• ${x.name} × ${num(x.qty)} — ${money(num(x.qty)*num(x.price))}`).join('\n'):'• Без доп. услуг'; return `Смета на уборку\n\nКлиент: ${state.form.clientName||'—'}\nОбъект: ${state.form.objectType}\nПлощадь: ${num(state.form.area)} м²\nТип уборки: ${r.rate.label}\nЗаставленность: ${r.clutter.label}\nЗагрязнённость: ${r.dirt.label}\n\nВ услуги входят:\n${included}\n\nДоп. услуги:\n${extras}\n\nСтоимость по уборке: ${money(r.baseRaw)}\nДоп. услуги: ${money(r.extrasTotal)}\nВыезд: ${money(r.travelTotal)}\nСкидка: ${money(r.discountValue)}\n\nИтого для клиента: ${money(r.recommendedPrice)}\nПримерное время уборки бригады: ${hours(r.brigadeHours)}\nСумма нормо-часов: ${hours(r.normHours)}\nКоличество сотрудников: ${num(state.form.workers)} чел.\nФОТ: ${money(r.payroll)}\n\nЗаметки: ${state.form.notes||'—'}`; }
+function estimateText(){
+  const r=calc(); const included=getIncludedText()||'Не заполнено'; const extras=r.selectedExtras.length?r.selectedExtras.map(x=>`• ${x.name} × ${num(x.qty)} — ${money(num(x.qty)*num(x.price))}`).join('\n'):'• Без доп. услуг';
+  const warn = r.economyGap>0 ? `\nВнимание: цена объекта ниже экономики на ${money(r.economyGap)}. Рекомендованная цена поднята до ${money(r.recommendedPrice)}.` : '';
+  return `Смета на уборку\n\nКлиент: ${state.form.clientName||'—'}\nОбъект: ${state.form.objectType}\nПлощадь: ${num(state.form.area)} м²\nТип уборки: ${r.rate.label}\nЗаставленность: ${r.clutter.label} × ${r.clutterPriceK.toFixed(2)}\nЗагрязнённость: ${r.dirt.label} × ${r.dirtPriceK.toFixed(2)}\n\nВ услуги входят:\n${included}\n\nДоп. услуги:\n${extras}\n\nБаза до коэффициентов: ${money(r.baseNoK)}\nПосле коэффициента заставленности: ${money(r.baseAfterClutter)}\nБаза с коэффициентами: ${money(r.baseWithK)}\nСтоимость по уборке: ${money(r.baseRaw)}\nДоп. услуги: ${money(r.extrasTotal)}\nВыезд: ${money(r.travelTotal)}\nСкидка: ${money(r.discountValue)}\nЦена по рынку после скидки: ${money(r.marketPrice)}\nЦена по экономике: ${money(r.costBasedPrice)}\n\nИтого для клиента: ${money(r.recommendedPrice)}${warn}\nПримерное время уборки бригады: ${hours(r.brigadeHours)}\nСумма нормо-часов: ${hours(r.normHours)}\nКоличество сотрудников: ${num(state.form.workers)} чел.\nФОТ: ${money(r.payroll)}\n\nДополнительная информация:\n${state.mainInfo.usefulInfo||'—'}\n\nЗаметки: ${state.form.notes||'—'}`;
+}
 async function copyEstimate(){ const text=estimateText(); try{ await navigator.clipboard.writeText(text); toast('Смета скопирована'); }catch(e){ $('shareText').value=text; $('shareModal').classList.remove('hidden'); toast('Открыл смету для ручного копирования'); } }
 function buildPrintHtml(){
   const r=calc();
   const included=getIncludedLines();
   const extras=r.selectedExtras;
-  const brandBlock=state.brand.logoDataUrl
-    ? `<div style="display:flex;align-items:center;gap:14px"><img src="${state.brand.logoDataUrl}" alt="Логотип" style="max-height:80px;max-width:180px;object-fit:contain"><div><div style="font-size:28px;font-weight:800">${esc(state.brand.name)}</div><div style="color:#475569;margin-top:6px">${esc(state.brand.tagline)}</div></div></div>`
-    : `<div><div style="font-size:28px;font-weight:800">${esc(state.brand.name)}</div><div style="color:#475569;margin-top:6px">${esc(state.brand.tagline)}</div></div>`;
+  const h=state.pdfHeader||{};
+  const cleanCss=(v,fb)=>String(v||fb).replace(/[;<>]/g,'');
+  const font=cleanCss(h.fontFamily,'Arial, sans-serif');
+  const nameText=h.uppercaseName!==false ? String(state.brand.name||'PRO-CHISTKA').toUpperCase() : String(state.brand.name||'PRO-CHISTKA');
+  const logo=(h.useLogo && state.brand.logoDataUrl) ? `<img src="${state.brand.logoDataUrl}" alt="Логотип" style="max-height:70px;max-width:160px;object-fit:contain">` : '';
+  const brandBlock=`<div style="display:flex;align-items:center;gap:14px">${logo}<div><div style="font-family:${font};font-size:${num(h.nameFontSize)||30}px;font-weight:${num(h.nameWeight)||800};letter-spacing:${Number(h.nameLetterSpacing)||0}px;line-height:${Number(h.nameLineHeight)||1.05};color:${cleanCss(h.nameColor,'#0f172a')}">${esc(nameText)}</div><div style="font-family:${font};font-size:${num(h.taglineFontSize)||13}px;letter-spacing:${Number(h.taglineLetterSpacing)||0}px;line-height:${Number(h.taglineLineHeight)||1.25};color:${cleanCss(h.taglineColor,'#475569')};margin-top:6px">${esc(state.brand.tagline||'')}</div></div></div>`;
+  const contactStyle=`font-family:${font};font-size:${num(h.contactFontSize)||13}px;letter-spacing:${Number(h.contactLetterSpacing)||0}px;color:${cleanCss(h.contactColor,'#0f172a')}`;
+  const headerStyle=`display:flex;justify-content:space-between;gap:24px;border-bottom:${num(h.borderWidth)}px solid ${cleanCss(h.borderColor,'#0f172a')};padding-bottom:${num(h.paddingBottom)||16}px;margin-bottom:${num(h.marginBottom)||22}px`;
   const blocks = {
     client: `<table style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:14px">
       <tr><td style="padding:6px 0;font-weight:700">Клиент</td><td style="padding:6px 0">${esc(state.form.clientName||'—')}</td></tr>
@@ -329,30 +433,38 @@ function buildPrintHtml(){
     included: `<div style="font-size:18px;font-weight:800;margin:18px 0 8px">В услуги входят</div><div style="border:1px solid #cbd5e1;border-radius:14px;padding:14px;margin-bottom:18px">${included.length?included.map(x=>`<div style="margin:0 0 6px">• ${esc(x)}</div>`).join(''):'<div>—</div>'}</div>`,
     extras: `<div style="font-size:18px;font-weight:800;margin:18px 0 8px">Дополнительные услуги</div><div style="border:1px solid #cbd5e1;border-radius:14px;padding:14px;margin-bottom:18px">${extras.length?extras.map(x=>`<div style="display:flex;justify-content:space-between;gap:12px;margin:0 0 6px"><span>${esc(x.name)} × ${num(x.qty)}</span><span>${money(num(x.qty)*num(x.price))}</span></div>`).join(''):'<div>Без доп. услуг</div>'}</div>`,
     pricing: `<div style="font-size:18px;font-weight:800;margin:18px 0 8px">Стоимость и время</div><table style="width:100%;border-collapse:collapse;font-size:14px">
+      <tr><td style="padding:6px 0">База до коэффициентов</td><td style="padding:6px 0;text-align:right">${money(r.baseNoK)}</td></tr>
+      <tr><td style="padding:6px 0">Коэф. заставленности: ${esc(r.clutter.label)}</td><td style="padding:6px 0;text-align:right">× ${r.clutterPriceK.toFixed(2)} → ${money(r.baseAfterClutter)}</td></tr>
+      <tr><td style="padding:6px 0">Коэф. загрязнённости: ${esc(r.dirt.label)}</td><td style="padding:6px 0;text-align:right">× ${r.dirtPriceK.toFixed(2)} → ${money(r.baseWithK)}</td></tr>
       <tr><td style="padding:6px 0">Стоимость по уборке</td><td style="padding:6px 0;text-align:right">${money(r.baseRaw)}</td></tr>
       <tr><td style="padding:6px 0">Доп. услуги</td><td style="padding:6px 0;text-align:right">${money(r.extrasTotal)}</td></tr>
       <tr><td style="padding:6px 0">Выезд</td><td style="padding:6px 0;text-align:right">${money(r.travelTotal)}</td></tr>
       <tr><td style="padding:6px 0">Скидка</td><td style="padding:6px 0;text-align:right">− ${money(r.discountValue)}</td></tr>
+      <tr><td style="padding:6px 0">Цена по рынку после скидки</td><td style="padding:6px 0;text-align:right">${money(r.marketPrice)}</td></tr>
+      <tr><td style="padding:6px 0">Цена по себестоимости + прибыль</td><td style="padding:6px 0;text-align:right">${money(r.costBasedPrice)}</td></tr>
       <tr><td style="padding:10px 0;font-weight:800">Итого для клиента</td><td style="padding:10px 0;text-align:right;font-weight:800">${money(r.recommendedPrice)}</td></tr>
       <tr><td style="padding:6px 0">Сумма нормо-часов</td><td style="padding:6px 0;text-align:right">${hours(r.normHours)}</td></tr>
       <tr><td style="padding:6px 0">Примерное время уборки бригады</td><td style="padding:6px 0;text-align:right">${hours(r.brigadeHours)}</td></tr>
       <tr><td style="padding:6px 0">Количество сотрудников</td><td style="padding:6px 0;text-align:right">${num(state.form.workers)} чел.</td></tr>
-    </table>`,
-    payment_methods: `<div style="font-size:18px;font-weight:800;margin:18px 0 8px">Способы оплаты</div><div style="border:1px solid #cbd5e1;border-radius:14px;padding:14px;margin-bottom:18px">${state.paymentMethods.length?state.paymentMethods.map(x=>`<div style="margin:0 0 10px">${x.imageDataUrl?`<img src="${x.imageDataUrl}" style="max-height:24px;max-width:60px;object-fit:contain;vertical-align:middle;margin-right:8px">`:''}<strong>${esc(x.title)}</strong>${x.text?` — ${esc(x.text)}`:''}</div>`).join(''):'<div>—</div>'}</div>`,
+    </table>${r.economyGap>0?`<div style="margin-top:12px;border:1px solid #fed7aa;background:#fff7ed;color:#9a3412;border-radius:14px;padding:12px;font-size:13px"><strong>Внимание: цена объекта ниже экономики на ${money(r.economyGap)}.</strong><br>Варианты: поднять цену до безопасного уровня, снизить скидку до ${r.maxAllowedDiscount.toFixed(1)}% или ниже, уменьшить желаемый процент прибыли.</div>`:''}`,
+    useful_info: `<div style="font-size:18px;font-weight:800;margin:18px 0 8px">Дополнительная информация</div><div style="border:1px solid #cbd5e1;border-radius:14px;padding:14px;margin-bottom:18px">${state.mainInfo.usefulInfo?esc(state.mainInfo.usefulInfo).replace(/\n/g,'<br>'):'—'}</div>`,
     main_info: `<div style="font-size:18px;font-weight:800;margin:18px 0 8px">Основная информация</div><div style="border:1px solid #cbd5e1;border-radius:14px;padding:14px;margin-bottom:18px">${state.mainInfo.equipmentText?`<div><strong>Техника:</strong><br>${esc(state.mainInfo.equipmentText).replace(/\n/g,'<br>')}</div>`:''}${state.mainInfo.chemistryText?`<div style="margin-top:10px"><strong>Химия / сертификаты:</strong><br>${esc(state.mainInfo.chemistryText).replace(/\n/g,'<br>')}</div>`:''}${!state.mainInfo.equipmentText && !state.mainInfo.chemistryText ? '<div>—</div>' : ''}</div>`,
     notes: `<div style="font-size:18px;font-weight:800;margin:18px 0 8px">Заметки</div><div style="border:1px solid #cbd5e1;border-radius:14px;padding:14px;min-height:60px">${esc(state.form.notes||'—')}</div>`
   };
   const content = state.pdfSettings.order.filter(k=>state.pdfSettings.visible[k]).map(k=>blocks[k]||'').join('');
   return `
   <div style="padding:32px;font-family:Arial,sans-serif;color:#0f172a">
-    <div style="display:flex;justify-content:space-between;gap:24px;border-bottom:2px solid #0f172a;padding-bottom:16px;margin-bottom:22px">
+    <div style="${headerStyle}">
       <div>${brandBlock}</div>
-      <div style="text-align:right"><div>${esc(state.brand.phone)}</div><div style="margin-top:6px;color:#475569">${esc(state.brand.site)}</div></div>
+      <div style="text-align:right;${contactStyle}"><div>${esc(state.brand.phone)}</div><div style="margin-top:6px;color:${cleanCss(h.contactColor,'#0f172a')}">${esc(state.brand.site)}</div></div>
     </div>
     <div style="font-size:24px;font-weight:800;margin-bottom:18px">Смета на уборку</div>
     ${content}
   </div>`; }
 function printEstimate(){ $('printArea').innerHTML=buildPrintHtml(); window.print(); }
+function refreshPdfPreview(){ const c=$('pdfPreviewContent'); if(c) c.innerHTML=buildPrintHtml(); }
+function openPdfPreview(){ refreshPdfPreview(); const m=$('pdfPreviewModal'); if(m) m.classList.remove('hidden'); }
+function closePdfPreview(){ const m=$('pdfPreviewModal'); if(m) m.classList.add('hidden'); }
 function downloadCurrentHtml(){
   try{
     const snapshot = JSON.stringify(state).replace(/<\/script/gi,'<\\/script');
@@ -386,14 +498,20 @@ function bind(){
   if($('importBackupBtn')) $('importBackupBtn').onclick=()=>requestEditAccess(()=>$('importBackupFile').click());
   if($('importBackupFile')) $('importBackupFile').onchange=e=>importBackupFile(e.target.files?.[0]);
   $('closeShareBtn').onclick=()=>$('shareModal').classList.add('hidden');
-  $('copyEstimateBtn').onclick=copyEstimate; $('printPdfBtn').onclick=printEstimate; $('downloadHtmlBtn').onclick=downloadCurrentHtml;
+  if($('moreMenuBtn')) $('moreMenuBtn').onclick=()=>$('moreMenuPanel')&&$('moreMenuPanel').classList.toggle('hidden');
+  document.addEventListener('click', e=>{ const panel=$('moreMenuPanel'), btn=$('moreMenuBtn'); if(panel && btn && !panel.classList.contains('hidden') && !panel.contains(e.target) && e.target!==btn){ panel.classList.add('hidden'); } });
+  if($('previewPdfBtn')) $('previewPdfBtn').onclick=openPdfPreview;
+  if($('closePdfPreviewBtn')) $('closePdfPreviewBtn').onclick=closePdfPreview;
+  if($('refreshPdfPreviewBtn')) $('refreshPdfPreviewBtn').onclick=refreshPdfPreview;
+  $('copyEstimateBtn').onclick=copyEstimate; $('printPdfBtn').onclick=printEstimate; if($('downloadHtmlBtn')) $('downloadHtmlBtn').onclick=downloadCurrentHtml;
   ['brandName','brandPhone','brandTagline','brandSite'].forEach(id=>$(id).oninput=e=>{ const map={brandName:'name',brandPhone:'phone',brandTagline:'tagline',brandSite:'site'}; state.brand[map[id]]=e.target.value; saveState(); });
   $('brandLogo').onchange=e=>{ const file=e.target.files?.[0]; if(!file) return; const reader=new FileReader(); reader.onload=()=>{ state.brand.logoDataUrl=String(reader.result||''); saveState(); renderBrandLogoPreview(); }; reader.readAsDataURL(file); };
   $('removeLogoBtn').onclick=()=>{ state.brand.logoDataUrl=''; saveState(); renderBrandLogoPreview(); };
   $('equipmentText').oninput=e=>{ state.mainInfo.equipmentText=e.target.value; saveState(); };
   $('chemistryText').oninput=e=>{ state.mainInfo.chemistryText=e.target.value; saveState(); };
+  if($('usefulInfoText')) $('usefulInfoText').oninput=e=>{ state.mainInfo.usefulInfo=e.target.value; saveState(); };
   if($('windowServicesDescription')) $('windowServicesDescription').oninput=e=>{ state.serviceDescriptions.windows=e.target.value; saveState(); renderIncludedPreview(); };
-  $('addPaymentBtn').onclick=()=>{ const title=$('newPaymentTitle').value.trim(); const textVal=$('newPaymentText').value.trim(); if(!title){ toast('Введи название способа оплаты'); return; } state.paymentMethods.push({id:Date.now(), title, text:textVal, imageDataUrl:''}); $('newPaymentTitle').value=''; $('newPaymentText').value=''; saveState(); renderPayments(); };
+  if($('addPaymentBtn')) $('addPaymentBtn').onclick=()=>{ const title=$('newPaymentTitle').value.trim(); const textVal=$('newPaymentText').value.trim(); if(!title){ toast('Введи название способа оплаты'); return; } state.paymentMethods.push({id:Date.now(), title, text:textVal, imageDataUrl:''}); $('newPaymentTitle').value=''; $('newPaymentText').value=''; saveState(); renderPayments(); };
   $('saveIncludedBtn').onclick=()=>{ state.includedByType[state.form.cleanType]=$('includedServices').value; saveState(); renderIncludedPreview(); toast('Шаблон сохранён'); };
   $('includedServices').oninput=(e)=>{ state.includedByType[state.form.cleanType]=e.target.value; saveState(); renderIncludedPreview(); };
   $('saveOrderBtn').onclick=()=>{ const r=calc(); state.savedOrders.unshift({id:Date.now(), clientName:state.form.clientName||'Без имени', objectType:state.form.objectType, area:num(state.form.area), cleanType:r.rate.label, recommendedPrice:r.recommendedPrice, brigadeHours:r.brigadeHours, normHours:r.normHours, createdAt:new Date().toLocaleString('ru-RU')}); state.savedOrders=state.savedOrders.slice(0,10); saveState(); renderSavedOrders(); toast('Заказ сохранён'); };

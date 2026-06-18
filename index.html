@@ -5,7 +5,7 @@
 <title>Калькулятор стоимости уборки</title>
 
 <link href="assets/style.css" rel="stylesheet"/><link href="manifest.json" rel="manifest"/><meta content="#0f172a" name="theme-color"/><script defer="defer" src="config.js"></script><script defer="defer" src="assets/app.js"></script></head>
-<body><div class="version-badge" id="versionBadge">v4.1-edit-lock</div>
+<body><div class="version-badge" id="versionBadge">v4.3.1-pdf-clean</div>
 <div class="login-overlay hidden" id="loginOverlay">
 <div class="login-card">
 <div class="login-title">PRO-CHISTKA</div>
@@ -24,18 +24,23 @@
 <h1 class="title">Калькулятор стоимости уборки</h1>
 <div class="muted">Работает на ПК и телефоне. Всё сохраняется в этом браузере.</div>
 </div>
-<div class="btns">
-<button id="demoBtn">Пример</button>
-<button id="tariffsBtn">Тарифы</button>
-<button class="soft" id="settingsBtn">Настройки</button>
-<button id="saveOrderBtn">Сохранить заказ</button>
-<button class="hidden" id="downloadHtmlBtn">Скачать HTML</button>
-<button id="clearBtn">Очистить</button>
-
+<div class="top-actions">
+<button class="primary" id="saveOrderBtn">Сохранить заказ</button>
+<div class="menu-wrap">
+<button class="soft" id="moreMenuBtn" type="button">Доп. меню ▾</button>
+<div class="more-menu hidden" id="moreMenuPanel">
+<button id="demoBtn" type="button">Пример</button>
+<button id="tariffsBtn" type="button">Тарифы</button>
+<button class="soft" id="settingsBtn" type="button">Настройки</button>
+<button id="clearBtn" type="button">Очистить форму</button>
+<button class="hidden" id="downloadHtmlBtn" type="button">Скачать HTML</button>
+<div class="menu-sep"></div>
 <button id="exportOrdersBtn" type="button">Экспорт заказов</button>
 <button id="importOrdersBtn" type="button">Импорт заказов</button>
 <button id="exportBackupBtn" type="button">Резервная копия</button>
 <button id="importBackupBtn" type="button">Восстановить</button>
+</div>
+</div>
 <input accept="application/json,.json" class="hidden" id="importOrdersFile" type="file"/>
 <input accept="application/json,.json" class="hidden" id="importBackupFile" type="file"/>
 </div>
@@ -110,7 +115,7 @@
 <div class="topbar" style="margin-bottom:12px">
 <div>
 <div class="section-title">Настройки</div>
-<div class="muted">Здесь настраиваются PDF, компания, способы оплаты, основная информация и редактор доп.услуг.</div>
+<div class="muted">Здесь настраиваются PDF, компания, дополнительная информация, описания и редактор доп.услуг.</div>
 </div>
 <div class="btns"><button class="primary" id="saveSettingsBtn" type="button">Сохранить настройки</button></div>
 </div>
@@ -122,10 +127,38 @@
 <div><label>Телефон</label><input id="brandPhone"/></div>
 <div><label>Подзаголовок</label><input id="brandTagline"/></div>
 <div><label>Сайт / соцсеть</label><input id="brandSite"/></div>
-<div><label>Логотип компании</label><input accept="image/png,image/jpeg,image/webp,image/svg+xml" id="brandLogo" type="file"/></div>
+</div>
+<div class="extra-card" style="margin-top:14px">
+<div class="chip">Текстовая шапка PDF</div>
+<div class="grid g3">
+<div><label>Шрифт шапки</label><input id="pdfHeaderFontFamily" placeholder="Arial, sans-serif"/></div>
+<div><label>Размер названия, px</label><input id="pdfHeaderNameSize" min="10" max="80" type="number"/></div>
+<div><label>Жирность названия</label><select id="pdfHeaderNameWeight"><option value="400">400</option><option value="500">500</option><option value="600">600</option><option value="700">700</option><option value="800">800</option><option value="900">900</option></select></div>
+<div><label>Межбуквенное название, px</label><input id="pdfHeaderNameLetterSpacing" step="0.1" type="number"/></div>
+<div><label>Размер подзаголовка, px</label><input id="pdfHeaderTaglineSize" min="8" max="40" type="number"/></div>
+<div><label>Межбуквенное подзаголовка, px</label><input id="pdfHeaderTaglineLetterSpacing" step="0.1" type="number"/></div>
+<div><label>Размер контактов, px</label><input id="pdfHeaderContactSize" min="8" max="40" type="number"/></div>
+<div><label>Межбуквенное контактов, px</label><input id="pdfHeaderContactLetterSpacing" step="0.1" type="number"/></div>
+<div><label>Название большими буквами</label><select id="pdfHeaderUppercaseName"><option value="true">Да</option><option value="false">Нет</option></select></div>
+<div><label>Цвет названия</label><input id="pdfHeaderNameColor" type="color"/></div>
+<div><label>Цвет подзаголовка</label><input id="pdfHeaderTaglineColor" type="color"/></div>
+<div><label>Цвет контактов</label><input id="pdfHeaderContactColor" type="color"/></div>
+<div><label>Цвет линии</label><input id="pdfHeaderBorderColor" type="color"/></div>
+<div><label>Толщина линии, px</label><input id="pdfHeaderBorderWidth" min="0" max="10" type="number"/></div>
+<div><label>Отступ снизу, px</label><input id="pdfHeaderPaddingBottom" min="0" max="60" type="number"/></div>
+<div><label>Отступ после шапки, px</label><input id="pdfHeaderMarginBottom" min="0" max="80" type="number"/></div>
+</div>
+<div class="notice" style="margin-top:10px">По умолчанию PDF использует текстовую шапку без картинки, поэтому файл сметы получается легче. Логотип больше не хранится в config.js.</div>
+<details style="margin-top:10px">
+<summary style="cursor:pointer;font-weight:800">Дополнительно: логотип-картинка</summary>
+<div class="grid g2" style="margin-top:10px">
+<div><label>Использовать логотип в PDF</label><select id="pdfHeaderUseLogo"><option value="false">Нет, только текст</option><option value="true">Да, использовать картинку</option></select></div>
+<div><label>Загрузить логотип</label><input accept="image/png,image/jpeg,image/webp,image/svg+xml" id="brandLogo" type="file"/></div>
 <div><label> </label><button id="removeLogoBtn" type="button">Удалить логотип</button></div>
 </div>
 <div class="notice" id="brandLogoPreview" style="margin-top:10px">Логотип пока не выбран.</div>
+</details>
+</div>
 <div style="margin-top:14px">
 <label>Блоки в PDF</label>
 <div class="grid g2" id="pdfBlocksWrap"><div class="extra-card"><div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
@@ -144,8 +177,8 @@
 <label style="margin:0;display:flex;align-items:center;gap:8px"><input data-pdf-visible="main_info" type="checkbox"/> Основная информация</label>
 <div class="btns" style="gap:6px"><button data-pdf-up="main_info" type="button">↑</button><button data-pdf-down="main_info" type="button">↓</button></div>
 </div></div><div class="extra-card"><div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
-<label style="margin:0;display:flex;align-items:center;gap:8px"><input data-pdf-visible="payment_methods" type="checkbox"/> Способы оплаты</label>
-<div class="btns" style="gap:6px"><button data-pdf-up="payment_methods" type="button">↑</button><button data-pdf-down="payment_methods" type="button">↓</button></div>
+<label style="margin:0;display:flex;align-items:center;gap:8px"><input data-pdf-visible="useful_info" type="checkbox"/> Дополнительная информация</label>
+<div class="btns" style="gap:6px"><button data-pdf-up="useful_info" type="button">↑</button><button data-pdf-down="useful_info" type="button">↓</button></div>
 </div></div><div class="extra-card"><div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
 <label style="margin:0;display:flex;align-items:center;gap:8px"><input checked="" data-pdf-visible="notes" type="checkbox"/> Заметки</label>
 <div class="btns" style="gap:6px"><button data-pdf-up="notes" type="button">↑</button><button data-pdf-down="notes" type="button">↓</button></div>
@@ -154,37 +187,9 @@
 </div>
 </div>
 <div>
-<div class="chip">Способы оплаты</div>
-<div class="grid g3">
-<div><label>Название способа</label><input id="newPaymentTitle" placeholder="Например, перевод на карту"/></div>
-<div><label>Описание</label><input id="newPaymentText" placeholder="Например, СБП / наличные"/></div>
-<div><label> </label><button id="addPaymentBtn" type="button">Добавить способ</button></div>
-</div>
-<div class="grid" id="paymentsWrap" style="margin-top:10px"><div class="extra-card"><div class="grid g3">
-<div><label>Название</label><input data-field="title" data-pay-id="1" value="Перевод на карту"/></div>
-<div><label>Описание</label><input data-field="text" data-pay-id="1" value="Оплата по реквизитам после согласования"/></div>
-<div><label>Картинка</label><input accept="image/png,image/jpeg,image/webp,image/svg+xml" data-pay-upload="1" type="file"/></div>
-</div>
-<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:10px">
-<div><div class="muted" style="font-size:12px">Без картинки</div></div>
-<div class="btns">
-<button data-pay-up="1" type="button">↑</button>
-<button data-pay-down="1" type="button">↓</button>
-<button class="danger" data-pay-remove="1" type="button">Удалить</button>
-</div>
-</div></div><div class="extra-card"><div class="grid g3">
-<div><label>Название</label><input data-field="title" data-pay-id="2" value="Наличные"/></div>
-<div><label>Описание</label><input data-field="text" data-pay-id="2" value="Оплата после завершения работ"/></div>
-<div><label>Картинка</label><input accept="image/png,image/jpeg,image/webp,image/svg+xml" data-pay-upload="2" type="file"/></div>
-</div>
-<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:10px">
-<div><div class="muted" style="font-size:12px">Без картинки</div></div>
-<div class="btns">
-<button data-pay-up="2" type="button">↑</button>
-<button data-pay-down="2" type="button">↓</button>
-<button class="danger" data-pay-remove="2" type="button">Удалить</button>
-</div>
-</div></div></div>
+<div class="chip">Дополнительная информация для клиента</div>
+<div class="muted" style="font-size:13px;margin-bottom:10px">Этот блок попадёт в PDF перед заметками. Здесь удобно указать оплату, договор, технику, химию и другие условия.</div>
+<textarea id="usefulInfoText" placeholder="Например: Работаем по договору. Технику и химию привозим самостоятельно. Оплата: наличные, перевод, СБП..."></textarea>
 </div>
 <div>
 <div class="chip">Основная информация</div>
@@ -811,7 +816,12 @@
 <div style="font-size:14px;color:#cbd5e1">Берётся максимум из рыночной цены и цены по твоей экономике.</div>
 </div>
 <div class="rows" style="margin-top:14px">
-<div class="row"><span class="muted">База по уборке</span><span id="sumBase">0 ₽</span></div>
+<div class="row"><span class="muted">База до коэффициентов</span><span id="sumBaseRawNoK">0 ₽</span></div>
+<div class="row"><span class="muted">Коэф. заставленности</span><span id="sumClutterK">× 1.00</span></div>
+<div class="row"><span class="muted">После заставленности</span><span id="sumAfterClutter">0 ₽</span></div>
+<div class="row"><span class="muted">Коэф. загрязнённости</span><span id="sumDirtK">× 1.00</span></div>
+<div class="row"><span class="muted">База с коэффициентами</span><span id="sumBase">0 ₽</span></div>
+<div class="row"><span class="muted">Минималка</span><span id="sumBaseMin">0 ₽</span></div>
 <div class="row"><span class="muted">Доп. услуги</span><span id="sumExtras">0 ₽</span></div>
 <div class="row"><span class="muted">Выезд</span><span id="sumTravel">0 ₽</span></div>
 <div class="row"><span class="muted">Скидка</span><span id="sumDiscount">− 0 ₽</span></div>
@@ -820,6 +830,7 @@
 <div class="row"><span class="muted">ФОТ бригады</span><span id="sumPayroll">0 ₽</span></div>
 <div class="row"><span class="muted">Желаемая прибыль</span><span id="sumProfit">0 ₽</span></div>
 <div class="row"><strong>Цена по себестоимости + прибыль</strong><strong id="sumCost">0 ₽</strong></div>
+        <div class="row"><span class="muted">Корректировка до экономики</span><span id="sumEconomyTopup">0 ₽</span></div>
 <div class="divider"></div>
 <div class="row"><span class="muted">Время на базовую уборку</span><span id="timeBase">0.0 ч</span></div>
 <div class="row"><span class="muted">Время на доп. услуги</span><span id="timeExtras">0.0 ч</span></div>
@@ -828,7 +839,8 @@
 </div>
 <div class="btns" style="margin-top:16px">
 <button class="primary" id="copyEstimateBtn">Копировать смету</button>
-<button id="printPdfBtn">Скачать PDF</button>
+<button id="previewPdfBtn">Превью PDF</button>
+        <button id="printPdfBtn">Скачать PDF</button>
 </div>
 <div style="margin-top:18px">
 <div class="section-title" style="font-size:16px">Что входит в уборку</div>
@@ -869,6 +881,22 @@
 <textarea id="shareText" style="min-height:360px"></textarea>
 </div>
 </div>
+<div class="hidden" id="pdfPreviewModal" style="position:fixed;inset:0;background:rgba(15,23,42,.62);padding:16px;z-index:65;overflow:auto">
+  <div style="max-width:980px;margin:24px auto;background:#fff;border-radius:22px;padding:14px;border:1px solid #dbe3ef;box-shadow:0 20px 60px rgba(0,0,0,.25)">
+    <div class="topbar" style="margin-bottom:12px">
+      <div>
+        <div class="section-title" style="margin-bottom:4px">Превью PDF-сметы</div>
+        <div class="muted">Так будет выглядеть смета для клиента. Перед скачиванием можно проверить шапку, блоки и стоимость.</div>
+      </div>
+      <div class="btns">
+        <button id="refreshPdfPreviewBtn" type="button">Обновить</button>
+        <button id="closePdfPreviewBtn" type="button">Закрыть</button>
+      </div>
+    </div>
+    <div class="pdf-preview-shell"><div id="pdfPreviewContent"></div></div>
+  </div>
+</div>
+
 <div class="print-area" id="printArea"></div>
 <div class="toast hidden" id="toast">Логотип удалён</div>
 
