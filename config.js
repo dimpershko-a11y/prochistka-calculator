@@ -1,5 +1,5 @@
 window.PROCHISTKA_CONFIG = {
-  "APP_VERSION": "v4.3.1-pdf-clean",
+  "APP_VERSION": "v4.4-reliability",
   "APP_PASSWORD": "7421",
   "WINDOW_CATEGORIES": [
     "Окна"
@@ -92,7 +92,6 @@ window.PROCHISTKA_CONFIG = {
         "notes": true
       }
     },
-    "paymentMethods": [],
     "mainInfo": {
       "equipmentText": "",
       "chemistryText": "",

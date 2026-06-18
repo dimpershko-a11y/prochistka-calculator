@@ -4,8 +4,8 @@
 <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
 <title>Калькулятор стоимости уборки</title>
 
-<link href="assets/style.css" rel="stylesheet"/><link href="manifest.json" rel="manifest"/><meta content="#0f172a" name="theme-color"/><script defer="defer" src="config.js"></script><script defer="defer" src="assets/app.js"></script></head>
-<body><div class="version-badge" id="versionBadge">v4.3.1-pdf-clean</div>
+<link href="assets/style.css" rel="stylesheet"/><link href="manifest.json" rel="manifest"/><meta content="#0f172a" name="theme-color"/><script defer="defer" src="config.js"></script><script defer="defer" src="assets/core.js"></script><script defer="defer" src="assets/app.js"></script></head>
+<body><div class="version-badge" id="versionBadge">v4.4-reliability</div>
 <div class="login-overlay hidden" id="loginOverlay">
 <div class="login-card">
 <div class="login-title">PRO-CHISTKA</div>
@@ -32,8 +32,8 @@
 <button id="demoBtn" type="button">Пример</button>
 <button id="tariffsBtn" type="button">Тарифы</button>
 <button class="soft" id="settingsBtn" type="button">Настройки</button>
+<button id="lockEditBtn" type="button">Закрыть режим изменений</button>
 <button id="clearBtn" type="button">Очистить форму</button>
-<button class="hidden" id="downloadHtmlBtn" type="button">Скачать HTML</button>
 <div class="menu-sep"></div>
 <button id="exportOrdersBtn" type="button">Экспорт заказов</button>
 <button id="importOrdersBtn" type="button">Импорт заказов</button>
@@ -60,54 +60,15 @@
 <div class="grid" style="gap:18px">
 <div>
 <div class="chip">Базовые ставки</div>
-<div class="grid" id="ratesWrap"><div class="extra-card"><div style="font-weight:800;margin-bottom:10px">Поддерживающая</div>
-<div class="grid g3">
-<div><label>₽ / м²</label><input data-field="rate" data-key="maintenance" data-kind="baseRates" min="0" type="number" value="80"/></div>
-<div><label>Минималка</label><input data-field="min" data-key="maintenance" data-kind="baseRates" min="0" type="number" value="5000"/></div>
-<div><label>м² / час</label><input data-field="speed" data-key="maintenance" data-kind="baseRates" min="0" type="number" value="25"/></div>
-</div></div><div class="extra-card"><div style="font-weight:800;margin-bottom:10px">Генеральная</div>
-<div class="grid g3">
-<div><label>₽ / м²</label><input data-field="rate" data-key="general" data-kind="baseRates" min="0" type="number" value="200"/></div>
-<div><label>Минималка</label><input data-field="min" data-key="general" data-kind="baseRates" min="0" type="number" value="9000"/></div>
-<div><label>м² / час</label><input data-field="speed" data-key="general" data-kind="baseRates" min="0" type="number" value="7"/></div>
-</div></div><div class="extra-card"><div style="font-weight:800;margin-bottom:10px">После ремонта</div>
-<div class="grid g3">
-<div><label>₽ / м²</label><input data-field="rate" data-key="postreno" data-kind="baseRates" min="0" type="number" value="300"/></div>
-<div><label>Минималка</label><input data-field="min" data-key="postreno" data-kind="baseRates" min="0" type="number" value="12000"/></div>
-<div><label>м² / час</label><input data-field="speed" data-key="postreno" data-kind="baseRates" min="0" type="number" value="5"/></div>
-</div></div></div>
+<div class="grid" id="ratesWrap"></div>
 </div>
 <div>
 <div class="chip">Коэффициенты заставленности</div>
-<div class="grid" id="clutterWrap"><div class="extra-card"><div style="font-weight:800;margin-bottom:10px">Минимальная</div>
-<div class="grid g2">
-<div><label>Коэффициент цены</label><input data-field="priceK" data-key="low" data-kind="clutter" min="0" step="0.01" type="number" value="0.95"/></div>
-<div><label>Коэффициент времени</label><input data-field="timeK" data-key="low" data-kind="clutter" min="0" step="0.01" type="number" value="1"/></div>
-</div></div><div class="extra-card"><div style="font-weight:800;margin-bottom:10px">Средняя</div>
-<div class="grid g2">
-<div><label>Коэффициент цены</label><input data-field="priceK" data-key="medium" data-kind="clutter" min="0" step="0.01" type="number" value="1.2"/></div>
-<div><label>Коэффициент времени</label><input data-field="timeK" data-key="medium" data-kind="clutter" min="0" step="0.01" type="number" value="1.2"/></div>
-</div></div><div class="extra-card"><div style="font-weight:800;margin-bottom:10px">Высокая</div>
-<div class="grid g2">
-<div><label>Коэффициент цены</label><input data-field="priceK" data-key="high" data-kind="clutter" min="0" step="0.01" type="number" value="1.6"/></div>
-<div><label>Коэффициент времени</label><input data-field="timeK" data-key="high" data-kind="clutter" min="0" step="0.01" type="number" value="1.4"/></div>
-</div></div></div>
+<div class="grid" id="clutterWrap"></div>
 </div>
 <div>
 <div class="chip">Коэффициенты загрязнённости</div>
-<div class="grid" id="dirtWrap"><div class="extra-card"><div style="font-weight:800;margin-bottom:10px">Обычная</div>
-<div class="grid g2">
-<div><label>Коэффициент цены</label><input data-field="priceK" data-key="low" data-kind="dirtiness" min="0" step="0.01" type="number" value="1"/></div>
-<div><label>Коэффициент времени</label><input data-field="timeK" data-key="low" data-kind="dirtiness" min="0" step="0.01" type="number" value="1"/></div>
-</div></div><div class="extra-card"><div style="font-weight:800;margin-bottom:10px">Повышенная</div>
-<div class="grid g2">
-<div><label>Коэффициент цены</label><input data-field="priceK" data-key="medium" data-kind="dirtiness" min="0" step="0.01" type="number" value="1.4"/></div>
-<div><label>Коэффициент времени</label><input data-field="timeK" data-key="medium" data-kind="dirtiness" min="0" step="0.01" type="number" value="1.2"/></div>
-</div></div><div class="extra-card"><div style="font-weight:800;margin-bottom:10px">Сильная</div>
-<div class="grid g2">
-<div><label>Коэффициент цены</label><input data-field="priceK" data-key="high" data-kind="dirtiness" min="0" step="0.01" type="number" value="1.8"/></div>
-<div><label>Коэффициент времени</label><input data-field="timeK" data-key="high" data-kind="dirtiness" min="0" step="0.01" type="number" value="1.4"/></div>
-</div></div></div>
+<div class="grid" id="dirtWrap"></div>
 </div>
 </div>
 </div>
@@ -161,28 +122,7 @@
 </div>
 <div style="margin-top:14px">
 <label>Блоки в PDF</label>
-<div class="grid g2" id="pdfBlocksWrap"><div class="extra-card"><div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
-<label style="margin:0;display:flex;align-items:center;gap:8px"><input checked="" data-pdf-visible="client" type="checkbox"/> Шапка и данные клиента</label>
-<div class="btns" style="gap:6px"><button data-pdf-up="client" type="button">↑</button><button data-pdf-down="client" type="button">↓</button></div>
-</div></div><div class="extra-card"><div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
-<label style="margin:0;display:flex;align-items:center;gap:8px"><input checked="" data-pdf-visible="included" type="checkbox"/> Что входит в уборку</label>
-<div class="btns" style="gap:6px"><button data-pdf-up="included" type="button">↑</button><button data-pdf-down="included" type="button">↓</button></div>
-</div></div><div class="extra-card"><div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
-<label style="margin:0;display:flex;align-items:center;gap:8px"><input checked="" data-pdf-visible="extras" type="checkbox"/> Дополнительные услуги</label>
-<div class="btns" style="gap:6px"><button data-pdf-up="extras" type="button">↑</button><button data-pdf-down="extras" type="button">↓</button></div>
-</div></div><div class="extra-card"><div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
-<label style="margin:0;display:flex;align-items:center;gap:8px"><input checked="" data-pdf-visible="pricing" type="checkbox"/> Стоимость и итоги</label>
-<div class="btns" style="gap:6px"><button data-pdf-up="pricing" type="button">↑</button><button data-pdf-down="pricing" type="button">↓</button></div>
-</div></div><div class="extra-card"><div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
-<label style="margin:0;display:flex;align-items:center;gap:8px"><input data-pdf-visible="main_info" type="checkbox"/> Основная информация</label>
-<div class="btns" style="gap:6px"><button data-pdf-up="main_info" type="button">↑</button><button data-pdf-down="main_info" type="button">↓</button></div>
-</div></div><div class="extra-card"><div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
-<label style="margin:0;display:flex;align-items:center;gap:8px"><input data-pdf-visible="useful_info" type="checkbox"/> Дополнительная информация</label>
-<div class="btns" style="gap:6px"><button data-pdf-up="useful_info" type="button">↑</button><button data-pdf-down="useful_info" type="button">↓</button></div>
-</div></div><div class="extra-card"><div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
-<label style="margin:0;display:flex;align-items:center;gap:8px"><input checked="" data-pdf-visible="notes" type="checkbox"/> Заметки</label>
-<div class="btns" style="gap:6px"><button data-pdf-up="notes" type="button">↑</button><button data-pdf-down="notes" type="button">↓</button></div>
-</div></div></div>
+<div class="grid g2" id="pdfBlocksWrap"></div>
 <div class="muted" style="font-size:13px;margin-top:8px">Можно включать или выключать блоки и менять их порядок.</div>
 </div>
 </div>
@@ -217,224 +157,7 @@
 <div>
 <div class="chip">Редактор доп.услуг</div>
 <div class="muted" style="font-size:13px;margin-bottom:10px">Здесь можно менять единицы измерения, категорию и порядок услуг.</div>
-<div class="grid" id="extrasEditorWrap"><div class="extra-card"><div class="grid g3">
-<div><label>Название</label><input data-edit-extra="1" data-field="name" value="Холодильник"/></div>
-<div><label>Ед. изм.</label><input data-edit-extra="1" data-field="unit" value="шт"/></div>
-<div><label>Категория / блок</label><input data-edit-extra="1" data-field="category" value="Кухня"/></div>
-<div><label>Цена</label><input data-edit-extra="1" data-field="price" min="0" type="number" value="800"/></div>
-<div><label>Время, ч</label><input data-edit-extra="1" data-field="time" min="0" step="0.1" type="number" value="0.8"/></div>
-<div class="btns" style="align-items:end"><button data-extra-up="1" type="button">↑</button><button data-extra-down="1" type="button">↓</button><button class="danger" data-extra-delete="1" type="button">Удалить</button></div>
-</div></div><div class="extra-card"><div class="grid g3">
-<div><label>Название</label><input data-edit-extra="2" data-field="name" value="Духовой шкаф"/></div>
-<div><label>Ед. изм.</label><input data-edit-extra="2" data-field="unit" value="шт"/></div>
-<div><label>Категория / блок</label><input data-edit-extra="2" data-field="category" value="Кухня"/></div>
-<div><label>Цена</label><input data-edit-extra="2" data-field="price" min="0" type="number" value="750"/></div>
-<div><label>Время, ч</label><input data-edit-extra="2" data-field="time" min="0" step="0.1" type="number" value="0.7"/></div>
-<div class="btns" style="align-items:end"><button data-extra-up="2" type="button">↑</button><button data-extra-down="2" type="button">↓</button><button class="danger" data-extra-delete="2" type="button">Удалить</button></div>
-</div></div><div class="extra-card"><div class="grid g3">
-<div><label>Название</label><input data-edit-extra="3" data-field="name" value="Вытяжка"/></div>
-<div><label>Ед. изм.</label><input data-edit-extra="3" data-field="unit" value="шт"/></div>
-<div><label>Категория / блок</label><input data-edit-extra="3" data-field="category" value="Кухня"/></div>
-<div><label>Цена</label><input data-edit-extra="3" data-field="price" min="0" type="number" value="350"/></div>
-<div><label>Время, ч</label><input data-edit-extra="3" data-field="time" min="0" step="0.1" type="number" value="0.4"/></div>
-<div class="btns" style="align-items:end"><button data-extra-up="3" type="button">↑</button><button data-extra-down="3" type="button">↓</button><button class="danger" data-extra-delete="3" type="button">Удалить</button></div>
-</div></div><div class="extra-card"><div class="grid g3">
-<div><label>Название</label><input data-edit-extra="4" data-field="name" value="Варочная панель"/></div>
-<div><label>Ед. изм.</label><input data-edit-extra="4" data-field="unit" value="шт"/></div>
-<div><label>Категория / блок</label><input data-edit-extra="4" data-field="category" value="Кухня"/></div>
-<div><label>Цена</label><input data-edit-extra="4" data-field="price" min="0" type="number" value="450"/></div>
-<div><label>Время, ч</label><input data-edit-extra="4" data-field="time" min="0" step="0.1" type="number" value="0.3"/></div>
-<div class="btns" style="align-items:end"><button data-extra-up="4" type="button">↑</button><button data-extra-down="4" type="button">↓</button><button class="danger" data-extra-delete="4" type="button">Удалить</button></div>
-</div></div><div class="extra-card"><div class="grid g3">
-<div><label>Название</label><input data-edit-extra="5" data-field="name" value="Плита"/></div>
-<div><label>Ед. изм.</label><input data-edit-extra="5" data-field="unit" value="шт"/></div>
-<div><label>Категория / блок</label><input data-edit-extra="5" data-field="category" value="Кухня"/></div>
-<div><label>Цена</label><input data-edit-extra="5" data-field="price" min="0" type="number" value="1200"/></div>
-<div><label>Время, ч</label><input data-edit-extra="5" data-field="time" min="0" step="0.1" type="number" value="0.8"/></div>
-<div class="btns" style="align-items:end"><button data-extra-up="5" type="button">↑</button><button data-extra-down="5" type="button">↓</button><button class="danger" data-extra-delete="5" type="button">Удалить</button></div>
-</div></div><div class="extra-card"><div class="grid g3">
-<div><label>Название</label><input data-edit-extra="6" data-field="name" value="СВЧ"/></div>
-<div><label>Ед. изм.</label><input data-edit-extra="6" data-field="unit" value="шт"/></div>
-<div><label>Категория / блок</label><input data-edit-extra="6" data-field="category" value="Кухня"/></div>
-<div><label>Цена</label><input data-edit-extra="6" data-field="price" min="0" type="number" value="450"/></div>
-<div><label>Время, ч</label><input data-edit-extra="6" data-field="time" min="0" step="0.1" type="number" value="0.3"/></div>
-<div class="btns" style="align-items:end"><button data-extra-up="6" type="button">↑</button><button data-extra-down="6" type="button">↓</button><button class="danger" data-extra-delete="6" type="button">Удалить</button></div>
-</div></div><div class="extra-card"><div class="grid g3">
-<div><label>Название</label><input data-edit-extra="7" data-field="name" value="Озонирование, час"/></div>
-<div><label>Ед. изм.</label><input data-edit-extra="7" data-field="unit" value="час"/></div>
-<div><label>Категория / блок</label><input data-edit-extra="7" data-field="category" value="Другое"/></div>
-<div><label>Цена</label><input data-edit-extra="7" data-field="price" min="0" type="number" value="1000"/></div>
-<div><label>Время, ч</label><input data-edit-extra="7" data-field="time" min="0" step="0.1" type="number" value="1"/></div>
-<div class="btns" style="align-items:end"><button data-extra-up="7" type="button">↑</button><button data-extra-down="7" type="button">↓</button><button class="danger" data-extra-delete="7" type="button">Удалить</button></div>
-</div></div><div class="extra-card"><div class="grid g3">
-<div><label>Название</label><input data-edit-extra="8" data-field="name" value="Стул"/></div>
-<div><label>Ед. изм.</label><input data-edit-extra="8" data-field="unit" value="шт"/></div>
-<div><label>Категория / блок</label><input data-edit-extra="8" data-field="category" value="Химчистка"/></div>
-<div><label>Цена</label><input data-edit-extra="8" data-field="price" min="0" type="number" value="700"/></div>
-<div><label>Время, ч</label><input data-edit-extra="8" data-field="time" min="0" step="0.1" type="number" value="0.4"/></div>
-<div class="btns" style="align-items:end"><button data-extra-up="8" type="button">↑</button><button data-extra-down="8" type="button">↓</button><button class="danger" data-extra-delete="8" type="button">Удалить</button></div>
-</div></div><div class="extra-card"><div class="grid g3">
-<div><label>Название</label><input data-edit-extra="9" data-field="name" value="Диван стандарт 3 места"/></div>
-<div><label>Ед. изм.</label><input data-edit-extra="9" data-field="unit" value="шт"/></div>
-<div><label>Категория / блок</label><input data-edit-extra="9" data-field="category" value="Химчистка"/></div>
-<div><label>Цена</label><input data-edit-extra="9" data-field="price" min="0" type="number" value="4000"/></div>
-<div><label>Время, ч</label><input data-edit-extra="9" data-field="time" min="0" step="0.1" type="number" value="2.5"/></div>
-<div class="btns" style="align-items:end"><button data-extra-up="9" type="button">↑</button><button data-extra-down="9" type="button">↓</button><button class="danger" data-extra-delete="9" type="button">Удалить</button></div>
-</div></div><div class="extra-card"><div class="grid g3">
-<div><label>Название</label><input data-edit-extra="10" data-field="name" value="Диван угловой"/></div>
-<div><label>Ед. изм.</label><input data-edit-extra="10" data-field="unit" value="шт"/></div>
-<div><label>Категория / блок</label><input data-edit-extra="10" data-field="category" value="Химчистка"/></div>
-<div><label>Цена</label><input data-edit-extra="10" data-field="price" min="0" type="number" value="4500"/></div>
-<div><label>Время, ч</label><input data-edit-extra="10" data-field="time" min="0" step="0.1" type="number" value="3"/></div>
-<div class="btns" style="align-items:end"><button data-extra-up="10" type="button">↑</button><button data-extra-down="10" type="button">↓</button><button class="danger" data-extra-delete="10" type="button">Удалить</button></div>
-</div></div><div class="extra-card"><div class="grid g3">
-<div><label>Название</label><input data-edit-extra="11" data-field="name" value="Матрас"/></div>
-<div><label>Ед. изм.</label><input data-edit-extra="11" data-field="unit" value="сторона"/></div>
-<div><label>Категория / блок</label><input data-edit-extra="11" data-field="category" value="Химчистка"/></div>
-<div><label>Цена</label><input data-edit-extra="11" data-field="price" min="0" type="number" value="3500"/></div>
-<div><label>Время, ч</label><input data-edit-extra="11" data-field="time" min="0" step="0.1" type="number" value="2"/></div>
-<div class="btns" style="align-items:end"><button data-extra-up="11" type="button">↑</button><button data-extra-down="11" type="button">↓</button><button class="danger" data-extra-delete="11" type="button">Удалить</button></div>
-</div></div><div class="extra-card"><div class="grid g3">
-<div><label>Название</label><input data-edit-extra="12" data-field="name" value="Окно одностороннее, открывающаяся секция"/></div>
-<div><label>Ед. изм.</label><input data-edit-extra="12" data-field="unit" value="секция"/></div>
-<div><label>Категория / блок</label><input data-edit-extra="12" data-field="category" value="Окна"/></div>
-<div><label>Цена</label><input data-edit-extra="12" data-field="price" min="0" type="number" value="350"/></div>
-<div><label>Время, ч</label><input data-edit-extra="12" data-field="time" min="0" step="0.1" type="number" value="0.3"/></div>
-<div class="btns" style="align-items:end"><button data-extra-up="12" type="button">↑</button><button data-extra-down="12" type="button">↓</button><button class="danger" data-extra-delete="12" type="button">Удалить</button></div>
-</div></div><div class="extra-card"><div class="grid g3">
-<div><label>Название</label><input data-edit-extra="13" data-field="name" value="Окно одностороннее, глухая секция"/></div>
-<div><label>Ед. изм.</label><input data-edit-extra="13" data-field="unit" value="секция"/></div>
-<div><label>Категория / блок</label><input data-edit-extra="13" data-field="category" value="Окна"/></div>
-<div><label>Цена</label><input data-edit-extra="13" data-field="price" min="0" type="number" value="350"/></div>
-<div><label>Время, ч</label><input data-edit-extra="13" data-field="time" min="0" step="0.1" type="number" value="0.3"/></div>
-<div class="btns" style="align-items:end"><button data-extra-up="13" type="button">↑</button><button data-extra-down="13" type="button">↓</button><button class="danger" data-extra-delete="13" type="button">Удалить</button></div>
-</div></div><div class="extra-card"><div class="grid g3">
-<div><label>Название</label><input data-edit-extra="14" data-field="name" value="Окно двухстороннее, открывающаяся секция"/></div>
-<div><label>Ед. изм.</label><input data-edit-extra="14" data-field="unit" value="секция"/></div>
-<div><label>Категория / блок</label><input data-edit-extra="14" data-field="category" value="Окна"/></div>
-<div><label>Цена</label><input data-edit-extra="14" data-field="price" min="0" type="number" value="450"/></div>
-<div><label>Время, ч</label><input data-edit-extra="14" data-field="time" min="0" step="0.1" type="number" value="0.5"/></div>
-<div class="btns" style="align-items:end"><button data-extra-up="14" type="button">↑</button><button data-extra-down="14" type="button">↓</button><button class="danger" data-extra-delete="14" type="button">Удалить</button></div>
-</div></div><div class="extra-card"><div class="grid g3">
-<div><label>Название</label><input data-edit-extra="15" data-field="name" value="Окно двухстороннее, глухая секция"/></div>
-<div><label>Ед. изм.</label><input data-edit-extra="15" data-field="unit" value="секция"/></div>
-<div><label>Категория / блок</label><input data-edit-extra="15" data-field="category" value="Окна"/></div>
-<div><label>Цена</label><input data-edit-extra="15" data-field="price" min="0" type="number" value="500"/></div>
-<div><label>Время, ч</label><input data-edit-extra="15" data-field="time" min="0" step="0.1" type="number" value="0.6"/></div>
-<div class="btns" style="align-items:end"><button data-extra-up="15" type="button">↑</button><button data-extra-down="15" type="button">↓</button><button class="danger" data-extra-delete="15" type="button">Удалить</button></div>
-</div></div><div class="extra-card"><div class="grid g3">
-<div><label>Название</label><input data-edit-extra="16" data-field="name" value="Окно после ремонта, с двух сторон, открывающаяся секция"/></div>
-<div><label>Ед. изм.</label><input data-edit-extra="16" data-field="unit" value="секция"/></div>
-<div><label>Категория / блок</label><input data-edit-extra="16" data-field="category" value="Окна"/></div>
-<div><label>Цена</label><input data-edit-extra="16" data-field="price" min="0" type="number" value="700"/></div>
-<div><label>Время, ч</label><input data-edit-extra="16" data-field="time" min="0" step="0.1" type="number" value="0.9"/></div>
-<div class="btns" style="align-items:end"><button data-extra-up="16" type="button">↑</button><button data-extra-down="16" type="button">↓</button><button class="danger" data-extra-delete="16" type="button">Удалить</button></div>
-</div></div><div class="extra-card"><div class="grid g3">
-<div><label>Название</label><input data-edit-extra="17" data-field="name" value="Окно после ремонта, с двух сторон, глухая секция"/></div>
-<div><label>Ед. изм.</label><input data-edit-extra="17" data-field="unit" value="секция"/></div>
-<div><label>Категория / блок</label><input data-edit-extra="17" data-field="category" value="Окна"/></div>
-<div><label>Цена</label><input data-edit-extra="17" data-field="price" min="0" type="number" value="750"/></div>
-<div><label>Время, ч</label><input data-edit-extra="17" data-field="time" min="0" step="0.1" type="number" value="0.9"/></div>
-<div class="btns" style="align-items:end"><button data-extra-up="17" type="button">↑</button><button data-extra-down="17" type="button">↓</button><button class="danger" data-extra-delete="17" type="button">Удалить</button></div>
-</div></div><div class="extra-card"><div class="grid g3">
-<div><label>Название</label><input data-edit-extra="18" data-field="name" value="Балконный блок"/></div>
-<div><label>Ед. изм.</label><input data-edit-extra="18" data-field="unit" value="шт"/></div>
-<div><label>Категория / блок</label><input data-edit-extra="18" data-field="category" value="Окна"/></div>
-<div><label>Цена</label><input data-edit-extra="18" data-field="price" min="0" type="number" value="2000"/></div>
-<div><label>Время, ч</label><input data-edit-extra="18" data-field="time" min="0" step="0.1" type="number" value="1.5"/></div>
-<div class="btns" style="align-items:end"><button data-extra-up="18" type="button">↑</button><button data-extra-down="18" type="button">↓</button><button class="danger" data-extra-delete="18" type="button">Удалить</button></div>
-</div></div><div class="extra-card"><div class="grid g3">
-<div><label>Название</label><input data-edit-extra="19" data-field="name" value="Лоджия / остекление"/></div>
-<div><label>Ед. изм.</label><input data-edit-extra="19" data-field="unit" value="комплект"/></div>
-<div><label>Категория / блок</label><input data-edit-extra="19" data-field="category" value="Окна"/></div>
-<div><label>Цена</label><input data-edit-extra="19" data-field="price" min="0" type="number" value="5000"/></div>
-<div><label>Время, ч</label><input data-edit-extra="19" data-field="time" min="0" step="0.1" type="number" value="3"/></div>
-<div class="btns" style="align-items:end"><button data-extra-up="19" type="button">↑</button><button data-extra-down="19" type="button">↓</button><button class="danger" data-extra-delete="19" type="button">Удалить</button></div>
-</div></div><div class="extra-card"><div class="grid g3">
-<div><label>Название</label><input data-edit-extra="20" data-field="name" value="Панорамное остекление, м²"/></div>
-<div><label>Ед. изм.</label><input data-edit-extra="20" data-field="unit" value="м²"/></div>
-<div><label>Категория / блок</label><input data-edit-extra="20" data-field="category" value="Окна"/></div>
-<div><label>Цена</label><input data-edit-extra="20" data-field="price" min="0" type="number" value="550"/></div>
-<div><label>Время, ч</label><input data-edit-extra="20" data-field="time" min="0" step="0.1" type="number" value="0.4"/></div>
-<div class="btns" style="align-items:end"><button data-extra-up="20" type="button">↑</button><button data-extra-down="20" type="button">↓</button><button class="danger" data-extra-delete="20" type="button">Удалить</button></div>
-</div></div><div class="extra-card"><div class="grid g3">
-<div><label>Название</label><input data-edit-extra="1776950127402" data-field="name" value="Сбор мусора больше 10 кг, час"/></div>
-<div><label>Ед. изм.</label><input data-edit-extra="1776950127402" data-field="unit" value="час"/></div>
-<div><label>Категория / блок</label><input data-edit-extra="1776950127402" data-field="category" value="Мусор"/></div>
-<div><label>Цена</label><input data-edit-extra="1776950127402" data-field="price" min="0" type="number" value="750"/></div>
-<div><label>Время, ч</label><input data-edit-extra="1776950127402" data-field="time" min="0" step="0.1" type="number" value="1"/></div>
-<div class="btns" style="align-items:end"><button data-extra-up="1776950127402" type="button">↑</button><button data-extra-down="1776950127402" type="button">↓</button><button class="danger" data-extra-delete="1776950127402" type="button">Удалить</button></div>
-</div></div><div class="extra-card"><div class="grid g3">
-<div><label>Название</label><input data-edit-extra="1776950245625" data-field="name" value="Вынос мусора больше 10 кг, час"/></div>
-<div><label>Ед. изм.</label><input data-edit-extra="1776950245625" data-field="unit" value="час"/></div>
-<div><label>Категория / блок</label><input data-edit-extra="1776950245625" data-field="category" value="Мусор"/></div>
-<div><label>Цена</label><input data-edit-extra="1776950245625" data-field="price" min="0" type="number" value="1000"/></div>
-<div><label>Время, ч</label><input data-edit-extra="1776950245625" data-field="time" min="0" step="0.1" type="number" value="1"/></div>
-<div class="btns" style="align-items:end"><button data-extra-up="1776950245625" type="button">↑</button><button data-extra-down="1776950245625" type="button">↓</button><button class="danger" data-extra-delete="1776950245625" type="button">Удалить</button></div>
-</div></div><div class="extra-card"><div class="grid g3">
-<div><label>Название</label><input data-edit-extra="1776950570267" data-field="name" value="Сбор строительного мусора и материалов, час"/></div>
-<div><label>Ед. изм.</label><input data-edit-extra="1776950570267" data-field="unit" value="час"/></div>
-<div><label>Категория / блок</label><input data-edit-extra="1776950570267" data-field="category" value="Мусор"/></div>
-<div><label>Цена</label><input data-edit-extra="1776950570267" data-field="price" min="0" type="number" value="850"/></div>
-<div><label>Время, ч</label><input data-edit-extra="1776950570267" data-field="time" min="0" step="0.1" type="number" value="1"/></div>
-<div class="btns" style="align-items:end"><button data-extra-up="1776950570267" type="button">↑</button><button data-extra-down="1776950570267" type="button">↓</button><button class="danger" data-extra-delete="1776950570267" type="button">Удалить</button></div>
-</div></div><div class="extra-card"><div class="grid g3">
-<div><label>Название</label><input data-edit-extra="1776950623577" data-field="name" value="Вынос строительного мусора, час"/></div>
-<div><label>Ед. изм.</label><input data-edit-extra="1776950623577" data-field="unit" value="час"/></div>
-<div><label>Категория / блок</label><input data-edit-extra="1776950623577" data-field="category" value="Мусор"/></div>
-<div><label>Цена</label><input data-edit-extra="1776950623577" data-field="price" min="0" type="number" value="1500"/></div>
-<div><label>Время, ч</label><input data-edit-extra="1776950623577" data-field="time" min="0" step="0.1" type="number" value="1"/></div>
-<div class="btns" style="align-items:end"><button data-extra-up="1776950623577" type="button">↑</button><button data-extra-down="1776950623577" type="button">↓</button><button class="danger" data-extra-delete="1776950623577" type="button">Удалить</button></div>
-</div></div><div class="extra-card"><div class="grid g3">
-<div><label>Название</label><input data-edit-extra="1776950707802" data-field="name" value="Мытьё посуды, 30 мин"/></div>
-<div><label>Ед. изм.</label><input data-edit-extra="1776950707802" data-field="unit" value="30 мин"/></div>
-<div><label>Категория / блок</label><input data-edit-extra="1776950707802" data-field="category" value="Кухня"/></div>
-<div><label>Цена</label><input data-edit-extra="1776950707802" data-field="price" min="0" type="number" value="300"/></div>
-<div><label>Время, ч</label><input data-edit-extra="1776950707802" data-field="time" min="0" step="0.1" type="number" value="0.5"/></div>
-<div class="btns" style="align-items:end"><button data-extra-up="1776950707802" type="button">↑</button><button data-extra-down="1776950707802" type="button">↓</button><button class="danger" data-extra-delete="1776950707802" type="button">Удалить</button></div>
-</div></div><div class="extra-card"><div class="grid g3">
-<div><label>Название</label><input data-edit-extra="1776950774589" data-field="name" value="Мойка сложных и хрустальных люстр, час"/></div>
-<div><label>Ед. изм.</label><input data-edit-extra="1776950774589" data-field="unit" value="час"/></div>
-<div><label>Категория / блок</label><input data-edit-extra="1776950774589" data-field="category" value="Другое"/></div>
-<div><label>Цена</label><input data-edit-extra="1776950774589" data-field="price" min="0" type="number" value="1500"/></div>
-<div><label>Время, ч</label><input data-edit-extra="1776950774589" data-field="time" min="0" step="0.1" type="number" value="1"/></div>
-<div class="btns" style="align-items:end"><button data-extra-up="1776950774589" type="button">↑</button><button data-extra-down="1776950774589" type="button">↓</button><button class="danger" data-extra-delete="1776950774589" type="button">Удалить</button></div>
-</div></div><div class="extra-card"><div class="grid g3">
-<div><label>Название</label><input data-edit-extra="1776950856691" data-field="name" value="Снять\Повесить шторы\занавески\тюль, штука"/></div>
-<div><label>Ед. изм.</label><input data-edit-extra="1776950856691" data-field="unit" value="шт"/></div>
-<div><label>Категория / блок</label><input data-edit-extra="1776950856691" data-field="category" value="Другое"/></div>
-<div><label>Цена</label><input data-edit-extra="1776950856691" data-field="price" min="0" type="number" value="200"/></div>
-<div><label>Время, ч</label><input data-edit-extra="1776950856691" data-field="time" min="0" step="0.1" type="number" value="0.4"/></div>
-<div class="btns" style="align-items:end"><button data-extra-up="1776950856691" type="button">↑</button><button data-extra-down="1776950856691" type="button">↓</button><button class="danger" data-extra-delete="1776950856691" type="button">Удалить</button></div>
-</div></div><div class="extra-card"><div class="grid g3">
-<div><label>Название</label><input data-edit-extra="1776950923912" data-field="name" value="Глажка\Отпаривание штор\занавесок\тюль, штука"/></div>
-<div><label>Ед. изм.</label><input data-edit-extra="1776950923912" data-field="unit" value="шт"/></div>
-<div><label>Категория / блок</label><input data-edit-extra="1776950923912" data-field="category" value="Другое"/></div>
-<div><label>Цена</label><input data-edit-extra="1776950923912" data-field="price" min="0" type="number" value="500"/></div>
-<div><label>Время, ч</label><input data-edit-extra="1776950923912" data-field="time" min="0" step="0.1" type="number" value="0.7"/></div>
-<div class="btns" style="align-items:end"><button data-extra-up="1776950923912" type="button">↑</button><button data-extra-down="1776950923912" type="button">↓</button><button class="danger" data-extra-delete="1776950923912" type="button">Удалить</button></div>
-</div></div><div class="extra-card"><div class="grid g3">
-<div><label>Название</label><input data-edit-extra="1778517633808" data-field="name" value="Вывоз строительного мусора, 1 машина 12м³ до 2т с грузчиками"/></div>
-<div><label>Ед. изм.</label><input data-edit-extra="1778517633808" data-field="unit" value="шт"/></div>
-<div><label>Категория / блок</label><input data-edit-extra="1778517633808" data-field="category" value="Мусор"/></div>
-<div><label>Цена</label><input data-edit-extra="1778517633808" data-field="price" min="0" type="number" value="18000"/></div>
-<div><label>Время, ч</label><input data-edit-extra="1778517633808" data-field="time" min="0" step="0.1" type="number" value="3"/></div>
-<div class="btns" style="align-items:end"><button data-extra-up="1778517633808" type="button">↑</button><button data-extra-down="1778517633808" type="button">↓</button><button class="danger" data-extra-delete="1778517633808" type="button">Удалить</button></div>
-</div></div><div class="extra-card"><div class="grid g3">
-<div><label>Название</label><input data-edit-extra="1778595687053" data-field="name" value="Остекление после ремонта с двух сторон, м²"/></div>
-<div><label>Ед. изм.</label><input data-edit-extra="1778595687053" data-field="unit" value="м²"/></div>
-<div><label>Категория / блок</label><input data-edit-extra="1778595687053" data-field="category" value="Окна"/></div>
-<div><label>Цена</label><input data-edit-extra="1778595687053" data-field="price" min="0" type="number" value="550"/></div>
-<div><label>Время, ч</label><input data-edit-extra="1778595687053" data-field="time" min="0" step="0.1" type="number" value="0.8"/></div>
-<div class="btns" style="align-items:end"><button data-extra-up="1778595687053" type="button">↑</button><button data-extra-down="1778595687053" type="button">↓</button><button class="danger" data-extra-delete="1778595687053" type="button">Удалить</button></div>
-</div></div><div class="extra-card"><div class="grid g3">
-<div><label>Название</label><input data-edit-extra="1778597390543" data-field="name" value="Кресло"/></div>
-<div><label>Ед. изм.</label><input data-edit-extra="1778597390543" data-field="unit" value="шт"/></div>
-<div><label>Категория / блок</label><input data-edit-extra="1778597390543" data-field="category" value="Химчистка"/></div>
-<div><label>Цена</label><input data-edit-extra="1778597390543" data-field="price" min="0" type="number" value="1000"/></div>
-<div><label>Время, ч</label><input data-edit-extra="1778597390543" data-field="time" min="0" step="0.1" type="number" value="2"/></div>
-<div class="btns" style="align-items:end"><button data-extra-up="1778597390543" type="button">↑</button><button data-extra-down="1778597390543" type="button">↓</button><button class="danger" data-extra-delete="1778597390543" type="button">Удалить</button></div>
-</div></div></div>
+<div class="grid" id="extrasEditorWrap"></div>
 </div>
 
 </div>
@@ -485,317 +208,7 @@
 </div>
 <label style="display:flex;align-items:center;gap:8px;font-size:14px"><input id="showOnlySelected" style="width:auto" type="checkbox"/> Показать только выбранные</label>
 </div>
-<div class="grid" id="extrasWrap"><details class="extra-card" style="padding: 0px;"><summary style="list-style:none;cursor:pointer;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;font-weight:800"><span>Кухня</span><span class="muted" style="font-weight:600">7 поз.</span></summary><div class="grid" style="gap:12px;padding:0 14px 14px"><div class="extra-card" style="margin: 0px;"><div class="extra-grid">
-<div>
-<label>Название услуги</label>
-<input data-extra="1" data-field="name" value="Холодильник"/>
-<div class="muted" style="font-size:14px;margin-top:6px">шт · ~ 0.8 ч</div>
-</div>
-<div><label>Кол-во</label><input data-extra="1" data-field="qty" min="0" type="number" value="0"/></div>
-<div><label>Цена</label><input data-extra="1" data-field="price" min="0" type="number" value="800"/></div>
-<div><label>Время, ч</label><input data-extra="1" data-field="time" min="0" step="0.1" type="number" value="0.8"/></div>
-<div style="align-self:end"></div>
-</div></div><div class="extra-card" style="margin: 0px;"><div class="extra-grid">
-<div>
-<label>Название услуги</label>
-<input data-extra="2" data-field="name" value="Духовой шкаф"/>
-<div class="muted" style="font-size:14px;margin-top:6px">шт · ~ 0.7 ч</div>
-</div>
-<div><label>Кол-во</label><input data-extra="2" data-field="qty" min="0" type="number" value="0"/></div>
-<div><label>Цена</label><input data-extra="2" data-field="price" min="0" type="number" value="750"/></div>
-<div><label>Время, ч</label><input data-extra="2" data-field="time" min="0" step="0.1" type="number" value="0.7"/></div>
-<div style="align-self:end"></div>
-</div></div><div class="extra-card" style="margin: 0px;"><div class="extra-grid">
-<div>
-<label>Название услуги</label>
-<input data-extra="3" data-field="name" value="Вытяжка"/>
-<div class="muted" style="font-size:14px;margin-top:6px">шт · ~ 0.4 ч</div>
-</div>
-<div><label>Кол-во</label><input data-extra="3" data-field="qty" min="0" type="number" value="0"/></div>
-<div><label>Цена</label><input data-extra="3" data-field="price" min="0" type="number" value="350"/></div>
-<div><label>Время, ч</label><input data-extra="3" data-field="time" min="0" step="0.1" type="number" value="0.4"/></div>
-<div style="align-self:end"></div>
-</div></div><div class="extra-card" style="margin: 0px;"><div class="extra-grid">
-<div>
-<label>Название услуги</label>
-<input data-extra="4" data-field="name" value="Варочная панель"/>
-<div class="muted" style="font-size:14px;margin-top:6px">шт · ~ 0.3 ч</div>
-</div>
-<div><label>Кол-во</label><input data-extra="4" data-field="qty" min="0" type="number" value="0"/></div>
-<div><label>Цена</label><input data-extra="4" data-field="price" min="0" type="number" value="450"/></div>
-<div><label>Время, ч</label><input data-extra="4" data-field="time" min="0" step="0.1" type="number" value="0.3"/></div>
-<div style="align-self:end"></div>
-</div></div><div class="extra-card" style="margin: 0px;"><div class="extra-grid">
-<div>
-<label>Название услуги</label>
-<input data-extra="5" data-field="name" value="Плита"/>
-<div class="muted" style="font-size:14px;margin-top:6px">шт · ~ 0.8 ч</div>
-</div>
-<div><label>Кол-во</label><input data-extra="5" data-field="qty" min="0" type="number" value="0"/></div>
-<div><label>Цена</label><input data-extra="5" data-field="price" min="0" type="number" value="1200"/></div>
-<div><label>Время, ч</label><input data-extra="5" data-field="time" min="0" step="0.1" type="number" value="0.8"/></div>
-<div style="align-self:end"></div>
-</div></div><div class="extra-card" style="margin: 0px;"><div class="extra-grid">
-<div>
-<label>Название услуги</label>
-<input data-extra="6" data-field="name" value="СВЧ"/>
-<div class="muted" style="font-size:14px;margin-top:6px">шт · ~ 0.3 ч</div>
-</div>
-<div><label>Кол-во</label><input data-extra="6" data-field="qty" min="0" type="number" value="0"/></div>
-<div><label>Цена</label><input data-extra="6" data-field="price" min="0" type="number" value="450"/></div>
-<div><label>Время, ч</label><input data-extra="6" data-field="time" min="0" step="0.1" type="number" value="0.3"/></div>
-<div style="align-self:end"></div>
-</div></div><div class="extra-card" style="margin: 0px;"><div class="extra-grid">
-<div>
-<label>Название услуги</label>
-<input data-extra="1776950707802" data-field="name" value="Мытьё посуды, 30 мин"/>
-<div class="muted" style="font-size:14px;margin-top:6px">30 мин · ~ 0.5 ч</div>
-</div>
-<div><label>Кол-во</label><input data-extra="1776950707802" data-field="qty" min="0" type="number" value="0"/></div>
-<div><label>Цена</label><input data-extra="1776950707802" data-field="price" min="0" type="number" value="300"/></div>
-<div><label>Время, ч</label><input data-extra="1776950707802" data-field="time" min="0" step="0.1" type="number" value="0.5"/></div>
-<div style="align-self:end"><button data-remove="1776950707802">Удалить</button></div>
-</div></div></div></details><details class="extra-card" style="padding: 0px;"><summary style="list-style:none;cursor:pointer;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;font-weight:800"><span>Другое</span><span class="muted" style="font-weight:600">4 поз.</span></summary><div class="grid" style="gap:12px;padding:0 14px 14px"><div class="extra-card" style="margin: 0px;"><div class="extra-grid">
-<div>
-<label>Название услуги</label>
-<input data-extra="7" data-field="name" value="Озонирование, час"/>
-<div class="muted" style="font-size:14px;margin-top:6px">час · ~ 1.0 ч</div>
-</div>
-<div><label>Кол-во</label><input data-extra="7" data-field="qty" min="0" type="number" value="0"/></div>
-<div><label>Цена</label><input data-extra="7" data-field="price" min="0" type="number" value="1000"/></div>
-<div><label>Время, ч</label><input data-extra="7" data-field="time" min="0" step="0.1" type="number" value="1"/></div>
-<div style="align-self:end"></div>
-</div></div><div class="extra-card" style="margin: 0px;"><div class="extra-grid">
-<div>
-<label>Название услуги</label>
-<input data-extra="1776950774589" data-field="name" value="Мойка сложных и хрустальных люстр, час"/>
-<div class="muted" style="font-size:14px;margin-top:6px">час · ~ 1.0 ч</div>
-</div>
-<div><label>Кол-во</label><input data-extra="1776950774589" data-field="qty" min="0" type="number" value="0"/></div>
-<div><label>Цена</label><input data-extra="1776950774589" data-field="price" min="0" type="number" value="1500"/></div>
-<div><label>Время, ч</label><input data-extra="1776950774589" data-field="time" min="0" step="0.1" type="number" value="1"/></div>
-<div style="align-self:end"><button data-remove="1776950774589">Удалить</button></div>
-</div></div><div class="extra-card" style="margin: 0px;"><div class="extra-grid">
-<div>
-<label>Название услуги</label>
-<input data-extra="1776950856691" data-field="name" value="Снять\Повесить шторы\занавески\тюль, штука"/>
-<div class="muted" style="font-size:14px;margin-top:6px">шт · ~ 0.4 ч</div>
-</div>
-<div><label>Кол-во</label><input data-extra="1776950856691" data-field="qty" min="0" type="number" value="0"/></div>
-<div><label>Цена</label><input data-extra="1776950856691" data-field="price" min="0" type="number" value="200"/></div>
-<div><label>Время, ч</label><input data-extra="1776950856691" data-field="time" min="0" step="0.1" type="number" value="0.4"/></div>
-<div style="align-self:end"><button data-remove="1776950856691">Удалить</button></div>
-</div></div><div class="extra-card" style="margin: 0px;"><div class="extra-grid">
-<div>
-<label>Название услуги</label>
-<input data-extra="1776950923912" data-field="name" value="Глажка\Отпаривание штор\занавесок\тюль, штука"/>
-<div class="muted" style="font-size:14px;margin-top:6px">шт · ~ 0.7 ч</div>
-</div>
-<div><label>Кол-во</label><input data-extra="1776950923912" data-field="qty" min="0" type="number" value="0"/></div>
-<div><label>Цена</label><input data-extra="1776950923912" data-field="price" min="0" type="number" value="500"/></div>
-<div><label>Время, ч</label><input data-extra="1776950923912" data-field="time" min="0" step="0.1" type="number" value="0.7"/></div>
-<div style="align-self:end"><button data-remove="1776950923912">Удалить</button></div>
-</div></div></div></details><details class="extra-card" style="padding: 0px;"><summary style="list-style:none;cursor:pointer;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;font-weight:800"><span>Химчистка</span><span class="muted" style="font-weight:600">5 поз.</span></summary><div class="grid" style="gap:12px;padding:0 14px 14px"><div class="extra-card" style="margin: 0px;"><div class="extra-grid">
-<div>
-<label>Название услуги</label>
-<input data-extra="8" data-field="name" value="Стул"/>
-<div class="muted" style="font-size:14px;margin-top:6px">шт · ~ 0.4 ч</div>
-</div>
-<div><label>Кол-во</label><input data-extra="8" data-field="qty" min="0" type="number" value="0"/></div>
-<div><label>Цена</label><input data-extra="8" data-field="price" min="0" type="number" value="700"/></div>
-<div><label>Время, ч</label><input data-extra="8" data-field="time" min="0" step="0.1" type="number" value="0.4"/></div>
-<div style="align-self:end"></div>
-</div></div><div class="extra-card" style="margin: 0px;"><div class="extra-grid">
-<div>
-<label>Название услуги</label>
-<input data-extra="9" data-field="name" value="Диван стандарт 3 места"/>
-<div class="muted" style="font-size:14px;margin-top:6px">шт · ~ 2.5 ч</div>
-</div>
-<div><label>Кол-во</label><input data-extra="9" data-field="qty" min="0" type="number" value="0"/></div>
-<div><label>Цена</label><input data-extra="9" data-field="price" min="0" type="number" value="4000"/></div>
-<div><label>Время, ч</label><input data-extra="9" data-field="time" min="0" step="0.1" type="number" value="2.5"/></div>
-<div style="align-self:end"></div>
-</div></div><div class="extra-card" style="margin: 0px;"><div class="extra-grid">
-<div>
-<label>Название услуги</label>
-<input data-extra="10" data-field="name" value="Диван угловой"/>
-<div class="muted" style="font-size:14px;margin-top:6px">шт · ~ 3.0 ч</div>
-</div>
-<div><label>Кол-во</label><input data-extra="10" data-field="qty" min="0" type="number" value="0"/></div>
-<div><label>Цена</label><input data-extra="10" data-field="price" min="0" type="number" value="4500"/></div>
-<div><label>Время, ч</label><input data-extra="10" data-field="time" min="0" step="0.1" type="number" value="3"/></div>
-<div style="align-self:end"></div>
-</div></div><div class="extra-card" style="margin: 0px;"><div class="extra-grid">
-<div>
-<label>Название услуги</label>
-<input data-extra="11" data-field="name" value="Матрас"/>
-<div class="muted" style="font-size:14px;margin-top:6px">сторона · ~ 2.0 ч</div>
-</div>
-<div><label>Кол-во</label><input data-extra="11" data-field="qty" min="0" type="number" value="0"/></div>
-<div><label>Цена</label><input data-extra="11" data-field="price" min="0" type="number" value="3500"/></div>
-<div><label>Время, ч</label><input data-extra="11" data-field="time" min="0" step="0.1" type="number" value="2"/></div>
-<div style="align-self:end"></div>
-</div></div><div class="extra-card" style="margin: 0px;"><div class="extra-grid">
-<div>
-<label>Название услуги</label>
-<input data-extra="1778597390543" data-field="name" value="Кресло"/>
-<div class="muted" style="font-size:14px;margin-top:6px">шт · ~ 2.0 ч</div>
-</div>
-<div><label>Кол-во</label><input data-extra="1778597390543" data-field="qty" min="0" type="number" value="0"/></div>
-<div><label>Цена</label><input data-extra="1778597390543" data-field="price" min="0" type="number" value="1000"/></div>
-<div><label>Время, ч</label><input data-extra="1778597390543" data-field="time" min="0" step="0.1" type="number" value="2"/></div>
-<div style="align-self:end"><button data-remove="1778597390543">Удалить</button></div>
-</div></div></div></details><details class="extra-card" open="" style="padding: 0px;"><summary style="list-style:none;cursor:pointer;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;font-weight:800"><span>Окна</span><span class="muted" style="font-weight:600">10 поз.</span></summary><div class="grid" style="gap:12px;padding:0 14px 14px"><div class="extra-card" style="margin: 0px;"><div class="extra-grid">
-<div>
-<label>Название услуги</label>
-<input data-extra="12" data-field="name" value="Окно одностороннее, открывающаяся секция"/>
-<div class="muted" style="font-size:14px;margin-top:6px">секция · ~ 0.3 ч</div>
-</div>
-<div><label>Кол-во</label><input data-extra="12" data-field="qty" min="0" type="number" value="0"/></div>
-<div><label>Цена</label><input data-extra="12" data-field="price" min="0" type="number" value="350"/></div>
-<div><label>Время, ч</label><input data-extra="12" data-field="time" min="0" step="0.1" type="number" value="0.3"/></div>
-<div style="align-self:end"></div>
-</div></div><div class="extra-card" style="margin: 0px;"><div class="extra-grid">
-<div>
-<label>Название услуги</label>
-<input data-extra="13" data-field="name" value="Окно одностороннее, глухая секция"/>
-<div class="muted" style="font-size:14px;margin-top:6px">секция · ~ 0.3 ч</div>
-</div>
-<div><label>Кол-во</label><input data-extra="13" data-field="qty" min="0" type="number" value="0"/></div>
-<div><label>Цена</label><input data-extra="13" data-field="price" min="0" type="number" value="350"/></div>
-<div><label>Время, ч</label><input data-extra="13" data-field="time" min="0" step="0.1" type="number" value="0.3"/></div>
-<div style="align-self:end"></div>
-</div></div><div class="extra-card" style="margin: 0px;"><div class="extra-grid">
-<div>
-<label>Название услуги</label>
-<input data-extra="14" data-field="name" value="Окно двухстороннее, открывающаяся секция"/>
-<div class="muted" style="font-size:14px;margin-top:6px">секция · ~ 0.5 ч</div>
-</div>
-<div><label>Кол-во</label><input data-extra="14" data-field="qty" min="0" type="number" value="0"/></div>
-<div><label>Цена</label><input data-extra="14" data-field="price" min="0" type="number" value="450"/></div>
-<div><label>Время, ч</label><input data-extra="14" data-field="time" min="0" step="0.1" type="number" value="0.5"/></div>
-<div style="align-self:end"></div>
-</div></div><div class="extra-card" style="margin: 0px;"><div class="extra-grid">
-<div>
-<label>Название услуги</label>
-<input data-extra="15" data-field="name" value="Окно двухстороннее, глухая секция"/>
-<div class="muted" style="font-size:14px;margin-top:6px">секция · ~ 0.6 ч</div>
-</div>
-<div><label>Кол-во</label><input data-extra="15" data-field="qty" min="0" type="number" value="0"/></div>
-<div><label>Цена</label><input data-extra="15" data-field="price" min="0" type="number" value="500"/></div>
-<div><label>Время, ч</label><input data-extra="15" data-field="time" min="0" step="0.1" type="number" value="0.6"/></div>
-<div style="align-self:end"></div>
-</div></div><div class="extra-card" style="margin: 0px;"><div class="extra-grid">
-<div>
-<label>Название услуги</label>
-<input data-extra="16" data-field="name" value="Окно после ремонта, с двух сторон, открывающаяся секция"/>
-<div class="muted" style="font-size:14px;margin-top:6px">секция · ~ 0.9 ч</div>
-</div>
-<div><label>Кол-во</label><input data-extra="16" data-field="qty" min="0" type="number" value="0"/></div>
-<div><label>Цена</label><input data-extra="16" data-field="price" min="0" type="number" value="700"/></div>
-<div><label>Время, ч</label><input data-extra="16" data-field="time" min="0" step="0.1" type="number" value="0.9"/></div>
-<div style="align-self:end"></div>
-</div></div><div class="extra-card" style="margin: 0px;"><div class="extra-grid">
-<div>
-<label>Название услуги</label>
-<input data-extra="17" data-field="name" value="Окно после ремонта, с двух сторон, глухая секция"/>
-<div class="muted" style="font-size:14px;margin-top:6px">секция · ~ 0.9 ч</div>
-</div>
-<div><label>Кол-во</label><input data-extra="17" data-field="qty" min="0" type="number" value="0"/></div>
-<div><label>Цена</label><input data-extra="17" data-field="price" min="0" type="number" value="750"/></div>
-<div><label>Время, ч</label><input data-extra="17" data-field="time" min="0" step="0.1" type="number" value="0.9"/></div>
-<div style="align-self:end"></div>
-</div></div><div class="extra-card" style="margin: 0px;"><div class="extra-grid">
-<div>
-<label>Название услуги</label>
-<input data-extra="18" data-field="name" value="Балконный блок"/>
-<div class="muted" style="font-size:14px;margin-top:6px">шт · ~ 1.5 ч</div>
-</div>
-<div><label>Кол-во</label><input data-extra="18" data-field="qty" min="0" type="number" value="0"/></div>
-<div><label>Цена</label><input data-extra="18" data-field="price" min="0" type="number" value="2000"/></div>
-<div><label>Время, ч</label><input data-extra="18" data-field="time" min="0" step="0.1" type="number" value="1.5"/></div>
-<div style="align-self:end"></div>
-</div></div><div class="extra-card" style="margin: 0px;"><div class="extra-grid">
-<div>
-<label>Название услуги</label>
-<input data-extra="19" data-field="name" value="Лоджия / остекление"/>
-<div class="muted" style="font-size:14px;margin-top:6px">комплект · ~ 3.0 ч</div>
-</div>
-<div><label>Кол-во</label><input data-extra="19" data-field="qty" min="0" type="number" value="0"/></div>
-<div><label>Цена</label><input data-extra="19" data-field="price" min="0" type="number" value="5000"/></div>
-<div><label>Время, ч</label><input data-extra="19" data-field="time" min="0" step="0.1" type="number" value="3"/></div>
-<div style="align-self:end"></div>
-</div></div><div class="extra-card" style="margin: 0px;"><div class="extra-grid">
-<div>
-<label>Название услуги</label>
-<input data-extra="20" data-field="name" value="Панорамное остекление, м²"/>
-<div class="muted" style="font-size:14px;margin-top:6px">м² · ~ 0.4 ч</div>
-</div>
-<div><label>Кол-во</label><input data-extra="20" data-field="qty" min="0" type="number" value="0"/></div>
-<div><label>Цена</label><input data-extra="20" data-field="price" min="0" type="number" value="550"/></div>
-<div><label>Время, ч</label><input data-extra="20" data-field="time" min="0" step="0.1" type="number" value="0.4"/></div>
-<div style="align-self:end"></div>
-</div></div><div class="extra-card" style="margin: 0px;"><div class="extra-grid">
-<div>
-<label>Название услуги</label>
-<input data-extra="1778595687053" data-field="name" value="Остекление после ремонта с двух сторон, м²"/>
-<div class="muted" style="font-size:14px;margin-top:6px">м² · ~ 0.8 ч</div>
-</div>
-<div><label>Кол-во</label><input data-extra="1778595687053" data-field="qty" min="0" type="number" value="0"/></div>
-<div><label>Цена</label><input data-extra="1778595687053" data-field="price" min="0" type="number" value="550"/></div>
-<div><label>Время, ч</label><input data-extra="1778595687053" data-field="time" min="0" step="0.1" type="number" value="0.8"/></div>
-<div style="align-self:end"><button data-remove="1778595687053">Удалить</button></div>
-</div></div></div></details><details class="extra-card" style="padding: 0px;"><summary style="list-style:none;cursor:pointer;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;font-weight:800"><span>Мусор</span><span class="muted" style="font-weight:600">5 поз.</span></summary><div class="grid" style="gap:12px;padding:0 14px 14px"><div class="extra-card" style="margin: 0px;"><div class="extra-grid">
-<div>
-<label>Название услуги</label>
-<input data-extra="1776950127402" data-field="name" value="Сбор мусора больше 10 кг, час"/>
-<div class="muted" style="font-size:14px;margin-top:6px">час · ~ 1.0 ч</div>
-</div>
-<div><label>Кол-во</label><input data-extra="1776950127402" data-field="qty" min="0" type="number" value="0"/></div>
-<div><label>Цена</label><input data-extra="1776950127402" data-field="price" min="0" type="number" value="750"/></div>
-<div><label>Время, ч</label><input data-extra="1776950127402" data-field="time" min="0" step="0.1" type="number" value="1"/></div>
-<div style="align-self:end"><button data-remove="1776950127402">Удалить</button></div>
-</div></div><div class="extra-card" style="margin: 0px;"><div class="extra-grid">
-<div>
-<label>Название услуги</label>
-<input data-extra="1776950245625" data-field="name" value="Вынос мусора больше 10 кг, час"/>
-<div class="muted" style="font-size:14px;margin-top:6px">час · ~ 1.0 ч</div>
-</div>
-<div><label>Кол-во</label><input data-extra="1776950245625" data-field="qty" min="0" type="number" value="0"/></div>
-<div><label>Цена</label><input data-extra="1776950245625" data-field="price" min="0" type="number" value="1000"/></div>
-<div><label>Время, ч</label><input data-extra="1776950245625" data-field="time" min="0" step="0.1" type="number" value="1"/></div>
-<div style="align-self:end"><button data-remove="1776950245625">Удалить</button></div>
-</div></div><div class="extra-card" style="margin: 0px;"><div class="extra-grid">
-<div>
-<label>Название услуги</label>
-<input data-extra="1776950570267" data-field="name" value="Сбор строительного мусора и материалов, час"/>
-<div class="muted" style="font-size:14px;margin-top:6px">час · ~ 1.0 ч</div>
-</div>
-<div><label>Кол-во</label><input data-extra="1776950570267" data-field="qty" min="0" type="number" value="0"/></div>
-<div><label>Цена</label><input data-extra="1776950570267" data-field="price" min="0" type="number" value="850"/></div>
-<div><label>Время, ч</label><input data-extra="1776950570267" data-field="time" min="0" step="0.1" type="number" value="1"/></div>
-<div style="align-self:end"><button data-remove="1776950570267">Удалить</button></div>
-</div></div><div class="extra-card" style="margin: 0px;"><div class="extra-grid">
-<div>
-<label>Название услуги</label>
-<input data-extra="1776950623577" data-field="name" value="Вынос строительного мусора, час"/>
-<div class="muted" style="font-size:14px;margin-top:6px">час · ~ 1.0 ч</div>
-</div>
-<div><label>Кол-во</label><input data-extra="1776950623577" data-field="qty" min="0" type="number" value="0"/></div>
-<div><label>Цена</label><input data-extra="1776950623577" data-field="price" min="0" type="number" value="1500"/></div>
-<div><label>Время, ч</label><input data-extra="1776950623577" data-field="time" min="0" step="0.1" type="number" value="1"/></div>
-<div style="align-self:end"><button data-remove="1776950623577">Удалить</button></div>
-</div></div><div class="extra-card" style="margin: 0px;"><div class="extra-grid">
-<div>
-<label>Название услуги</label>
-<input data-extra="1778517633808" data-field="name" value="Вывоз строительного мусора, 1 машина 12м³ до 2т с грузчиками"/>
-<div class="muted" style="font-size:14px;margin-top:6px">шт · ~ 3.0 ч</div>
-</div>
-<div><label>Кол-во</label><input data-extra="1778517633808" data-field="qty" min="0" type="number" value="0"/></div>
-<div><label>Цена</label><input data-extra="1778517633808" data-field="price" min="0" type="number" value="18000"/></div>
-<div><label>Время, ч</label><input data-extra="1778517633808" data-field="time" min="0" step="0.1" type="number" value="3"/></div>
-<div style="align-self:end"><button data-remove="1778517633808">Удалить</button></div>
-</div></div></div></details></div>
+<div class="grid" id="extrasWrap"></div>
 <div class="divider" style="margin:16px 0"></div>
 <div class="grid g3">
 <div><label>Название новой услуги</label><input id="newExtraName"/></div>
@@ -815,6 +228,7 @@
 <div class="summary-big" id="recommendedPrice">0 ₽</div>
 <div style="font-size:14px;color:#cbd5e1">Берётся максимум из рыночной цены и цены по твоей экономике.</div>
 </div>
+<div class="notice warning hidden" id="economyWarning"></div>
 <div class="rows" style="margin-top:14px">
 <div class="row"><span class="muted">База до коэффициентов</span><span id="sumBaseRawNoK">0 ₽</span></div>
 <div class="row"><span class="muted">Коэф. заставленности</span><span id="sumClutterK">× 1.00</span></div>
@@ -830,7 +244,6 @@
 <div class="row"><span class="muted">ФОТ бригады</span><span id="sumPayroll">0 ₽</span></div>
 <div class="row"><span class="muted">Желаемая прибыль</span><span id="sumProfit">0 ₽</span></div>
 <div class="row"><strong>Цена по себестоимости + прибыль</strong><strong id="sumCost">0 ₽</strong></div>
-        <div class="row"><span class="muted">Корректировка до экономики</span><span id="sumEconomyTopup">0 ₽</span></div>
 <div class="divider"></div>
 <div class="row"><span class="muted">Время на базовую уборку</span><span id="timeBase">0.0 ч</span></div>
 <div class="row"><span class="muted">Время на доп. услуги</span><span id="timeExtras">0.0 ч</span></div>
@@ -844,11 +257,11 @@
 </div>
 <div style="margin-top:18px">
 <div class="section-title" style="font-size:16px">Что входит в уборку</div>
-<div class="selected-item" id="includedPreview"><div>• Сухая и влажная уборка доступных поверхностей, полов, корпусной мебели внутри и снаружи, выключателей, розеток, плинтусов, карнизов, труб, радиаторов отопления, зеркал, подоконников.</div><div>• Обеспыливание стен сухим или влажным способом в зависимости от типа покрытия.</div><div>• Обеспыливание потолка мопом сухим или влажным способом в зависимости от типа покрытия, по требованию Заказчика.</div><div>• Обеспыливание осветительных приборов, за исключением хрустальных и сложных люстр.</div><div>• Уборка санузла, включая: обеспыливание мебели, чистку сантехники от налета и пыли, влажную уборку стен и полов, обеспыливание видимых труб, мойку зеркал и стеклянных перегородок; при возможности — перемещение техники для уборки за ней.</div><div>• Удаление следов скотча, краски, клея, цементного раствора и иных аналогичных загрязнений с доступных поверхностей, за исключением эпоксидного клея и эпоксидной затирки.</div><div>• Сухая чистка мебели пылесосом.</div><div>• Сбор и вынос строительного мусора весом до 20 кг.</div><div>• • •</div><div>• Всё необходимое для клининга (техника и моющие средства) привозим самостоятельно и включены в стоимость. </div><div>• • •</div><div>• Работаем по договору.</div><div>• • •</div><div>• Приём оплаты: наличные, перевод, QR код СБП, ссылка СБП, карта VISA|MasterCard|МИР, Долями (рассрочка) от Т-банка, безналичным платежом для юридических лиц.</div></div>
+<div class="selected-item" id="includedPreview"></div>
 </div>
 <div style="margin-top:18px">
 <div class="section-title" style="font-size:16px">Выбранные доп.услуги</div>
-<div class="grid" id="selectedExtrasWrap"><div class="notice">Пока ничего не выбрано.</div></div>
+<div class="grid" id="selectedExtrasWrap"></div>
 </div>
 <div style="margin-top:18px">
 <label>Заметки по заказу</label>
@@ -865,7 +278,7 @@
 </div>
 <div class="card">
 <div class="section-title">Сохранённые заказы</div>
-<div class="grid" id="savedOrdersWrap"><div class="notice">Пока нет сохранённых заказов.</div></div>
+<div class="grid" id="savedOrdersWrap"></div>
 </div>
 </div>
 </div>
