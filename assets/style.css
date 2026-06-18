@@ -62,3 +62,5 @@
 .service-name-field[readonly]{border-color:transparent;background:transparent;padding:0;box-shadow:none;cursor:default;color:var(--text)}
 input:disabled, textarea:disabled{background:#f8fafc;color:#64748b;cursor:not-allowed}
 body:not(.edit-unlocked) [data-edit-extra], body:not(.edit-unlocked) [data-kind], body:not(.edit-unlocked) [data-pay-id]{background:#f8fafc}
+
+input[type="color"]{height:45px;padding:4px}

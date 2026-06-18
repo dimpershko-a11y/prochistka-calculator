@@ -5,7 +5,7 @@
 <title>Калькулятор стоимости уборки</title>
 
 <link href="assets/style.css" rel="stylesheet"/><link href="manifest.json" rel="manifest"/><meta content="#0f172a" name="theme-color"/><script defer="defer" src="config.js"></script><script defer="defer" src="assets/app.js"></script></head>
-<body><div class="version-badge" id="versionBadge">v4.1-edit-lock</div>
+<body><div class="version-badge" id="versionBadge">v4.2-text-header</div>
 <div class="login-overlay hidden" id="loginOverlay">
 <div class="login-card">
 <div class="login-title">PRO-CHISTKA</div>
@@ -122,10 +122,38 @@
 <div><label>Телефон</label><input id="brandPhone"/></div>
 <div><label>Подзаголовок</label><input id="brandTagline"/></div>
 <div><label>Сайт / соцсеть</label><input id="brandSite"/></div>
-<div><label>Логотип компании</label><input accept="image/png,image/jpeg,image/webp,image/svg+xml" id="brandLogo" type="file"/></div>
+</div>
+<div class="extra-card" style="margin-top:14px">
+<div class="chip">Текстовая шапка PDF</div>
+<div class="grid g3">
+<div><label>Шрифт шапки</label><input id="pdfHeaderFontFamily" placeholder="Arial, sans-serif"/></div>
+<div><label>Размер названия, px</label><input id="pdfHeaderNameSize" min="10" max="80" type="number"/></div>
+<div><label>Жирность названия</label><select id="pdfHeaderNameWeight"><option value="400">400</option><option value="500">500</option><option value="600">600</option><option value="700">700</option><option value="800">800</option><option value="900">900</option></select></div>
+<div><label>Межбуквенное название, px</label><input id="pdfHeaderNameLetterSpacing" step="0.1" type="number"/></div>
+<div><label>Размер подзаголовка, px</label><input id="pdfHeaderTaglineSize" min="8" max="40" type="number"/></div>
+<div><label>Межбуквенное подзаголовка, px</label><input id="pdfHeaderTaglineLetterSpacing" step="0.1" type="number"/></div>
+<div><label>Размер контактов, px</label><input id="pdfHeaderContactSize" min="8" max="40" type="number"/></div>
+<div><label>Межбуквенное контактов, px</label><input id="pdfHeaderContactLetterSpacing" step="0.1" type="number"/></div>
+<div><label>Название большими буквами</label><select id="pdfHeaderUppercaseName"><option value="true">Да</option><option value="false">Нет</option></select></div>
+<div><label>Цвет названия</label><input id="pdfHeaderNameColor" type="color"/></div>
+<div><label>Цвет подзаголовка</label><input id="pdfHeaderTaglineColor" type="color"/></div>
+<div><label>Цвет контактов</label><input id="pdfHeaderContactColor" type="color"/></div>
+<div><label>Цвет линии</label><input id="pdfHeaderBorderColor" type="color"/></div>
+<div><label>Толщина линии, px</label><input id="pdfHeaderBorderWidth" min="0" max="10" type="number"/></div>
+<div><label>Отступ снизу, px</label><input id="pdfHeaderPaddingBottom" min="0" max="60" type="number"/></div>
+<div><label>Отступ после шапки, px</label><input id="pdfHeaderMarginBottom" min="0" max="80" type="number"/></div>
+</div>
+<div class="notice" style="margin-top:10px">По умолчанию PDF использует текстовую шапку без картинки, поэтому файл сметы получается легче. Логотип больше не хранится в config.js.</div>
+<details style="margin-top:10px">
+<summary style="cursor:pointer;font-weight:800">Дополнительно: логотип-картинка</summary>
+<div class="grid g2" style="margin-top:10px">
+<div><label>Использовать логотип в PDF</label><select id="pdfHeaderUseLogo"><option value="false">Нет, только текст</option><option value="true">Да, использовать картинку</option></select></div>
+<div><label>Загрузить логотип</label><input accept="image/png,image/jpeg,image/webp,image/svg+xml" id="brandLogo" type="file"/></div>
 <div><label> </label><button id="removeLogoBtn" type="button">Удалить логотип</button></div>
 </div>
 <div class="notice" id="brandLogoPreview" style="margin-top:10px">Логотип пока не выбран.</div>
+</details>
+</div>
 <div style="margin-top:14px">
 <label>Блоки в PDF</label>
 <div class="grid g2" id="pdfBlocksWrap"><div class="extra-card"><div style="display:flex;align-items:center;justify-content:space-between;gap:10px">

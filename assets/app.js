@@ -1,8 +1,9 @@
 const STORAGE_KEY = 'prochistka_calc_app_v4';
 const APP_CONFIG = window.PROCHISTKA_CONFIG || {};
-const APP_VERSION = APP_CONFIG.APP_VERSION || 'v4.1-edit-lock';
+const APP_VERSION = APP_CONFIG.APP_VERSION || 'v4.2-text-header';
 const defaults = APP_CONFIG.defaults || {};
 defaults.brand = defaults.brand || {name:'PRO-CHISTKA', phone:'', tagline:'Клининговые услуги', site:'', logoDataUrl:''};
+defaults.pdfHeader = defaults.pdfHeader || {useLogo:false,fontFamily:'Arial, sans-serif',nameFontSize:30,taglineFontSize:13,contactFontSize:13,nameWeight:800,nameLetterSpacing:1.2,taglineLetterSpacing:0.2,contactLetterSpacing:0.2,nameLineHeight:1.05,taglineLineHeight:1.25,uppercaseName:true,nameColor:'#0f172a',taglineColor:'#475569',contactColor:'#0f172a',borderColor:'#0f172a',borderWidth:2,paddingBottom:16,marginBottom:22};
 defaults.baseRates = defaults.baseRates || {};
 defaults.clutter = defaults.clutter || {};
 defaults.dirtiness = defaults.dirtiness || {};
@@ -22,6 +23,7 @@ function mergeState(parsed){
     ...d,...parsed,
     brand:{...d.brand,...(parsed.brand||{})},
     baseRates:{...d.baseRates,...(parsed.baseRates||{})},
+    pdfHeader:{...d.pdfHeader,...(parsed.pdfHeader||{})},
     clutter:{...d.clutter,...(parsed.clutter||{})},
     dirtiness:{...d.dirtiness,...(parsed.dirtiness||{})},
     includedByType:{...d.includedByType,...(parsed.includedByType||{})},
@@ -36,6 +38,8 @@ function mergeState(parsed){
   };
 }
 let state; try{ const raw=localStorage.getItem(STORAGE_KEY); state=raw?mergeState(JSON.parse(raw)):mergeState(clone(defaults)); }catch(e){state=mergeState(clone(defaults))}
+// Миграция: новая шапка PDF по умолчанию текстовая, старый тяжёлый base64-логотип удаляем из локального состояния.
+if(state.pdfHeader && state.pdfHeader.useLogo === false && state.brand && state.brand.logoDataUrl && String(state.brand.logoDataUrl).length > 10000){ state.brand.logoDataUrl=''; try{saveState();}catch(e){} }
 function saveState(){localStorage.setItem(STORAGE_KEY, JSON.stringify(state));}
 const $=id=>document.getElementById(id);
 const money=n=>new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(Math.round(Number(n)||0))+' ₽';
@@ -198,6 +202,8 @@ function renderSettingsPanel(){
   if($('brandPhone')) $('brandPhone').value=state.brand.phone;
   if($('brandTagline')) $('brandTagline').value=state.brand.tagline;
   if($('brandSite')) $('brandSite').value=state.brand.site;
+  setPdfHeaderInputs();
+  bindPdfHeaderInputs();
   if($('equipmentText')) $('equipmentText').value=state.mainInfo.equipmentText||'';
   if($('chemistryText')) $('chemistryText').value=state.mainInfo.chemistryText||'';
   if($('windowServicesDescription')) $('windowServicesDescription').value=state.serviceDescriptions?.windows||'';
@@ -296,7 +302,37 @@ function calc(){
   return {rate,clutter,dirt,baseRaw,extrasTotal,travelTotal,discountValue,marketPrice,payroll,targetProfitValue,costBasedPrice,directCostFloor,priceBeforeDiscount,recommendedPrice,baseHours,extrasHours,normHours,brigadeHours,selectedExtras};
 }
 function renderIncludedPreview(){ const lines=getIncludedLines(); $('includedPreview').innerHTML=lines.length?lines.map(x=>`<div>• ${esc(x)}</div>`).join(''):'<div class="muted">Пока не заполнено.</div>'; }
-function renderBrandLogoPreview(){ const wrap=$('brandLogoPreview'); if(!wrap) return; if(state.brand.logoDataUrl){ wrap.innerHTML=`<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><img src="${state.brand.logoDataUrl}" alt="Логотип" style="max-height:70px;max-width:220px;object-fit:contain;border:1px solid #dbe3ef;border-radius:10px;background:#fff;padding:6px"><span class="muted">Логотип будет показан в печатной смете.</span></div>`; } else { wrap.innerHTML='Логотип пока не выбран.'; } }
+function renderBrandLogoPreview(){ const wrap=$('brandLogoPreview'); if(!wrap) return; const useLogo=!!(state.pdfHeader&&state.pdfHeader.useLogo); if(!useLogo){ wrap.innerHTML='Текстовая шапка активна. Логотип-картинка в PDF не используется.'; return; } if(state.brand.logoDataUrl){ wrap.innerHTML=`<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><img src="${state.brand.logoDataUrl}" alt="Логотип" style="max-height:70px;max-width:220px;object-fit:contain;border:1px solid #dbe3ef;border-radius:10px;background:#fff;padding:6px"><span class="muted">Логотип будет показан в печатной смете.</span></div>`; } else { wrap.innerHTML='Логотип пока не выбран.'; } }
+function setPdfHeaderInputs(){
+  const h=state.pdfHeader||{};
+  const set=(id,val)=>{ const el=$(id); if(el) el.value=val ?? ''; };
+  set('pdfHeaderFontFamily',h.fontFamily||'Arial, sans-serif');
+  set('pdfHeaderNameSize',h.nameFontSize||30);
+  set('pdfHeaderNameWeight',h.nameWeight||800);
+  set('pdfHeaderNameLetterSpacing',h.nameLetterSpacing??0);
+  set('pdfHeaderTaglineSize',h.taglineFontSize||13);
+  set('pdfHeaderTaglineLetterSpacing',h.taglineLetterSpacing??0);
+  set('pdfHeaderContactSize',h.contactFontSize||13);
+  set('pdfHeaderContactLetterSpacing',h.contactLetterSpacing??0);
+  set('pdfHeaderUppercaseName',String(h.uppercaseName!==false));
+  set('pdfHeaderNameColor',h.nameColor||'#0f172a');
+  set('pdfHeaderTaglineColor',h.taglineColor||'#475569');
+  set('pdfHeaderContactColor',h.contactColor||'#0f172a');
+  set('pdfHeaderBorderColor',h.borderColor||'#0f172a');
+  set('pdfHeaderBorderWidth',h.borderWidth??2);
+  set('pdfHeaderPaddingBottom',h.paddingBottom??16);
+  set('pdfHeaderMarginBottom',h.marginBottom??22);
+  set('pdfHeaderUseLogo',String(!!h.useLogo));
+}
+function bindPdfHeaderInputs(){
+  const fields={
+    pdfHeaderFontFamily:['fontFamily','string'], pdfHeaderNameSize:['nameFontSize','number'], pdfHeaderNameWeight:['nameWeight','number'], pdfHeaderNameLetterSpacing:['nameLetterSpacing','number'],
+    pdfHeaderTaglineSize:['taglineFontSize','number'], pdfHeaderTaglineLetterSpacing:['taglineLetterSpacing','number'], pdfHeaderContactSize:['contactFontSize','number'], pdfHeaderContactLetterSpacing:['contactLetterSpacing','number'],
+    pdfHeaderUppercaseName:['uppercaseName','bool'], pdfHeaderNameColor:['nameColor','string'], pdfHeaderTaglineColor:['taglineColor','string'], pdfHeaderContactColor:['contactColor','string'], pdfHeaderBorderColor:['borderColor','string'],
+    pdfHeaderBorderWidth:['borderWidth','number'], pdfHeaderPaddingBottom:['paddingBottom','number'], pdfHeaderMarginBottom:['marginBottom','number'], pdfHeaderUseLogo:['useLogo','bool']
+  };
+  Object.entries(fields).forEach(([id,[key,type]])=>{ const el=$(id); if(!el || el.dataset.boundPdfHeader) return; el.dataset.boundPdfHeader='1'; const handler=e=>{ state.pdfHeader=state.pdfHeader||{}; let v=e.target.value; if(type==='number') v=Number(v)||0; if(type==='bool') v=String(v)==='true'; state.pdfHeader[key]=v; if(key==='useLogo') renderBrandLogoPreview(); saveState(); }; el.oninput=handler; el.onchange=handler; });
+}
 function renderSelectedExtras(){ const {selectedExtras}=calc(); const wrap=$('selectedExtrasWrap'); wrap.innerHTML=''; if(!selectedExtras.length){ wrap.innerHTML='<div class="notice">Пока ничего не выбрано.</div>'; return; } selectedExtras.forEach(x=>{ const div=document.createElement('div'); div.className='selected-item'; div.innerHTML=`<div style="display:flex;justify-content:space-between;gap:8px"><span>${esc(x.name)} × ${num(x.qty)}</span><span>${money(num(x.qty)*num(x.price))}</span></div>`; wrap.appendChild(div); }); }
 function renderSavedOrders(){ const wrap=$('savedOrdersWrap'); wrap.innerHTML=''; if(!state.savedOrders.length){ wrap.innerHTML='<div class="notice">Пока нет сохранённых заказов.</div>'; return; } state.savedOrders.forEach(o=>{ const div=document.createElement('div'); div.className='saved-item'; div.innerHTML=`<div style="font-weight:700">${esc(o.clientName)} · ${esc(o.objectType)}</div><div class="muted" style="margin:4px 0">${esc(o.cleanType)} · ${o.area} м²</div><div style="display:flex;justify-content:space-between;gap:8px"><span>${money(o.recommendedPrice)}</span><span class="muted">${hours(o.brigadeHours)}</span></div><div class="muted" style="font-size:12px;margin-top:4px">Нормо-часы: ${hours(o.normHours)}</div><div class="muted" style="font-size:12px;margin-top:2px">${esc(o.createdAt)}</div>`; wrap.appendChild(div); }); }
 function recalc(){
@@ -314,9 +350,14 @@ function buildPrintHtml(){
   const r=calc();
   const included=getIncludedLines();
   const extras=r.selectedExtras;
-  const brandBlock=state.brand.logoDataUrl
-    ? `<div style="display:flex;align-items:center;gap:14px"><img src="${state.brand.logoDataUrl}" alt="Логотип" style="max-height:80px;max-width:180px;object-fit:contain"><div><div style="font-size:28px;font-weight:800">${esc(state.brand.name)}</div><div style="color:#475569;margin-top:6px">${esc(state.brand.tagline)}</div></div></div>`
-    : `<div><div style="font-size:28px;font-weight:800">${esc(state.brand.name)}</div><div style="color:#475569;margin-top:6px">${esc(state.brand.tagline)}</div></div>`;
+  const h=state.pdfHeader||{};
+  const cleanCss=(v,fb)=>String(v||fb).replace(/[;<>]/g,'');
+  const font=cleanCss(h.fontFamily,'Arial, sans-serif');
+  const nameText=h.uppercaseName!==false ? String(state.brand.name||'PRO-CHISTKA').toUpperCase() : String(state.brand.name||'PRO-CHISTKA');
+  const logo=(h.useLogo && state.brand.logoDataUrl) ? `<img src="${state.brand.logoDataUrl}" alt="Логотип" style="max-height:70px;max-width:160px;object-fit:contain">` : '';
+  const brandBlock=`<div style="display:flex;align-items:center;gap:14px">${logo}<div><div style="font-family:${font};font-size:${num(h.nameFontSize)||30}px;font-weight:${num(h.nameWeight)||800};letter-spacing:${Number(h.nameLetterSpacing)||0}px;line-height:${Number(h.nameLineHeight)||1.05};color:${cleanCss(h.nameColor,'#0f172a')}">${esc(nameText)}</div><div style="font-family:${font};font-size:${num(h.taglineFontSize)||13}px;letter-spacing:${Number(h.taglineLetterSpacing)||0}px;line-height:${Number(h.taglineLineHeight)||1.25};color:${cleanCss(h.taglineColor,'#475569')};margin-top:6px">${esc(state.brand.tagline||'')}</div></div></div>`;
+  const contactStyle=`font-family:${font};font-size:${num(h.contactFontSize)||13}px;letter-spacing:${Number(h.contactLetterSpacing)||0}px;color:${cleanCss(h.contactColor,'#0f172a')}`;
+  const headerStyle=`display:flex;justify-content:space-between;gap:24px;border-bottom:${num(h.borderWidth)}px solid ${cleanCss(h.borderColor,'#0f172a')};padding-bottom:${num(h.paddingBottom)||16}px;margin-bottom:${num(h.marginBottom)||22}px`;
   const blocks = {
     client: `<table style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:14px">
       <tr><td style="padding:6px 0;font-weight:700">Клиент</td><td style="padding:6px 0">${esc(state.form.clientName||'—')}</td></tr>
@@ -345,9 +386,9 @@ function buildPrintHtml(){
   const content = state.pdfSettings.order.filter(k=>state.pdfSettings.visible[k]).map(k=>blocks[k]||'').join('');
   return `
   <div style="padding:32px;font-family:Arial,sans-serif;color:#0f172a">
-    <div style="display:flex;justify-content:space-between;gap:24px;border-bottom:2px solid #0f172a;padding-bottom:16px;margin-bottom:22px">
+    <div style="${headerStyle}">
       <div>${brandBlock}</div>
-      <div style="text-align:right"><div>${esc(state.brand.phone)}</div><div style="margin-top:6px;color:#475569">${esc(state.brand.site)}</div></div>
+      <div style="text-align:right;${contactStyle}"><div>${esc(state.brand.phone)}</div><div style="margin-top:6px;color:${cleanCss(h.contactColor,'#0f172a')}">${esc(state.brand.site)}</div></div>
     </div>
     <div style="font-size:24px;font-weight:800;margin-bottom:18px">Смета на уборку</div>
     ${content}
