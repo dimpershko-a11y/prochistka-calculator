@@ -1,6 +1,7 @@
 const STORAGE_KEY = 'prochistka_calc_app_v4';
 const APP_CONFIG = window.PROCHISTKA_CONFIG || {};
-const APP_VERSION = APP_CONFIG.APP_VERSION || 'v4.3.1-pdf-clean';
+const CORE = window.PROCHISTKA_CORE;
+const APP_VERSION = APP_CONFIG.APP_VERSION || 'v4.4-reliability';
 const defaults = APP_CONFIG.defaults || {};
 defaults.brand = defaults.brand || {name:'PRO-CHISTKA', phone:'', tagline:'Клининговые услуги', site:'', logoDataUrl:''};
 defaults.pdfHeader = defaults.pdfHeader || {useLogo:false,fontFamily:'Arial, sans-serif',nameFontSize:30,taglineFontSize:13,contactFontSize:13,nameWeight:800,nameLetterSpacing:1.2,taglineLetterSpacing:0.2,contactLetterSpacing:0.2,nameLineHeight:1.05,taglineLineHeight:1.25,uppercaseName:true,nameColor:'#0f172a',taglineColor:'#475569',contactColor:'#0f172a',borderColor:'#0f172a',borderWidth:2,paddingBottom:16,marginBottom:22};
@@ -10,7 +11,6 @@ defaults.dirtiness = defaults.dirtiness || {};
 defaults.includedByType = defaults.includedByType || {};
 defaults.serviceDescriptions = defaults.serviceDescriptions || {windows:''};
 defaults.pdfSettings = defaults.pdfSettings || {order:['client','included','extras','pricing','main_info','useful_info','notes'], visible:{client:true,included:true,extras:true,pricing:true,main_info:true,useful_info:true,notes:true}};
-defaults.paymentMethods = defaults.paymentMethods || [];
 defaults.mainInfo = defaults.mainInfo || {equipmentText:'', chemistryText:'', usefulInfo:'Всё необходимое для клининга — техника и моющие средства — привозим самостоятельно.\nРаботаем по договору.\nПриём оплаты: наличные, перевод, QR-код СБП, ссылка СБП, карта VISA/MasterCard/МИР, Долями от Т-Банка, безналичный расчёт для юридических лиц.'};
 defaults.extras = defaults.extras || [];
 defaults.form = defaults.form || {clientName:'',objectType:'Квартира',area:0,cleanType:'general',discount:0,clutter:'low',dirtiness:'low',travelType:'kad',travelKm:20,workers:0,payMode:'fixed',workerPay:0,profitPercent:0,notes:'',showOnlySelected:false};
@@ -29,7 +29,6 @@ function mergeState(parsed){
     includedByType:{...d.includedByType,...(parsed.includedByType||{})},
     serviceDescriptions:{...d.serviceDescriptions,...(parsed.serviceDescriptions||{})},
     pdfSettings:{order:Array.isArray(parsed.pdfSettings?.order)?parsed.pdfSettings.order:d.pdfSettings.order, visible:{...d.pdfSettings.visible,...(parsed.pdfSettings?.visible||{})}},
-    paymentMethods:Array.isArray(parsed.paymentMethods)?parsed.paymentMethods:d.paymentMethods,
     mainInfo:{...d.mainInfo,...(parsed.mainInfo||{})},
     form:{...d.form,...(parsed.form||{})},
     savedOrders:Array.isArray(parsed.savedOrders)?parsed.savedOrders:[],
@@ -54,8 +53,7 @@ function migrateV43(){
   delete state.pdfSettings.visible.payment_methods;
   state.mainInfo = state.mainInfo || {};
   if(!state.mainInfo.usefulInfo){
-    const pay = Array.isArray(state.paymentMethods)&&state.paymentMethods.length ? state.paymentMethods.map(x=>`${x.title}${x.text?' — '+x.text:''}`).join('\n') : '';
-    state.mainInfo.usefulInfo = (defaults.mainInfo&&defaults.mainInfo.usefulInfo) || pay || '';
+    state.mainInfo.usefulInfo = (defaults.mainInfo&&defaults.mainInfo.usefulInfo) || '';
   }
   state.ui = state.ui || {};
   if(state.ui.lastMigration !== 'v4.3.1-pdf-clean'){
@@ -97,7 +95,7 @@ function readJsonFile(file, cb){
 function exportOrders(){ downloadJson({type:'prochistka_orders', version:APP_VERSION, exportedAt:new Date().toISOString(), savedOrders:state.savedOrders||[]}, `prochistka-orders-${Date.now()}.json`); }
 function importOrdersFile(file){ readJsonFile(file, data=>{ const incoming = Array.isArray(data.savedOrders)?data.savedOrders:(Array.isArray(data)?data:[]); if(!incoming.length){ toast('В файле нет заказов'); return; } const map=new Map((state.savedOrders||[]).map(o=>[String(o.id),o])); incoming.forEach(o=>map.set(String(o.id||Date.now()+Math.random()), o)); state.savedOrders=Array.from(map.values()).slice(0,50); saveState(); renderSavedOrders(); toast('Заказы импортированы'); }); }
 function exportBackup(){ downloadJson({type:'prochistka_full_backup', version:APP_VERSION, exportedAt:new Date().toISOString(), state}, `prochistka-backup-${Date.now()}.json`); }
-function importBackupFile(file){ readJsonFile(file, data=>{ const incoming=data.state||data; if(!incoming || typeof incoming!=='object'){ toast('В файле нет резервной копии'); return; } state=mergeState(incoming); saveState(); fillForm(); renderTariffs(); renderExtras(); renderSettingsPanel(); recalc(); toast('Резервная копия восстановлена'); }); }
+function importBackupFile(file){ readJsonFile(file, data=>{ const result=CORE.validateBackup(data, defaults); if(!result.ok){ toast(result.error); return; } state=mergeState(result.state); migrateV43(); fillForm(); renderTariffs(); renderExtras(); renderSettingsPanel(); recalc(); toast('Резервная копия восстановлена'); }); }
 function isEditUnlocked(){
   const pass = APP_CONFIG.APP_PASSWORD || APP_CONFIG.appPassword || '';
   return !pass || sessionStorage.getItem('prochistka_edit_ok') === '1';
@@ -105,6 +103,17 @@ function isEditUnlocked(){
 function setEditUnlocked(){
   sessionStorage.setItem('prochistka_edit_ok','1');
   document.body.classList.add('edit-unlocked');
+}
+function lockEditing(){
+  sessionStorage.removeItem('prochistka_edit_ok');
+  document.body.classList.remove('edit-unlocked');
+  state.ui.showTariffs=false;
+  state.ui.showSettings=false;
+  $('tariffsCard').classList.add('hidden');
+  $('settingsCard').classList.add('hidden');
+  renderExtras();
+  saveState();
+  toast('Режим изменений закрыт');
 }
 function requestEditAccess(afterUnlock){
   if(isEditUnlocked()){
@@ -152,6 +161,15 @@ function saveSettingsNow(){
 }
 
 function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.remove('hidden'); clearTimeout(window._tt); window._tt=setTimeout(()=>t.classList.add('hidden'),2500); }
+function validateCurrentOrder(){
+  document.querySelectorAll('.field-error').forEach(el=>el.classList.remove('field-error'));
+  const errors=CORE.validateOrder(state);
+  if(num(state.form.area)<=0) $('area')?.classList.add('field-error');
+  if(num(state.form.workers)<=0) $('workers')?.classList.add('field-error');
+  if(num(state.form.workerPay)<=0) $('workerPay')?.classList.add('field-error');
+  if(errors.length) toast(errors[0]);
+  return errors;
+}
 function esc(s){ return String(s??'').replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m])); }
 function fillSelect(selectId, obj, selected){ const el=$(selectId); el.innerHTML=''; Object.entries(obj).forEach(([k,v])=>{ const o=document.createElement('option'); o.value=k; o.textContent=v.label; if(k===selected)o.selected=true; el.appendChild(o); }); }
 
@@ -177,32 +195,6 @@ function renderPdfBlocks(){
   wrap.querySelectorAll('[data-pdf-visible]').forEach(el=>el.onchange=e=>{ state.pdfSettings.visible[e.target.dataset.pdfVisible]=e.target.checked; saveState(); });
   wrap.querySelectorAll('[data-pdf-up]').forEach(el=>el.onclick=()=>{ const i=state.pdfSettings.order.indexOf(el.dataset.pdfUp); state.pdfSettings.order=moveItem(state.pdfSettings.order,i,i-1); saveState(); renderPdfBlocks(); });
   wrap.querySelectorAll('[data-pdf-down]').forEach(el=>el.onclick=()=>{ const i=state.pdfSettings.order.indexOf(el.dataset.pdfDown); state.pdfSettings.order=moveItem(state.pdfSettings.order,i,i+1); saveState(); renderPdfBlocks(); });
-}
-function renderPayments(){
-  const wrap = $('paymentsWrap'); if(!wrap) return;
-  wrap.innerHTML = '';
-  state.paymentMethods.forEach(item=>{
-    const div = document.createElement('div'); div.className = 'extra-card';
-    div.innerHTML = `<div class="grid g3">
-      <div><label>Название</label><input data-pay-id="${item.id}" data-field="title" value="${esc(item.title)}"></div>
-      <div><label>Описание</label><input data-pay-id="${item.id}" data-field="text" value="${esc(item.text)}"></div>
-      <div><label>Картинка</label><input type="file" data-pay-upload="${item.id}" accept="image/png,image/jpeg,image/webp,image/svg+xml"></div>
-    </div>
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:10px">
-      <div>${item.imageDataUrl ? `<img src="${item.imageDataUrl}" style="max-height:40px;max-width:80px;object-fit:contain;border:1px solid var(--line);padding:4px;border-radius:8px;background:#fff">` : '<div class="muted" style="font-size:12px">Без картинки</div>'}</div>
-      <div class="btns">
-        <button type="button" data-pay-up="${item.id}">↑</button>
-        <button type="button" data-pay-down="${item.id}">↓</button>
-        <button type="button" data-pay-remove="${item.id}" class="danger">Удалить</button>
-      </div>
-    </div>`;
-    wrap.appendChild(div);
-  });
-  wrap.querySelectorAll('[data-pay-id]').forEach(el=>el.oninput=e=>{ const item=state.paymentMethods.find(x=>x.id===Number(e.target.dataset.payId)); if(!item) return; item[e.target.dataset.field]=e.target.value; saveState(); });
-  wrap.querySelectorAll('[data-pay-upload]').forEach(el=>el.onchange=e=>{ const file=e.target.files?.[0]; if(!file) return; const item=state.paymentMethods.find(x=>x.id===Number(e.target.dataset.payUpload)); const reader=new FileReader(); reader.onload=()=>{ item.imageDataUrl=String(reader.result||''); saveState(); renderPayments(); }; reader.readAsDataURL(file); });
-  wrap.querySelectorAll('[data-pay-remove]').forEach(el=>el.onclick=()=>{ state.paymentMethods=state.paymentMethods.filter(x=>x.id!==Number(el.dataset.payRemove)); saveState(); renderPayments(); });
-  wrap.querySelectorAll('[data-pay-up]').forEach(el=>el.onclick=()=>{ const i=state.paymentMethods.findIndex(x=>x.id===Number(el.dataset.payUp)); state.paymentMethods=moveItem(state.paymentMethods,i,i-1); saveState(); renderPayments(); });
-  wrap.querySelectorAll('[data-pay-down]').forEach(el=>el.onclick=()=>{ const i=state.paymentMethods.findIndex(x=>x.id===Number(el.dataset.payDown)); state.paymentMethods=moveItem(state.paymentMethods,i,i+1); saveState(); renderPayments(); });
 }
 function renderExtrasEditor(){
   const wrap = $('extrasEditorWrap'); if(!wrap) return;
@@ -237,7 +229,6 @@ function renderSettingsPanel(){
   if($('windowServicesDescription')) $('windowServicesDescription').value=state.serviceDescriptions?.windows||'';
   renderBrandLogoPreview();
   renderPdfBlocks();
-  renderPayments();
   renderExtrasEditor();
 }
 function renderTariffs(){
@@ -307,39 +298,7 @@ function renderExtras(){ const wrap=$('extrasWrap'); wrap.innerHTML=''; const gr
   document.querySelectorAll('.service-name-field').forEach(el=>{ el.style.height='auto'; el.style.height=(el.scrollHeight+2)+'px'; });
 }
 function calc(){
-  const f=state.form, rate=state.baseRates[f.cleanType], clutter=state.clutter[f.clutter], dirt=state.dirtiness[f.dirtiness];
-  const area=num(f.area), workers=num(f.workers), workerPay=num(f.workerPay), profitPercent=num(f.profitPercent), discount=Math.min(100,num(f.discount));
-  const clutterPriceK=Number(clutter.priceK)||1, dirtPriceK=Number(dirt.priceK)||1;
-  const clutterTimeK=Number(clutter.timeK)||1, dirtTimeK=Number(dirt.timeK)||1;
-  const priceK=clutterPriceK*dirtPriceK;
-  const timeK=clutterTimeK*dirtTimeK;
-  const baseNoK=area*(rate.rate||0);
-  const baseAfterClutter=baseNoK*clutterPriceK;
-  const baseWithK=baseAfterClutter*dirtPriceK;
-  const minBase=rate.min||0;
-  const minBaseApplied=baseWithK < minBase;
-  const baseRaw=Math.max(baseWithK, minBase);
-  const extrasTotal=state.extras.reduce((s,x)=>s+num(x.qty)*num(x.price),0);
-  const travelTotal=f.travelType==='km20plus'?(1500+num(f.travelKm)*15):(f.travelType==='km15'?1500:0);
-  const subtotal=baseRaw+extrasTotal+travelTotal;
-  const discountValue=subtotal*(discount/100);
-  const marketPrice=Math.max(0, subtotal-discountValue);
-  const baseHours=(rate.speed>0)?area/rate.speed:0;
-  const extrasHours=state.extras.reduce((s,x)=>s+num(x.qty)*num(x.time),0);
-  const normHours=(baseHours+extrasHours)*timeK;
-  const brigadeHours=workers>0?normHours/workers:normHours;
-  const payroll=(f.payMode==='hourly') ? workers*workerPay*brigadeHours : workers*workerPay;
-  const targetProfitValue=payroll*(profitPercent/100);
-  const costBasedPrice=payroll+travelTotal+extrasTotal+targetProfitValue;
-  const directCostFloor=payroll+travelTotal+extrasTotal;
-  const priceBeforeDiscount=Math.max(subtotal, costBasedPrice);
-  const recommendedPrice=Math.max(priceBeforeDiscount-discountValue, directCostFloor);
-  const selectedExtras=state.extras.filter(x=>num(x.qty)>0);
-  const economyGap=Math.max(0, costBasedPrice-marketPrice);
-  const economyTopup=Math.max(0, recommendedPrice-marketPrice);
-  const maxAllowedDiscount = subtotal>0 ? Math.max(0, Math.min(100, (1 - costBasedPrice/subtotal)*100)) : 0;
-  const breakEvenNoProfit = payroll+travelTotal+extrasTotal;
-  return {rate,clutter,dirt,clutterPriceK,dirtPriceK,clutterTimeK,dirtTimeK,priceK,timeK,baseNoK,baseAfterClutter,baseWithK,minBase,minBaseApplied,baseRaw,extrasTotal,travelTotal,subtotal,discountValue,marketPrice,payroll,targetProfitValue,costBasedPrice,directCostFloor,breakEvenNoProfit,priceBeforeDiscount,recommendedPrice,economyGap,economyTopup,maxAllowedDiscount,baseHours,extrasHours,normHours,brigadeHours,selectedExtras};
+  return CORE.calculateOrder(state);
 }
 function renderIncludedPreview(){ const lines=getIncludedLines(); $('includedPreview').innerHTML=lines.length?lines.map(x=>`<div>• ${esc(x)}</div>`).join(''):'<div class="muted">Пока не заполнено.</div>'; }
 function renderBrandLogoPreview(){ const wrap=$('brandLogoPreview'); if(!wrap) return; const useLogo=!!(state.pdfHeader&&state.pdfHeader.useLogo); if(!useLogo){ wrap.innerHTML='Текстовая шапка активна. Логотип-картинка в PDF не используется.'; return; } if(state.brand.logoDataUrl){ wrap.innerHTML=`<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><img src="${state.brand.logoDataUrl}" alt="Логотип" style="max-height:70px;max-width:220px;object-fit:contain;border:1px solid #dbe3ef;border-radius:10px;background:#fff;padding:6px"><span class="muted">Логотип будет показан в печатной смете.</span></div>`; } else { wrap.innerHTML='Логотип пока не выбран.'; } }
@@ -396,7 +355,7 @@ function recalc(){
   if($('sumAfterClutter')) $('sumAfterClutter').textContent=money(r.baseAfterClutter);
   if($('sumDirtK')) $('sumDirtK').textContent='× '+r.dirtPriceK.toFixed(2);
   if($('sumBaseMin')) $('sumBaseMin').textContent=money(r.minBase)+(r.minBaseApplied?' применена':'');
-  $('sumBase').textContent=money(r.baseRaw); $('sumExtras').textContent=money(r.extrasTotal); $('sumTravel').textContent=money(r.travelTotal); $('sumDiscount').textContent='− '+money(r.discountValue); $('sumMarket').textContent=money(r.marketPrice); $('sumPayroll').textContent=money(r.payroll); $('sumProfit').textContent=money(r.targetProfitValue); $('sumCost').textContent=money(r.costBasedPrice); if($('sumEconomyTopup')) $('sumEconomyTopup').textContent=money(r.economyTopup); $('timeBase').textContent=hours(r.baseHours); $('timeExtras').textContent=hours(r.extrasHours); $('timeNorm').textContent=hours(r.normHours); $('timeBrigade').textContent=hours(r.brigadeHours); $('brigadeLabel').textContent=`Примерное время уборки бригады (${num(state.form.workers)} чел.)`;
+  $('sumBase').textContent=money(r.baseRaw); $('sumExtras').textContent=money(r.extrasTotal); $('sumTravel').textContent=money(r.travelTotal); $('sumDiscount').textContent='− '+money(r.discountValue); $('sumMarket').textContent=money(r.marketPrice); $('sumPayroll').textContent=money(r.payroll); $('sumProfit').textContent=money(r.targetProfitValue); $('sumCost').textContent=money(r.costBasedPrice); $('timeBase').textContent=hours(r.baseHours); $('timeExtras').textContent=hours(r.extrasHours); $('timeNorm').textContent=hours(r.normHours); $('timeBrigade').textContent=hours(r.brigadeHours); $('brigadeLabel').textContent=`Примерное время уборки бригады (${num(state.form.workers)} чел.)`;
   $('cardClient').textContent=state.form.clientName||'—'; $('cardObject').textContent=state.form.objectType||'—'; $('cardArea').textContent=`${num(state.form.area)} м²`; $('cardCleanType').textContent=r.rate.label; $('cardClutter').textContent=r.clutter.label; $('cardDirt').textContent=r.dirt.label;
   $('travelKmBox').classList.toggle('hidden', state.form.travelType!=='km20plus');
   $('workerPayLabel').textContent=state.form.payMode==='hourly' ? 'Почасовая ставка 1 сотрудника, ₽/час' : 'ЗП 1 сотрудника, ₽';
@@ -408,7 +367,7 @@ function estimateText(){
   const warn = r.economyGap>0 ? `\nВнимание: цена объекта ниже экономики на ${money(r.economyGap)}. Рекомендованная цена поднята до ${money(r.recommendedPrice)}.` : '';
   return `Смета на уборку\n\nКлиент: ${state.form.clientName||'—'}\nОбъект: ${state.form.objectType}\nПлощадь: ${num(state.form.area)} м²\nТип уборки: ${r.rate.label}\nЗаставленность: ${r.clutter.label} × ${r.clutterPriceK.toFixed(2)}\nЗагрязнённость: ${r.dirt.label} × ${r.dirtPriceK.toFixed(2)}\n\nВ услуги входят:\n${included}\n\nДоп. услуги:\n${extras}\n\nБаза до коэффициентов: ${money(r.baseNoK)}\nПосле коэффициента заставленности: ${money(r.baseAfterClutter)}\nБаза с коэффициентами: ${money(r.baseWithK)}\nСтоимость по уборке: ${money(r.baseRaw)}\nДоп. услуги: ${money(r.extrasTotal)}\nВыезд: ${money(r.travelTotal)}\nСкидка: ${money(r.discountValue)}\nЦена по рынку после скидки: ${money(r.marketPrice)}\nЦена по экономике: ${money(r.costBasedPrice)}\n\nИтого для клиента: ${money(r.recommendedPrice)}${warn}\nПримерное время уборки бригады: ${hours(r.brigadeHours)}\nСумма нормо-часов: ${hours(r.normHours)}\nКоличество сотрудников: ${num(state.form.workers)} чел.\nФОТ: ${money(r.payroll)}\n\nДополнительная информация:\n${state.mainInfo.usefulInfo||'—'}\n\nЗаметки: ${state.form.notes||'—'}`;
 }
-async function copyEstimate(){ const text=estimateText(); try{ await navigator.clipboard.writeText(text); toast('Смета скопирована'); }catch(e){ $('shareText').value=text; $('shareModal').classList.remove('hidden'); toast('Открыл смету для ручного копирования'); } }
+async function copyEstimate(){ if(validateCurrentOrder().length) return; const text=estimateText(); try{ await navigator.clipboard.writeText(text); toast('Смета скопирована'); }catch(e){ $('shareText').value=text; $('shareModal').classList.remove('hidden'); toast('Открыл смету для ручного копирования'); } }
 function buildPrintHtml(){
   const r=calc();
   const included=getIncludedLines();
@@ -461,31 +420,10 @@ function buildPrintHtml(){
     <div style="font-size:24px;font-weight:800;margin-bottom:18px">Смета на уборку</div>
     ${content}
   </div>`; }
-function printEstimate(){ $('printArea').innerHTML=buildPrintHtml(); window.print(); }
+function printEstimate(){ if(validateCurrentOrder().length) return; $('printArea').innerHTML=buildPrintHtml(); window.print(); }
 function refreshPdfPreview(){ const c=$('pdfPreviewContent'); if(c) c.innerHTML=buildPrintHtml(); }
-function openPdfPreview(){ refreshPdfPreview(); const m=$('pdfPreviewModal'); if(m) m.classList.remove('hidden'); }
+function openPdfPreview(){ if(validateCurrentOrder().length) return; refreshPdfPreview(); const m=$('pdfPreviewModal'); if(m) m.classList.remove('hidden'); }
 function closePdfPreview(){ const m=$('pdfPreviewModal'); if(m) m.classList.add('hidden'); }
-function downloadCurrentHtml(){
-  try{
-    const snapshot = JSON.stringify(state).replace(/<\/script/gi,'<\\/script');
-    let html = document.documentElement.outerHTML;
-    html = html.replace(/<script>window\.__EXPORTED_STATE__ = window\.__EXPORTED_STATE__ \|\| null;<\/script>/, `<script>window.__EXPORTED_STATE__ = ${snapshot};<\/script>`);
-    const blob = new Blob([html], {type:'text/html;charset=utf-8'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    const safeName = (state.brand?.name || 'calculator').toLowerCase().replace(/[^a-zа-я0-9]+/gi,'-').replace(/^-+|-+$/g,'') || 'calculator';
-    a.href = url;
-    a.download = `${safeName}-calculator.html`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url), 1000);
-    toast('HTML с текущими изменениями скачан');
-  }catch(e){
-    console.error(e);
-    toast('Не удалось скачать HTML');
-  }
-}
 function bind(){
   $('tariffsBtn').onclick=()=>requestEditAccess(()=>{ state.ui.showTariffs=!state.ui.showTariffs; $('tariffsCard').classList.toggle('hidden', !state.ui.showTariffs); if(state.ui.showTariffs) renderTariffs(); saveState(); });
   $('settingsBtn').onclick=()=>requestEditAccess(()=>{ state.ui.showSettings=!state.ui.showSettings; $('settingsCard').classList.toggle('hidden', !state.ui.showSettings); if(state.ui.showSettings) renderSettingsPanel(); saveState(); });
@@ -499,24 +437,21 @@ function bind(){
   if($('importBackupFile')) $('importBackupFile').onchange=e=>importBackupFile(e.target.files?.[0]);
   $('closeShareBtn').onclick=()=>$('shareModal').classList.add('hidden');
   if($('moreMenuBtn')) $('moreMenuBtn').onclick=()=>$('moreMenuPanel')&&$('moreMenuPanel').classList.toggle('hidden');
+  if($('lockEditBtn')) $('lockEditBtn').onclick=lockEditing;
   document.addEventListener('click', e=>{ const panel=$('moreMenuPanel'), btn=$('moreMenuBtn'); if(panel && btn && !panel.classList.contains('hidden') && !panel.contains(e.target) && e.target!==btn){ panel.classList.add('hidden'); } });
   if($('previewPdfBtn')) $('previewPdfBtn').onclick=openPdfPreview;
   if($('closePdfPreviewBtn')) $('closePdfPreviewBtn').onclick=closePdfPreview;
   if($('refreshPdfPreviewBtn')) $('refreshPdfPreviewBtn').onclick=refreshPdfPreview;
-  $('copyEstimateBtn').onclick=copyEstimate; $('printPdfBtn').onclick=printEstimate; if($('downloadHtmlBtn')) $('downloadHtmlBtn').onclick=downloadCurrentHtml;
-  ['brandName','brandPhone','brandTagline','brandSite'].forEach(id=>$(id).oninput=e=>{ const map={brandName:'name',brandPhone:'phone',brandTagline:'tagline',brandSite:'site'}; state.brand[map[id]]=e.target.value; saveState(); });
-  $('brandLogo').onchange=e=>{ const file=e.target.files?.[0]; if(!file) return; const reader=new FileReader(); reader.onload=()=>{ state.brand.logoDataUrl=String(reader.result||''); saveState(); renderBrandLogoPreview(); }; reader.readAsDataURL(file); };
-  $('removeLogoBtn').onclick=()=>{ state.brand.logoDataUrl=''; saveState(); renderBrandLogoPreview(); };
+  $('copyEstimateBtn').onclick=copyEstimate; $('printPdfBtn').onclick=printEstimate;
   $('equipmentText').oninput=e=>{ state.mainInfo.equipmentText=e.target.value; saveState(); };
   $('chemistryText').oninput=e=>{ state.mainInfo.chemistryText=e.target.value; saveState(); };
   if($('usefulInfoText')) $('usefulInfoText').oninput=e=>{ state.mainInfo.usefulInfo=e.target.value; saveState(); };
   if($('windowServicesDescription')) $('windowServicesDescription').oninput=e=>{ state.serviceDescriptions.windows=e.target.value; saveState(); renderIncludedPreview(); };
-  if($('addPaymentBtn')) $('addPaymentBtn').onclick=()=>{ const title=$('newPaymentTitle').value.trim(); const textVal=$('newPaymentText').value.trim(); if(!title){ toast('Введи название способа оплаты'); return; } state.paymentMethods.push({id:Date.now(), title, text:textVal, imageDataUrl:''}); $('newPaymentTitle').value=''; $('newPaymentText').value=''; saveState(); renderPayments(); };
   $('saveIncludedBtn').onclick=()=>{ state.includedByType[state.form.cleanType]=$('includedServices').value; saveState(); renderIncludedPreview(); toast('Шаблон сохранён'); };
   $('includedServices').oninput=(e)=>{ state.includedByType[state.form.cleanType]=e.target.value; saveState(); renderIncludedPreview(); };
-  $('saveOrderBtn').onclick=()=>{ const r=calc(); state.savedOrders.unshift({id:Date.now(), clientName:state.form.clientName||'Без имени', objectType:state.form.objectType, area:num(state.form.area), cleanType:r.rate.label, recommendedPrice:r.recommendedPrice, brigadeHours:r.brigadeHours, normHours:r.normHours, createdAt:new Date().toLocaleString('ru-RU')}); state.savedOrders=state.savedOrders.slice(0,10); saveState(); renderSavedOrders(); toast('Заказ сохранён'); };
+  $('saveOrderBtn').onclick=()=>{ if(validateCurrentOrder().length) return; const r=calc(); state.savedOrders.unshift({id:Date.now(), version:APP_VERSION, clientName:state.form.clientName||'Без имени', objectType:state.form.objectType, area:num(state.form.area), cleanType:r.rate.label, recommendedPrice:r.recommendedPrice, brigadeHours:r.brigadeHours, normHours:r.normHours, form:clone(state.form), extras:clone(r.selectedExtras), calculation:{recommendedPrice:r.recommendedPrice,marketPrice:r.marketPrice,payroll:r.payroll,normHours:r.normHours,brigadeHours:r.brigadeHours}, createdAt:new Date().toLocaleString('ru-RU')}); state.savedOrders=state.savedOrders.slice(0,50); saveState(); renderSavedOrders(); toast('Заказ сохранён'); };
   $('clearBtn').onclick=()=>{ state.form=clone(defaults.form); state.extras=state.extras.map(x=>({...x, qty:0})); fillForm(); renderExtras(); recalc(); toast('Форма очищена'); };
-  $('resetStorageBtn').onclick=()=>requestEditAccess(()=>{ if(!confirm('Сбросить все сохранённые данные в этом браузере?')) return; localStorage.removeItem(STORAGE_KEY); state=clone(defaults); fillForm(); renderTariffs(); renderExtras(); recalc(); toast('Все данные сброшены'); });
+  $('resetStorageBtn').onclick=()=>requestEditAccess(()=>{ if(!confirm('Сбросить все сохранённые данные в этом браузере?')) return; localStorage.removeItem(STORAGE_KEY); state=mergeState(clone(defaults)); migrateV43(); fillForm(); renderTariffs(); renderExtras(); recalc(); toast('Все данные сброшены'); });
   $('demoBtn').onclick=()=>{ state.form={...state.form, clientName:'Ирина', objectType:'Квартира', area:68, cleanType:'general', discount:5, clutter:'medium', dirtiness:'medium', travelType:'km15', travelKm:20, workers:2, workerPay:4000, profitPercent:35, notes:'Есть кот. Уборка нужна в пятницу после 11:00.'}; state.extras=state.extras.map(x=>({...x, qty:({1:1,9:1,14:4,18:1}[x.id]||0)})); fillForm(); renderExtras(); recalc(); toast('Подставлен пример'); };
   $('showOnlySelected').onchange=e=>{ state.form.showOnlySelected=e.target.checked; saveState(); renderExtras(); };
   ['clientName','objectType','area','discount','travelKm','workers','workerPay','profitPercent','notes'].forEach(id=>$(id).oninput=e=>{ state.form[id]=['area','discount','travelKm','workers','workerPay','profitPercent'].includes(id)?num(e.target.value):e.target.value; recalc(); });
