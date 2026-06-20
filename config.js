@@ -1,6 +1,7 @@
 window.PROCHISTKA_CONFIG = {
-  "APP_VERSION": "v4.4-reliability",
+  "APP_VERSION": "v4.5-data-discount",
   "APP_PASSWORD": "7421",
+  "CONFIG_REVISION": 1,
   "WINDOW_CATEGORIES": [
     "Окна"
   ],
@@ -66,6 +67,11 @@ window.PROCHISTKA_CONFIG = {
         "priceK": 1.8,
         "timeK": 1.4
       }
+    },
+    "travel": {
+      "kad": { "label": "В пределах КАД", "base": 0, "perKm": 0 },
+      "km15": { "label": "До 15 км от КАД", "base": 1500, "perKm": 0 },
+      "km20plus": { "label": "20+ км", "base": 1500, "perKm": 15 }
     },
     "includedByType": {
       "maintenance": "Влажная уборка всех доступных поверхностей.\nСухая и влажная уборка пола.\nМытьё санузла и сантехники.\nПротирка кухни и техники снаружи.\nВынос мусора.\nНе удаляются сложные загрязнения.\nНе используются агрессивные моющие средства.\nУборка на высоте до 2 метров.\nНе используем спец.технику (пароочистители, стремянки, сгоны, роторные машины, озонаторы, экстракторы и тд.).\nПылесос предоставляет заказчик, если пылесоса нет, можем предоставить в аренду за 1000₽/уборка.\n\nДополнительные задачи. Могут включать: уход за растениями, мойка лотка животного, мойка посуды и тд.\n",
@@ -415,6 +421,8 @@ window.PROCHISTKA_CONFIG = {
       "area": 0,
       "cleanType": "postreno",
       "discount": 0,
+      "discountMode": "percent",
+      "discountAmount": 0,
       "clutter": "low",
       "dirtiness": "low",
       "travelType": "kad",

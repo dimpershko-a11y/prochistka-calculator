@@ -1,39 +1,39 @@
 
     :root{
-      --bg:#f3f6fb; --card:#fff; --line:#d8e1ed; --text:#0f172a; --muted:#64748b;
+      --bg:#f3f6fb; --card:#fff; --line:#d8e1ed; --text:#0f172a; --muted:#475569;
       --accent:#0f172a; --accent2:#2563eb; --soft:#eef3f9; --danger:#b91c1c;
       --focus:rgba(37,99,235,.18); --shadow:0 12px 32px rgba(15,23,42,.07);
     }
     *{box-sizing:border-box}
-    html,body{margin:0;padding:0;font-family:Inter,Arial,sans-serif;background:var(--bg);color:var(--text)}
-    body{padding:20px;min-height:100vh;background:linear-gradient(180deg,#eef3f9 0,#f8fafc 420px)}
+    html,body{margin:0;padding:0;font-family:'Inter','Segoe UI',-apple-system,BlinkMacSystemFont,'Roboto','Helvetica Neue',Arial,sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+    body{padding:20px;min-height:100vh;font-size:15px;line-height:1.5;background:linear-gradient(180deg,#eef3f9 0,#f8fafc 420px)}
     .wrap{max-width:1440px;margin:0 auto;display:grid;gap:24px}
     @media(min-width:1100px){.wrap{grid-template-columns:1.15fr .85fr}}
     .card{background:rgba(255,255,255,.96);border:1px solid var(--line);border-radius:22px;padding:20px;box-shadow:var(--shadow)}
-    .title{font-size:clamp(25px,3vw,34px);line-height:1.12;font-weight:900;letter-spacing:-.035em;margin:0 0 7px}
+    .title{font-size:clamp(25px,3vw,34px);line-height:1.14;font-weight:800;letter-spacing:-.025em;margin:0 0 7px}
     .muted{color:var(--muted)}
     .grid{display:grid;gap:14px}
     .g2{grid-template-columns:1fr}
     @media(min-width:760px){.g2{grid-template-columns:1fr 1fr}}
     .g3{grid-template-columns:1fr}
     @media(min-width:920px){.g3{grid-template-columns:1fr 1fr 1fr}}
-    label{display:block;font-size:13px;font-weight:700;margin:0 0 6px}
+    label{display:block;font-size:13.5px;font-weight:650;margin:0 0 6px;color:#334155}
     input,select,textarea{width:100%;min-height:46px;border:1px solid var(--line);border-radius:13px;padding:11px 12px;font-size:16px;background:#fff;color:var(--text);transition:border-color .18s,box-shadow .18s,background .18s}
     input:hover,select:hover,textarea:hover{border-color:#b8c6d8}
     input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent2);box-shadow:0 0 0 4px var(--focus)}
     .field-error{border-color:#dc2626!important;box-shadow:0 0 0 4px rgba(220,38,38,.12)!important}
     textarea{min-height:110px;resize:vertical}
     .btns{display:flex;flex-wrap:wrap;gap:8px}
-    button{min-height:44px;border:1px solid var(--line);background:#fff;border-radius:13px;padding:11px 15px;font-size:14px;font-weight:750;color:var(--text);cursor:pointer;transition:transform .12s,box-shadow .18s,border-color .18s}
+    button{min-height:44px;border:1px solid var(--line);background:#fff;border-radius:13px;padding:11px 15px;font-size:14px;font-weight:600;color:var(--text);cursor:pointer;transition:transform .12s,box-shadow .18s,border-color .18s}
     button:hover{border-color:#aebdd0;box-shadow:0 5px 14px rgba(15,23,42,.08)}
     button:active{transform:translateY(1px)}
     button:focus-visible{outline:none;box-shadow:0 0 0 4px var(--focus)}
     button.primary{background:linear-gradient(135deg,#0f172a,#1e293b);color:#fff;border-color:#0f172a}
     button.soft{background:var(--soft)}
     button.danger{background:#fff1f2;color:var(--danger);border-color:#fecdd3}
-    .section-title{font-size:19px;font-weight:900;letter-spacing:-.015em;margin:0 0 12px}
+    .section-title{font-size:19px;font-weight:750;letter-spacing:-.01em;margin:0 0 12px}
     .summary-box{background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);color:#fff;border-radius:20px;padding:20px;box-shadow:0 14px 30px rgba(15,23,42,.18)}
-    .summary-big{font-size:clamp(34px,5vw,46px);line-height:1;font-weight:900;letter-spacing:-.04em;margin:10px 0}
+    .summary-big{font-size:clamp(34px,5vw,46px);line-height:1.02;font-weight:800;letter-spacing:-.03em;margin:10px 0}
     .rows{display:grid;gap:10px}
     .row{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;font-size:14px;padding:2px 0}
     .row>:last-child{text-align:right;white-space:nowrap}
@@ -43,6 +43,12 @@
     @media(min-width:1100px){.sticky{position:sticky;top:16px}}
     .chip{display:inline-block;background:var(--soft);padding:5px 10px;border-radius:999px;font-size:12px;font-weight:700;margin-bottom:10px}
     .extra-card{border:1px solid var(--line);border-radius:18px;padding:14px;background:#fff}
+    .extra-item{display:grid;gap:10px}
+    .extra-name-row{display:flex;gap:10px;align-items:flex-start}
+    .extra-name-row .service-name-field{flex:1}
+    .extra-meta{font-size:13px;margin-top:-2px}
+    .extra-controls{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;align-items:end}
+    .extra-del-btn{flex:0 0 auto;min-height:46px;white-space:nowrap}
     .extra-grid{display:grid;gap:10px;grid-template-columns:1fr;align-items:end}
     @media(min-width:920px){.extra-grid{grid-template-columns:1.8fr .6fr .8fr .8fr auto;align-items:end}}
     .selected-item,.saved-item{background:#f8fafc;border:1px solid var(--line);border-radius:16px;padding:10px 12px}
@@ -101,4 +107,17 @@ input[type="color"]{height:45px;padding:4px}
   .pdf-preview-shell{padding:5px;border-radius:12px}
   .pdf-preview-shell #pdfPreviewContent{min-height:auto;transform-origin:top left}
   .toast{left:10px;right:10px;bottom:10px;max-width:none;text-align:center}
+}
+
+/* v4.5: скидка, резервная копия, мелкие компоненты */
+.discount-row{display:flex;gap:8px;align-items:stretch}
+.discount-row #discountMode{flex:0 0 auto;width:84px;min-width:84px}
+.discount-row input{flex:1;min-width:0}
+.inline-check{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;white-space:nowrap;margin:0;color:var(--text)}
+.inline-check input{width:auto;min-height:0}
+.backup-reminder{margin-top:12px;padding:12px 14px;border-radius:14px;background:#fff7ed;border:1px solid #fdba74;color:#9a3412;font-size:14px;line-height:1.55}
+.backup-reminder strong{color:#7c2d12}
+@media(max-width:759px){
+  .extra-controls{grid-template-columns:1fr 1fr 1fr}
+  .inline-check{justify-content:center}
 }

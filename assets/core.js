@@ -18,7 +18,7 @@
     const workers = num(form.workers);
     const workerPay = num(form.workerPay);
     const profitPercent = num(form.profitPercent);
-    const discount = Math.min(100, num(form.discount));
+    const discountPercent = Math.min(100, num(form.discount));
     const clutterPriceK = Number(clutter.priceK) || 1;
     const dirtPriceK = Number(dirt.priceK) || 1;
     const clutterTimeK = Number(clutter.timeK) || 1;
@@ -33,11 +33,22 @@
     const baseRaw = area > 0 ? Math.max(baseWithK, minBase) : 0;
     const extras = Array.isArray(state.extras) ? state.extras : [];
     const extrasTotal = extras.reduce((sum, item) => sum + num(item.qty) * num(item.price), 0);
-    const travelTotal = form.travelType === 'km20plus'
-      ? 1500 + num(form.travelKm) * 15
-      : (form.travelType === 'km15' ? 1500 : 0);
+    // Стоимость выезда берётся из настроек (state.travel), с запасным значением для старых копий.
+    const DEFAULT_TRAVEL = {
+      kad: {base: 0, perKm: 0},
+      km15: {base: 1500, perKm: 0},
+      km20plus: {base: 1500, perKm: 15}
+    };
+    const travelConf = (state.travel && state.travel[form.travelType]) || DEFAULT_TRAVEL[form.travelType] || {base: 0, perKm: 0};
+    const travelBase = num(travelConf.base);
+    const travelPerKm = num(travelConf.perKm);
+    const travelTotal = travelBase + (travelPerKm > 0 ? num(form.travelKm) * travelPerKm : 0);
+    // Скидка считается от базовой стоимости уборки и доп. услуг. Выезд НЕ дисконтируется.
+    const discountBase = baseRaw + extrasTotal;
+    const discountValue = form.discountMode === 'amount'
+      ? Math.min(num(form.discountAmount), discountBase)
+      : discountBase * (discountPercent / 100);
     const subtotal = baseRaw + extrasTotal + travelTotal;
-    const discountValue = subtotal * (discount / 100);
     const marketPrice = Math.max(0, subtotal - discountValue);
     const baseHours = num(rate.speed) > 0 ? area / num(rate.speed) : 0;
     const extrasHours = extras.reduce((sum, item) => sum + num(item.qty) * num(item.time), 0);
@@ -62,7 +73,8 @@
     return {
       rate, clutter, dirt, clutterPriceK, dirtPriceK, clutterTimeK, dirtTimeK,
       priceK, timeK, baseNoK, baseAfterClutter, baseWithK, minBase, minBaseApplied,
-      baseRaw, extrasTotal, travelTotal, subtotal, discountValue, marketPrice,
+      baseRaw, extrasTotal, travelTotal, travelBase, travelPerKm, subtotal,
+      discountValue, discountBase, discountPercent, marketPrice,
       payroll, targetProfitValue, costBasedPrice, directCostFloor, breakEvenNoProfit,
       priceBeforeDiscount, recommendedPrice, economyGap, economyTopup,
       maxAllowedDiscount, baseHours, extrasHours, normHours, brigadeHours, selectedExtras
@@ -76,7 +88,9 @@
     if(!hasOwn(state.baseRates, form.cleanType)) errors.push('Выберите корректный тип уборки.');
     if(!hasOwn(state.clutter, form.clutter)) errors.push('Выберите корректную заставленность.');
     if(!hasOwn(state.dirtiness, form.dirtiness)) errors.push('Выберите корректную загрязнённость.');
-    if(!['kad', 'km15', 'km20plus'].includes(form.travelType)) errors.push('Выберите корректный тип выезда.');
+    const travelKeys = state.travel ? Object.keys(state.travel) : ['kad', 'km15', 'km20plus'];
+    if(!travelKeys.includes(form.travelType)) errors.push('Выберите корректный тип выезда.');
+    if(form.discountMode && !['percent', 'amount'].includes(form.discountMode)) errors.push('Выберите корректный режим скидки.');
     if(!['fixed', 'hourly'].includes(form.payMode)) errors.push('Выберите корректный способ оплаты сотрудников.');
     if(num(form.workers) <= 0) errors.push('Укажите количество сотрудников.');
     if(num(form.workerPay) <= 0) errors.push('Укажите оплату одного сотрудника.');

@@ -5,7 +5,7 @@
 <title>Калькулятор стоимости уборки</title>
 
 <link href="assets/style.css" rel="stylesheet"/><link href="manifest.json" rel="manifest"/><meta content="#0f172a" name="theme-color"/><script defer="defer" src="config.js"></script><script defer="defer" src="assets/core.js"></script><script defer="defer" src="assets/app.js"></script></head>
-<body><div class="version-badge" id="versionBadge">v4.4-reliability</div>
+<body><div class="version-badge" id="versionBadge">v4.5-data-discount</div>
 <div class="login-overlay hidden" id="loginOverlay">
 <div class="login-card">
 <div class="login-title">PRO-CHISTKA</div>
@@ -45,6 +45,19 @@
 <input accept="application/json,.json" class="hidden" id="importBackupFile" type="file"/>
 </div>
 </div>
+</div>
+<div class="card" id="backupCard">
+<div class="topbar">
+<div>
+<div class="section-title" style="margin-bottom:4px">Резервное копирование</div>
+<div class="muted" id="backupStatus">Данные хранятся в этом браузере и дублируются локально.</div>
+</div>
+<div class="btns">
+<label class="inline-check"><input id="autoBackupToggle" type="checkbox"/> Авто-копия каждые 10 заказов</label>
+<button class="primary" id="backupNowBtn" type="button">Скачать резервную копию</button>
+</div>
+</div>
+<div class="backup-reminder hidden" id="backupReminder"></div>
 </div>
 <div class="card hidden" id="tariffsCard">
 <div class="topbar" style="margin-bottom:12px">
@@ -169,7 +182,13 @@
 <div><label>Объект</label><input id="objectType"/></div>
 <div><label>Площадь, м²</label><input id="area" min="0" type="number"/></div>
 <div><label>Тип уборки</label><select id="cleanType"><option value="maintenance">Поддерживающая</option><option value="general">Генеральная</option><option value="postreno">После ремонта</option></select></div>
-<div><label>Скидка клиенту, %</label><input id="discount" max="100" min="0" type="number"/></div>
+<div><label>Скидка клиенту</label>
+<div class="discount-row">
+<select id="discountMode"><option value="percent">%</option><option value="amount">₽</option></select>
+<input id="discount" max="100" min="0" placeholder="0" type="number"/>
+<input class="hidden" id="discountAmount" min="0" placeholder="0" type="number"/>
+</div>
+</div>
 <div><label>Заставленность мебелью</label><select id="clutter"><option value="low">Минимальная</option><option value="medium">Средняя</option><option value="high">Высокая</option></select></div>
 <div><label>Загрязнённость</label><select id="dirtiness"><option value="low">Обычная</option><option value="medium">Повышенная</option><option value="high">Сильная</option></select></div>
 </div>
