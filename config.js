@@ -1,5 +1,5 @@
 window.PROCHISTKA_CONFIG = {
-  "APP_VERSION": "v4.5-data-discount",
+  "APP_VERSION": "v4.6.0",
   "APP_PASSWORD": "7421",
   "CONFIG_REVISION": 1,
   "WINDOW_CATEGORIES": [
@@ -427,12 +427,22 @@ window.PROCHISTKA_CONFIG = {
       "dirtiness": "low",
       "travelType": "kad",
       "travelKm": 20,
-      "workers": 0,
-      "payMode": "fixed",
-      "workerPay": 4500,
-      "profitPercent": 50,
+      "ownerRole": "cleaner_manager",
+      "profitPercent": 25,
       "notes": "",
       "showOnlySelected": false
+    },
+    "labor": {
+      "cleanerDay": 5000,
+      "ownerManagerDay": 5000,
+      "ownerCleanerManagerDay": 7000,
+      "hourlyRate": 550,
+      "maxHoursPerDay": 9
+    },
+    "materialPerM2": 15,
+    "overhead": {
+      "monthly": 75000,
+      "jobsPerMonth": 10
     },
     "ui": {
       "showTariffs": false,

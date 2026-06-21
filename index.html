@@ -5,7 +5,7 @@
 <title>Калькулятор стоимости уборки</title>
 
 <link href="assets/style.css" rel="stylesheet"/><link href="manifest.json" rel="manifest"/><meta content="#0f172a" name="theme-color"/><script defer="defer" src="config.js"></script><script defer="defer" src="assets/core.js"></script><script defer="defer" src="assets/app.js"></script></head>
-<body><div class="version-badge" id="versionBadge">v4.5-data-discount</div>
+<body><div class="version-badge" id="versionBadge">v4.6.0</div>
 <div class="login-overlay hidden" id="loginOverlay">
 <div class="login-card">
 <div class="login-title">PRO-CHISTKA</div>
@@ -82,6 +82,21 @@
 <div>
 <div class="chip">Коэффициенты загрязнённости</div>
 <div class="grid" id="dirtWrap"></div>
+</div>
+<div>
+<div class="chip">Стоимость выезда</div>
+<div class="muted" style="margin:6px 0 2px">База — фиксированная сумма выезда. «₽ / км» — доплата за километр (умножается на введённые километры; поле «Километры» в форме появляется только когда доплата больше 0).</div>
+<div class="grid" id="travelWrap"></div>
+</div>
+<div>
+<div class="chip">Труд и бригада</div>
+<div class="muted" style="margin:6px 0 2px">Дневные ставки. Число людей считается из нормо-часов и лимита часов на человека в день.</div>
+<div class="grid" id="laborWrap"></div>
+</div>
+<div>
+<div class="chip">Материалы и накладные</div>
+<div class="muted" style="margin:6px 0 2px">Материалы — на м². Накладные в месяц делятся на число заказов в месяц и ложатся на заказ. Меняй число заказов по мере роста — стоимость на заказ упадёт.</div>
+<div class="grid" id="overheadWrap"></div>
 </div>
 </div>
 </div>
@@ -204,18 +219,18 @@
 </div>
 </div>
 <div class="card">
-<div class="section-title">Сотрудники и прибыль</div>
+<div class="section-title">Бригада и прибыль</div>
+<div class="muted" style="margin-bottom:10px">Число людей рассчитывается автоматически из нормо-часов, чтобы уложиться в один рабочий день. Дневные ставки задаются в «Тарифах».</div>
 <div class="grid g2">
-<div><label>Кол-во сотрудников</label><input id="workers" min="0" type="number"/></div>
 <div>
-<label>Расчёт оплаты сотрудников</label>
-<select id="payMode">
-<option value="fixed">Фикс за сотрудника</option>
-<option value="hourly">Почасовая ставка</option>
+<label>Ты на объекте</label>
+<select id="ownerRole">
+<option value="none">Не еду</option>
+<option value="manager">Менеджер (контроль)</option>
+<option value="cleaner_manager">Клинер + менеджер</option>
 </select>
 </div>
-<div id="workerPayBox"><label id="workerPayLabel">ЗП 1 сотрудника, ₽</label><input id="workerPay" min="0" type="number"/></div>
-<div><label>Твой % прибыли</label><input id="profitPercent" min="0" type="number"/></div>
+<div><label>Целевая прибыль, %</label><input id="profitPercent" min="0" type="number"/></div>
 </div>
 </div>
 </div>
@@ -245,7 +260,7 @@
 <div class="summary-box">
 <div style="font-size:14px;color:#cbd5e1">Рекомендованная цена для клиента</div>
 <div class="summary-big" id="recommendedPrice">0 ₽</div>
-<div style="font-size:14px;color:#cbd5e1">Берётся максимум из рыночной цены и цены по твоей экономике.</div>
+<div style="font-size:14px;color:#cbd5e1">Берётся максимум из рыночной цены и целевой цены по себестоимости.</div>
 </div>
 <div class="notice warning hidden" id="economyWarning"></div>
 <div class="rows" style="margin-top:14px">
@@ -259,15 +274,22 @@
 <div class="row"><span class="muted">Выезд</span><span id="sumTravel">0 ₽</span></div>
 <div class="row"><span class="muted">Скидка</span><span id="sumDiscount">− 0 ₽</span></div>
 <div class="divider"></div>
-<div class="row"><strong>Цена по рынку после скидки</strong><strong id="sumMarket">0 ₽</strong></div>
-<div class="row"><span class="muted">ФОТ бригады</span><span id="sumPayroll">0 ₽</span></div>
-<div class="row"><span class="muted">Желаемая прибыль</span><span id="sumProfit">0 ₽</span></div>
-<div class="row"><strong>Цена по себестоимости + прибыль</strong><strong id="sumCost">0 ₽</strong></div>
+<div class="row"><strong>Цена по рынку</strong><strong id="sumMarket">0 ₽</strong></div>
+<div class="divider"></div>
+<div class="row"><span class="muted">Труд (бригада + ты)</span><span id="sumLabor">0 ₽</span></div>
+<div class="row"><span class="muted">Материалы</span><span id="sumMaterials">0 ₽</span></div>
+<div class="row"><strong>Жёсткий пол (ниже = убыток)</strong><strong id="sumDirect">0 ₽</strong></div>
+<div class="row"><span class="muted">Накладные на заказ</span><span id="sumOverhead">0 ₽</span></div>
+<div class="row"><strong>Полная себестоимость</strong><strong id="sumFull">0 ₽</strong></div>
+<div class="row"><strong id="targetLabel">Целевая цена (+25%)</strong><strong id="sumTarget">0 ₽</strong></div>
+<div class="divider"></div>
+<div class="row"><span class="muted">Факт. прибыль при рекоменд. цене</span><span id="sumNetProfit">0 ₽</span></div>
+<div class="row"><span class="muted">Маржа</span><span id="sumMargin">0 %</span></div>
 <div class="divider"></div>
 <div class="row"><span class="muted">Время на базовую уборку</span><span id="timeBase">0.0 ч</span></div>
 <div class="row"><span class="muted">Время на доп. услуги</span><span id="timeExtras">0.0 ч</span></div>
 <div class="row"><strong>Сумма нормо-часов</strong><strong id="timeNorm">0.0 ч</strong></div>
-<div class="row"><strong id="brigadeLabel">Примерное время уборки бригады (0 чел.)</strong><strong id="timeBrigade">0.0 ч</strong></div>
+<div class="row"><strong id="brigadeLabel">Время уборки бригадой (0 чел.)</strong><strong id="timeBrigade">0.0 ч</strong></div>
 </div>
 <div class="btns" style="margin-top:16px">
 <button class="primary" id="copyEstimateBtn">Копировать смету</button>

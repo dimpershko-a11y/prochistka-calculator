@@ -15,8 +15,6 @@
     if(!rate || !clutter || !dirt) throw new Error('Некорректные параметры тарифа');
 
     const area = num(form.area);
-    const workers = num(form.workers);
-    const workerPay = num(form.workerPay);
     const profitPercent = num(form.profitPercent);
     const discountPercent = Math.min(100, num(form.discount));
     const clutterPriceK = Number(clutter.priceK) || 1;
@@ -50,34 +48,86 @@
       : discountBase * (discountPercent / 100);
     const subtotal = baseRaw + extrasTotal + travelTotal;
     const marketPrice = Math.max(0, subtotal - discountValue);
+
+    // --- Время и размер бригады (бригада выводится из нормо-часов и лимита часов в день) ---
     const baseHours = num(rate.speed) > 0 ? area / num(rate.speed) : 0;
     const extrasHours = extras.reduce((sum, item) => sum + num(item.qty) * num(item.time), 0);
     const normHours = (baseHours + extrasHours) * timeK;
-    const brigadeHours = workers > 0 ? normHours / workers : normHours;
-    const payroll = form.payMode === 'hourly'
-      ? workers * workerPay * brigadeHours
-      : workers * workerPay;
-    const targetProfitValue = payroll * (profitPercent / 100);
-    const costBasedPrice = payroll + travelTotal + extrasTotal + targetProfitValue;
-    const directCostFloor = payroll + travelTotal + extrasTotal;
-    const priceBeforeDiscount = Math.max(subtotal, costBasedPrice);
-    const recommendedPrice = Math.max(priceBeforeDiscount - discountValue, directCostFloor);
+    const labor = state.labor || {};
+    const maxHoursPerDay = num(labor.maxHoursPerDay) || 9;
+    const crewNeeded = normHours > 0 ? Math.max(1, Math.ceil(normHours / maxHoursPerDay)) : 0;
+    const brigadeHours = crewNeeded > 0 ? normHours / crewNeeded : 0;
+
+    // --- Себестоимость труда (дневные ставки + роль владельца на объекте) ---
+    const cleanerDay = num(labor.cleanerDay) || 5000;
+    const ownerManagerDay = num(labor.ownerManagerDay) || 5000;
+    const ownerCleanerManagerDay = num(labor.ownerCleanerManagerDay) || 7000;
+    const ownerRole = form.ownerRole || 'none';
+    let hiredCleaners, ownerCost, peopleOnSite;
+    if(crewNeeded === 0){
+      hiredCleaners = 0; ownerCost = 0; peopleOnSite = 0;
+    } else if(ownerRole === 'cleaner_manager'){
+      hiredCleaners = Math.max(0, crewNeeded - 1);
+      ownerCost = ownerCleanerManagerDay;
+      peopleOnSite = crewNeeded;
+    } else if(ownerRole === 'manager'){
+      hiredCleaners = crewNeeded;
+      ownerCost = ownerManagerDay;
+      peopleOnSite = crewNeeded + 1;
+    } else {
+      hiredCleaners = crewNeeded;
+      ownerCost = 0;
+      peopleOnSite = crewNeeded;
+    }
+    const laborCost = hiredCleaners * cleanerDay + ownerCost;
+
+    // --- Материалы (расходники на м²) ---
+    const materialPerM2 = num(state.materialPerM2 != null ? state.materialPerM2 : 15);
+    const materialsCost = area * materialPerM2;
+
+    // --- Накладные на заказ (постоянные расходы в месяц / число заказов) ---
+    const overhead = state.overhead || {};
+    const overheadMonthly = num(overhead.monthly);
+    const jobsPerMonth = num(overhead.jobsPerMonth);
+    const overheadPerJob = jobsPerMonth > 0 ? overheadMonthly / jobsPerMonth : 0;
+
+    // --- Себестоимость и цены ---
+    const directCost = laborCost + materialsCost;              // жёсткий пол: ниже = прямой убыток
+    const fullCost = directCost + overheadPerJob;              // полная себестоимость
+    const targetPrice = fullCost * (1 + profitPercent / 100);  // целевая цена (наценка на полную себестоимость)
+    const recommendedPrice = Math.max(marketPrice, targetPrice, directCost);
+
+    const netProfit = recommendedPrice - fullCost;             // факт. прибыль при рекомендованной цене
+    const marginPct = recommendedPrice > 0 ? (netProfit / recommendedPrice) * 100 : 0;
+    const contribution = recommendedPrice - directCost;        // вклад в накладные + прибыль
+    const marketNetProfit = marketPrice - fullCost;            // прибыль, если продать строго по рынку
+    const belowDirect = area > 0 && marketPrice < directCost;
+    const belowFull = area > 0 && marketPrice < fullCost;
+    const economyGap = Math.max(0, fullCost - marketPrice);
+
     const selectedExtras = extras.filter(item => num(item.qty) > 0);
-    const economyGap = Math.max(0, costBasedPrice - marketPrice);
-    const economyTopup = Math.max(0, recommendedPrice - marketPrice);
-    const maxAllowedDiscount = subtotal > 0
-      ? Math.max(0, Math.min(100, (1 - costBasedPrice / subtotal) * 100))
-      : 0;
-    const breakEvenNoProfit = payroll + travelTotal + extrasTotal;
 
     return {
-      rate, clutter, dirt, clutterPriceK, dirtPriceK, clutterTimeK, dirtTimeK,
-      priceK, timeK, baseNoK, baseAfterClutter, baseWithK, minBase, minBaseApplied,
-      baseRaw, extrasTotal, travelTotal, travelBase, travelPerKm, subtotal,
+      rate, clutter, dirt, clutterPriceK, dirtPriceK, clutterTimeK, dirtTimeK, priceK, timeK,
+      baseNoK, baseAfterClutter, baseWithK, minBase, minBaseApplied, baseRaw,
+      extrasTotal, travelTotal, travelBase, travelPerKm, subtotal,
       discountValue, discountBase, discountPercent, marketPrice,
-      payroll, targetProfitValue, costBasedPrice, directCostFloor, breakEvenNoProfit,
-      priceBeforeDiscount, recommendedPrice, economyGap, economyTopup,
-      maxAllowedDiscount, baseHours, extrasHours, normHours, brigadeHours, selectedExtras
+      baseHours, extrasHours, normHours, brigadeHours, maxHoursPerDay,
+      crewNeeded, hiredCleaners, peopleOnSite, ownerRole, ownerCost,
+      cleanerDay, ownerManagerDay, ownerCleanerManagerDay,
+      laborCost, materialPerM2, materialsCost, overheadMonthly, jobsPerMonth, overheadPerJob,
+      directCost, fullCost, profitPercent, targetPrice, recommendedPrice,
+      netProfit, marginPct, contribution, marketNetProfit, belowDirect, belowFull, economyGap,
+      selectedExtras,
+      // алиасы для обратной совместимости со старым кодом отображения
+      payroll: laborCost,
+      costBasedPrice: fullCost,
+      directCostFloor: directCost,
+      breakEvenNoProfit: directCost,
+      targetProfitValue: targetPrice - fullCost,
+      economyTopup: Math.max(0, recommendedPrice - marketPrice),
+      priceBeforeDiscount: Math.max(subtotal, targetPrice),
+      maxAllowedDiscount: subtotal > 0 ? Math.max(0, Math.min(100, (1 - fullCost / subtotal) * 100)) : 0
     };
   }
 
@@ -91,9 +141,7 @@
     const travelKeys = state.travel ? Object.keys(state.travel) : ['kad', 'km15', 'km20plus'];
     if(!travelKeys.includes(form.travelType)) errors.push('Выберите корректный тип выезда.');
     if(form.discountMode && !['percent', 'amount'].includes(form.discountMode)) errors.push('Выберите корректный режим скидки.');
-    if(!['fixed', 'hourly'].includes(form.payMode)) errors.push('Выберите корректный способ оплаты сотрудников.');
-    if(num(form.workers) <= 0) errors.push('Укажите количество сотрудников.');
-    if(num(form.workerPay) <= 0) errors.push('Укажите оплату одного сотрудника.');
+    if(form.ownerRole && !['none', 'manager', 'cleaner_manager'].includes(form.ownerRole)) errors.push('Выберите корректную роль на объекте.');
     return errors;
   }
 

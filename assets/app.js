@@ -1,7 +1,7 @@
 const STORAGE_KEY = 'prochistka_calc_app_v4';
 const APP_CONFIG = window.PROCHISTKA_CONFIG || {};
 const CORE = window.PROCHISTKA_CORE;
-const APP_VERSION = APP_CONFIG.APP_VERSION || 'v4.5-data-discount';
+const APP_VERSION = APP_CONFIG.APP_VERSION || 'v4.6.0';
 const defaults = APP_CONFIG.defaults || {};
 defaults.brand = defaults.brand || {name:'PRO-CHISTKA', phone:'', tagline:'Клининговые услуги', site:'', logoDataUrl:''};
 defaults.pdfHeader = defaults.pdfHeader || {useLogo:false,fontFamily:'Arial, sans-serif',nameFontSize:30,taglineFontSize:13,contactFontSize:13,nameWeight:800,nameLetterSpacing:1.2,taglineLetterSpacing:0.2,contactLetterSpacing:0.2,nameLineHeight:1.05,taglineLineHeight:1.25,uppercaseName:true,nameColor:'#0f172a',taglineColor:'#475569',contactColor:'#0f172a',borderColor:'#0f172a',borderWidth:2,paddingBottom:16,marginBottom:22};
@@ -9,12 +9,15 @@ defaults.baseRates = defaults.baseRates || {};
 defaults.clutter = defaults.clutter || {};
 defaults.dirtiness = defaults.dirtiness || {};
 defaults.travel = defaults.travel || {kad:{label:'В пределах КАД',base:0,perKm:0},km15:{label:'До 15 км от КАД',base:1500,perKm:0},km20plus:{label:'20+ км',base:1500,perKm:15}};
+defaults.labor = defaults.labor || {cleanerDay:5000,ownerManagerDay:5000,ownerCleanerManagerDay:7000,hourlyRate:550,maxHoursPerDay:9};
+defaults.materialPerM2 = defaults.materialPerM2 != null ? defaults.materialPerM2 : 15;
+defaults.overhead = defaults.overhead || {monthly:75000,jobsPerMonth:10};
 defaults.includedByType = defaults.includedByType || {};
 defaults.serviceDescriptions = defaults.serviceDescriptions || {windows:''};
 defaults.pdfSettings = defaults.pdfSettings || {order:['client','included','extras','pricing','main_info','useful_info','notes'], visible:{client:true,included:true,extras:true,pricing:true,main_info:true,useful_info:true,notes:true}};
 defaults.mainInfo = defaults.mainInfo || {equipmentText:'', chemistryText:'', usefulInfo:'Всё необходимое для клининга — техника и моющие средства — привозим самостоятельно.\nРаботаем по договору.\nПриём оплаты: наличные, перевод, QR-код СБП, ссылка СБП, карта VISA/MasterCard/МИР, Долями от Т-Банка, безналичный расчёт для юридических лиц.'};
 defaults.extras = defaults.extras || [];
-defaults.form = defaults.form || {clientName:'',objectType:'Квартира',area:0,cleanType:'general',discount:0,discountMode:'percent',discountAmount:0,clutter:'low',dirtiness:'low',travelType:'kad',travelKm:20,workers:0,payMode:'fixed',workerPay:0,profitPercent:0,notes:'',showOnlySelected:false};
+defaults.form = defaults.form || {clientName:'',objectType:'Квартира',area:0,cleanType:'general',discount:0,discountMode:'percent',discountAmount:0,clutter:'low',dirtiness:'low',travelType:'kad',travelKm:20,ownerRole:'cleaner_manager',profitPercent:25,notes:'',showOnlySelected:false};
 defaults.savedOrders = [];
 defaults.ui = defaults.ui || {showTariffs:false, showSettings:false, extraGroupsCollapsed:{}};
 function clone(x){return JSON.parse(JSON.stringify(x));}
@@ -28,6 +31,9 @@ function mergeState(parsed){
     clutter:{...d.clutter,...(parsed.clutter||{})},
     dirtiness:{...d.dirtiness,...(parsed.dirtiness||{})},
     travel:{...d.travel,...(parsed.travel||{})},
+    labor:{...d.labor,...(parsed.labor||{})},
+    materialPerM2: parsed.materialPerM2 != null ? parsed.materialPerM2 : d.materialPerM2,
+    overhead:{...d.overhead,...(parsed.overhead||{})},
     includedByType:{...d.includedByType,...(parsed.includedByType||{})},
     serviceDescriptions:{...d.serviceDescriptions,...(parsed.serviceDescriptions||{})},
     pdfSettings:{order:Array.isArray(parsed.pdfSettings?.order)?parsed.pdfSettings.order:d.pdfSettings.order, visible:{...d.pdfSettings.visible,...(parsed.pdfSettings?.visible||{})}},
@@ -67,7 +73,26 @@ function migrateV43(){
   }
   saveState();
 }
+// Миграция v4.6: переход на модель полной себестоимости.
+// Старый "слепой" процент прибыли (наценка на ФОТ, часто 50%) больше не означает то же самое,
+// поэтому при первом запуске сбрасываем его на новую целевую наценку из конфига и ставим роль на объекте.
+function migrateV46(){
+  state.ui = state.ui || {};
+  state.form = state.form || {};
+  if(!['none','manager','cleaner_manager'].includes(state.form.ownerRole)){
+    state.form.ownerRole = (defaults.form && defaults.form.ownerRole) || 'cleaner_manager';
+  }
+  if(state.ui.modelV46 !== true){
+    state.form.profitPercent = Number(defaults.form && defaults.form.profitPercent) || 25;
+    if(!state.labor) state.labor = clone(defaults.labor);
+    if(state.materialPerM2 == null) state.materialPerM2 = defaults.materialPerM2;
+    if(!state.overhead) state.overhead = clone(defaults.overhead);
+    state.ui.modelV46 = true;
+    saveState();
+  }
+}
 migrateV43();
+migrateV46();
 syncConfigRevision();
 
 // === Защита от потери данных ===
@@ -88,7 +113,7 @@ function attemptIdbRecovery(){
     const hasOrders = Array.isArray(saved.savedOrders) && saved.savedOrders.length>0;
     const hasExtras = Array.isArray(saved.extras) && saved.extras.length>0;
     if(!hasOrders && !hasExtras) return;
-    state=mergeState(saved); migrateV43(); syncConfigRevision();
+    state=mergeState(saved); migrateV43(); migrateV46(); syncConfigRevision();
     fillForm(); renderTariffs(); renderExtras(); renderSettingsPanel(); recalc(); updateBackupReminder();
     toast('Данные восстановлены из резервного хранилища');
   }).catch(()=>{});
@@ -175,7 +200,7 @@ function readJsonFile(file, cb){
 function exportOrders(){ downloadJson({type:'prochistka_orders', version:APP_VERSION, exportedAt:new Date().toISOString(), savedOrders:state.savedOrders||[]}, `prochistka-orders-${Date.now()}.json`); }
 function importOrdersFile(file){ readJsonFile(file, data=>{ const incoming = Array.isArray(data.savedOrders)?data.savedOrders:(Array.isArray(data)?data:[]); if(!incoming.length){ toast('В файле нет заказов'); return; } const map=new Map((state.savedOrders||[]).map(o=>[String(o.id),o])); incoming.forEach(o=>map.set(String(o.id||Date.now()+Math.random()), o)); state.savedOrders=Array.from(map.values()).slice(0,50); saveState(); renderSavedOrders(); toast('Заказы импортированы'); }); }
 function exportBackup(){ state.ui=state.ui||{}; state.ui.ordersSinceBackup=0; state.ui.lastBackupAt=Date.now(); saveState(); downloadJson({type:'prochistka_full_backup', version:APP_VERSION, exportedAt:new Date().toISOString(), state}, `prochistka-backup-${Date.now()}.json`); if(typeof updateBackupReminder==='function') updateBackupReminder(); }
-function importBackupFile(file){ readJsonFile(file, data=>{ const result=CORE.validateBackup(data, defaults); if(!result.ok){ toast(result.error); return; } state=mergeState(result.state); migrateV43(); syncConfigRevision(); fillForm(); renderTariffs(); renderExtras(); renderSettingsPanel(); recalc(); updateBackupReminder(); toast('Резервная копия восстановлена'); }); }
+function importBackupFile(file){ readJsonFile(file, data=>{ const result=CORE.validateBackup(data, defaults); if(!result.ok){ toast(result.error); return; } state=mergeState(result.state); migrateV43(); migrateV46(); syncConfigRevision(); fillForm(); renderTariffs(); renderExtras(); renderSettingsPanel(); recalc(); updateBackupReminder(); toast('Резервная копия восстановлена'); }); }
 function isEditUnlocked(){
   const pass = APP_CONFIG.APP_PASSWORD || APP_CONFIG.appPassword || '';
   return !pass || sessionStorage.getItem('prochistka_edit_ok') === '1';
@@ -245,8 +270,6 @@ function validateCurrentOrder(){
   document.querySelectorAll('.field-error').forEach(el=>el.classList.remove('field-error'));
   const errors=CORE.validateOrder(state);
   if(num(state.form.area)<=0) $('area')?.classList.add('field-error');
-  if(num(state.form.workers)<=0) $('workers')?.classList.add('field-error');
-  if(num(state.form.workerPay)<=0) $('workerPay')?.classList.add('field-error');
   if(errors.length) toast(errors[0]);
   return errors;
 }
@@ -343,7 +366,39 @@ function renderTariffs(){
       </div>`;
     dirt.appendChild(div);
   });
-  document.querySelectorAll('[data-kind]').forEach(inp=>inp.oninput=(e)=>{ const {kind,key,field}=e.target.dataset; state[kind][key][field]=num(e.target.value); saveState(); populateMainSelects(); recalc(); });
+  const travel=$('travelWrap'); if(travel){ travel.innerHTML='';
+    Object.entries(state.travel||{}).forEach(([k,v])=>{
+      const div=document.createElement('div'); div.className='extra-card';
+      div.innerHTML=`<div class="grid g3">
+        <div><label>Название</label><input type="text" data-kind="travel" data-key="${k}" data-field="label" value="${esc(v.label)}"></div>
+        <div><label>База, ₽</label><input type="number" min="0" data-kind="travel" data-key="${k}" data-field="base" value="${num(v.base)}"></div>
+        <div><label>₽ / км</label><input type="number" min="0" data-kind="travel" data-key="${k}" data-field="perKm" value="${num(v.perKm)}"></div>
+      </div>`;
+      travel.appendChild(div);
+    });
+  }
+  const laborW=$('laborWrap'); if(laborW){ const L=state.labor||{}; laborW.innerHTML='';
+    const card=document.createElement('div'); card.className='extra-card';
+    card.innerHTML=`<div class="grid g2">
+      <div><label>День клинера, ₽</label><input type="number" min="0" data-cfg="labor" data-field="cleanerDay" value="${num(L.cleanerDay)}"></div>
+      <div><label>Лимит часов на человека/день</label><input type="number" min="1" step="0.5" data-cfg="labor" data-field="maxHoursPerDay" value="${num(L.maxHoursPerDay)||9}"></div>
+      <div><label>Твой день: менеджер, ₽</label><input type="number" min="0" data-cfg="labor" data-field="ownerManagerDay" value="${num(L.ownerManagerDay)}"></div>
+      <div><label>Твой день: клинер+менеджер, ₽</label><input type="number" min="0" data-cfg="labor" data-field="ownerCleanerManagerDay" value="${num(L.ownerCleanerManagerDay)}"></div>
+    </div>`;
+    laborW.appendChild(card);
+  }
+  const ovW=$('overheadWrap'); if(ovW){ const O=state.overhead||{}; const perJob=num(O.jobsPerMonth)>0?num(O.monthly)/num(O.jobsPerMonth):0; ovW.innerHTML='';
+    const card=document.createElement('div'); card.className='extra-card';
+    card.innerHTML=`<div class="grid g3">
+      <div><label>Материалы, ₽ / м²</label><input type="number" min="0" step="0.5" data-cfg="material" data-field="materialPerM2" value="${num(state.materialPerM2)}"></div>
+      <div><label>Накладные в месяц, ₽</label><input type="number" min="0" data-cfg="overhead" data-field="monthly" value="${num(O.monthly)}"></div>
+      <div><label>Заказов в месяц</label><input type="number" min="1" data-cfg="overhead" data-field="jobsPerMonth" value="${num(O.jobsPerMonth)||1}"></div>
+    </div>
+    <div class="muted" style="margin-top:8px">Накладные на один заказ: <strong id="overheadPerJobHint">${money(perJob)}</strong></div>`;
+    ovW.appendChild(card);
+  }
+  document.querySelectorAll('[data-cfg]').forEach(inp=>inp.oninput=(e)=>{ const {cfg,field}=e.target.dataset; const val=num(e.target.value); if(cfg==='material'){ state.materialPerM2=val; } else { state[cfg]=state[cfg]||{}; state[cfg][field]=val; } if($('overheadPerJobHint')){ const O=state.overhead||{}; $('overheadPerJobHint').textContent=money(num(O.jobsPerMonth)>0?num(O.monthly)/num(O.jobsPerMonth):0); } saveState(); recalc(); });
+  document.querySelectorAll('[data-kind]').forEach(inp=>inp.oninput=(e)=>{ const {kind,key,field}=e.target.dataset; state[kind][key][field]=(field==='label')?e.target.value:num(e.target.value); saveState(); populateMainSelects(); recalc(); });
 }
 function populateMainSelects(){ fillSelect('cleanType', state.baseRates, state.form.cleanType); fillSelect('clutter', state.clutter, state.form.clutter); fillSelect('dirtiness', state.dirtiness, state.form.dirtiness); const travelOpts=(state.travel&&Object.keys(state.travel).length)?state.travel:{kad:{label:'В пределах КАД'},km15:{label:'До 15 км от КАД'},km20plus:{label:'20+ км'}}; fillSelect('travelType', travelOpts, state.form.travelType); $('includedTypeLabel').textContent=state.baseRates[state.form.cleanType].label; $('includedServices').value=state.includedByType[state.form.cleanType]||''; }
 function getGroupedExtras(){ const arr=state.form.showOnlySelected?state.extras.filter(x=>num(x.qty)>0):state.extras; const map={}; arr.forEach(x=>{ const c=x.category||'Другое'; (map[c]||(map[c]=[])).push(x); }); return map; }
@@ -415,12 +470,15 @@ function renderSelectedExtras(){ const {selectedExtras}=calc(); const wrap=$('se
 function renderSavedOrders(){ const wrap=$('savedOrdersWrap'); wrap.innerHTML=''; if(!state.savedOrders.length){ wrap.innerHTML='<div class="notice">Пока нет сохранённых заказов.</div>'; return; } state.savedOrders.forEach(o=>{ const div=document.createElement('div'); div.className='saved-item'; div.innerHTML=`<div style="font-weight:700">${esc(o.clientName)} · ${esc(o.objectType)}</div><div class="muted" style="margin:4px 0">${esc(o.cleanType)} · ${o.area} м²</div><div style="display:flex;justify-content:space-between;gap:8px"><span>${money(o.recommendedPrice)}</span><span class="muted">${hours(o.brigadeHours)}</span></div><div class="muted" style="font-size:12px;margin-top:4px">Нормо-часы: ${hours(o.normHours)}</div><div class="muted" style="font-size:12px;margin-top:2px">${esc(o.createdAt)}</div>`; wrap.appendChild(div); }); }
 function renderEconomyWarning(r){
   const el=$('economyWarning'); if(!el) return;
-  if(r.economyGap>0){
-    const noDiscountText = r.maxAllowedDiscount>0 ? `допустимая скидка не выше ${r.maxAllowedDiscount.toFixed(1)}%` : 'убрать скидку полностью';
+  if(r.belowDirect){
     el.classList.remove('hidden');
-    el.innerHTML = `<strong>Внимание: цена объекта ниже экономики на ${money(r.economyGap)}.</strong><br>
-      Рекомендованная цена уже поднята до безопасного уровня: ${money(r.recommendedPrice)}.<br>
-      Варианты: поднять цену на ${money(r.economyTopup)}, ${noDiscountText} или уменьшить желаемый % прибыли.`;
+    el.innerHTML = `<strong>Убыток: рынок (${money(r.marketPrice)}) ниже прямых затрат (${money(r.directCost)}).</strong><br>
+      Даже без накладных и прибыли заказ в минус на ${money(r.directCost - r.marketPrice)}. Рекомендуемая цена поднята до ${money(r.recommendedPrice)}.`;
+  } else if(r.belowFull){
+    const mContrib=Math.max(0, r.marketPrice - r.directCost);
+    el.classList.remove('hidden');
+    el.innerHTML = `<strong>Рынок (${money(r.marketPrice)}) не покрывает полную себестоимость (${money(r.fullCost)}).</strong><br>
+      Прямые затраты заказ покрывает, вклад в накладные ${money(mContrib)}, но до их покрытия не хватает ${money(r.economyGap)}, прибыли нет. Целевая цена: ${money(r.targetPrice)}.`;
   } else {
     el.classList.add('hidden');
     el.innerHTML='';
@@ -434,17 +492,26 @@ function recalc(){
   if($('sumAfterClutter')) $('sumAfterClutter').textContent=money(r.baseAfterClutter);
   if($('sumDirtK')) $('sumDirtK').textContent='× '+r.dirtPriceK.toFixed(2);
   if($('sumBaseMin')) $('sumBaseMin').textContent=money(r.minBase)+(r.minBaseApplied?' применена':'');
-  $('sumBase').textContent=money(r.baseRaw); $('sumExtras').textContent=money(r.extrasTotal); $('sumTravel').textContent=money(r.travelTotal); $('sumDiscount').textContent='− '+money(r.discountValue); $('sumMarket').textContent=money(r.marketPrice); $('sumPayroll').textContent=money(r.payroll); $('sumProfit').textContent=money(r.targetProfitValue); $('sumCost').textContent=money(r.costBasedPrice); $('timeBase').textContent=hours(r.baseHours); $('timeExtras').textContent=hours(r.extrasHours); $('timeNorm').textContent=hours(r.normHours); $('timeBrigade').textContent=hours(r.brigadeHours); $('brigadeLabel').textContent=`Примерное время уборки бригады (${num(state.form.workers)} чел.)`;
+  $('sumBase').textContent=money(r.baseRaw); $('sumExtras').textContent=money(r.extrasTotal); $('sumTravel').textContent=money(r.travelTotal); $('sumDiscount').textContent='− '+money(r.discountValue); $('sumMarket').textContent=money(r.marketPrice);
+  $('sumLabor').textContent=money(r.laborCost); $('sumMaterials').textContent=money(r.materialsCost); $('sumDirect').textContent=money(r.directCost); $('sumOverhead').textContent=money(r.overheadPerJob); $('sumFull').textContent=money(r.fullCost); $('targetLabel').textContent=`Целевая цена (+${num(r.profitPercent)}%)`; $('sumTarget').textContent=money(r.targetPrice); $('sumNetProfit').textContent=money(r.netProfit); $('sumMargin').textContent=`${r.marginPct.toFixed(0)} %`;
+  $('timeBase').textContent=hours(r.baseHours); $('timeExtras').textContent=hours(r.extrasHours); $('timeNorm').textContent=hours(r.normHours); $('timeBrigade').textContent=hours(r.brigadeHours); $('brigadeLabel').textContent=`Время уборки бригадой (${r.peopleOnSite} чел.)`;
   $('cardClient').textContent=state.form.clientName||'—'; $('cardObject').textContent=state.form.objectType||'—'; $('cardArea').textContent=`${num(state.form.area)} м²`; $('cardCleanType').textContent=r.rate.label; $('cardClutter').textContent=r.clutter.label; $('cardDirt').textContent=r.dirt.label;
   const tconf=(state.travel&&state.travel[state.form.travelType])||{}; const tBase=num(tconf.base), tPerKm=num(tconf.perKm);
   $('travelKmBox').classList.toggle('hidden', !(tPerKm>0));
-  $('workerPayLabel').textContent=state.form.payMode==='hourly' ? 'Почасовая ставка 1 сотрудника, ₽/час' : 'ЗП 1 сотрудника, ₽';
   $('travelHint').textContent = tPerKm>0 ? `Выезд: ${money(tBase)} + ${money(tPerKm)}/км → ${money(tBase + tPerKm*num(state.form.travelKm))}` : (tBase>0 ? `Выезд: ${money(tBase)}` : 'Выезд: бесплатно');
   renderEconomyWarning(r); renderIncludedPreview(); renderSelectedExtras(); renderSavedOrders(); if(!$('pdfPreviewModal')?.classList.contains('hidden')) refreshPdfPreview(); saveState(); return r;
 }
 function estimateText(){
   const r=calc(); const included=getIncludedText()||'Не заполнено'; const extras=r.selectedExtras.length?r.selectedExtras.map(x=>`• ${x.name} × ${num(x.qty)} — ${money(num(x.qty)*num(x.price))}`).join('\n'):'• Без доп. услуг';
-  return `Смета на уборку\n\nКлиент: ${state.form.clientName||'—'}\nОбъект: ${state.form.objectType}\nПлощадь: ${num(state.form.area)} м²\nТип уборки: ${r.rate.label}\nЗаставленность: ${r.clutter.label} × ${r.clutterPriceK.toFixed(2)}\nЗагрязнённость: ${r.dirt.label} × ${r.dirtPriceK.toFixed(2)}\n\nВ услуги входят:\n${included}\n\nДоп. услуги:\n${extras}\n\nБаза до коэффициентов: ${money(r.baseNoK)}\nПосле коэффициента заставленности: ${money(r.baseAfterClutter)}\nБаза с коэффициентами: ${money(r.baseWithK)}\nСтоимость по уборке: ${money(r.baseRaw)}\nДоп. услуги: ${money(r.extrasTotal)}\nВыезд: ${money(r.travelTotal)}\nСкидка: ${money(r.discountValue)}\nЦена по рынку после скидки: ${money(r.marketPrice)}\nЦена по экономике: ${money(r.costBasedPrice)}\n\nИтого для клиента: ${money(r.recommendedPrice)}\nПримерное время уборки бригады: ${hours(r.brigadeHours)}\nСумма нормо-часов: ${hours(r.normHours)}\nКоличество сотрудников: ${num(state.form.workers)} чел.\nФОТ: ${money(r.payroll)}\n\nДополнительная информация:\n${state.mainInfo.usefulInfo||'—'}\n\nЗаметки: ${state.form.notes||'—'}`;
+  const lines=[`Стоимость уборки: ${money(r.baseRaw)}`];
+  if(num(r.extrasTotal)>0) lines.push(`Дополнительные услуги: ${money(r.extrasTotal)}`);
+  if(num(r.travelTotal)>0) lines.push(`Выезд: ${money(r.travelTotal)}`);
+  if(num(r.discountValue)>0) lines.push(`Скидка: − ${money(r.discountValue)}`);
+  lines.push(`\nИТОГО к оплате: ${money(r.recommendedPrice)}`);
+  lines.push(`Сумма нормо-часов: ${hours(r.normHours)}`);
+  lines.push(`Примерное время уборки: ${hours(r.brigadeHours)}`);
+  lines.push(`Количество сотрудников: ${r.peopleOnSite} чел.`);
+  return `Смета на уборку\n\nКлиент: ${state.form.clientName||'—'}\nОбъект: ${state.form.objectType}\nПлощадь: ${num(state.form.area)} м²\nТип уборки: ${r.rate.label}\nЗаставленность: ${r.clutter.label} (коэф. × ${r.clutterPriceK.toFixed(2)})\nЗагрязнённость: ${r.dirt.label} (коэф. × ${r.dirtPriceK.toFixed(2)})\n\nВ услуги входят:\n${included}\n\nДоп. услуги:\n${extras}\n\n${lines.join('\n')}\n\nДополнительная информация:\n${state.mainInfo.usefulInfo||'—'}\n\nЗаметки: ${state.form.notes||'—'}`;
 }
 async function copyEstimate(){ if(validateCurrentOrder().length) return; const text=estimateText(); try{ await navigator.clipboard.writeText(text); toast('Смета скопирована'); }catch(e){ $('shareText').value=text; $('shareModal').classList.remove('hidden'); toast('Открыл смету для ручного копирования'); } }
 function buildPrintHtml(){
@@ -465,26 +532,23 @@ function buildPrintHtml(){
       <tr><td style="padding:6px 0;font-weight:700">Объект</td><td style="padding:6px 0">${esc(state.form.objectType)}</td></tr>
       <tr><td style="padding:6px 0;font-weight:700">Площадь</td><td style="padding:6px 0">${num(state.form.area)} м²</td></tr>
       <tr><td style="padding:6px 0;font-weight:700">Тип уборки</td><td style="padding:6px 0">${esc(r.rate.label)}</td></tr>
-      <tr><td style="padding:6px 0;font-weight:700">Заставленность</td><td style="padding:6px 0">${esc(r.clutter.label)}</td></tr>
-      <tr><td style="padding:6px 0;font-weight:700">Загрязнённость</td><td style="padding:6px 0">${esc(r.dirt.label)}</td></tr>
+      <tr><td style="padding:6px 0;font-weight:700">Заставленность</td><td style="padding:6px 0">${esc(r.clutter.label)} (коэф. × ${r.clutterPriceK.toFixed(2)})</td></tr>
+      <tr><td style="padding:6px 0;font-weight:700">Загрязнённость</td><td style="padding:6px 0">${esc(r.dirt.label)} (коэф. × ${r.dirtPriceK.toFixed(2)})</td></tr>
     </table>`,
     included: `<div style="font-size:18px;font-weight:800;margin:18px 0 8px">В услуги входят</div><div style="border:1px solid #cbd5e1;border-radius:14px;padding:14px;margin-bottom:18px">${included.length?included.map(x=>`<div style="margin:0 0 6px">• ${esc(x)}</div>`).join(''):'<div>—</div>'}</div>`,
     extras: `<div style="font-size:18px;font-weight:800;margin:18px 0 8px">Дополнительные услуги</div><div style="border:1px solid #cbd5e1;border-radius:14px;padding:14px;margin-bottom:18px">${extras.length?extras.map(x=>`<div style="display:flex;justify-content:space-between;gap:12px;margin:0 0 6px"><span>${esc(x.name)} × ${num(x.qty)}</span><span>${money(num(x.qty)*num(x.price))}</span></div>`).join(''):'<div>Без доп. услуг</div>'}</div>`,
-    pricing: `<div style="font-size:18px;font-weight:800;margin:18px 0 8px">Стоимость и время</div><table style="width:100%;border-collapse:collapse;font-size:14px">
-      <tr><td style="padding:6px 0">База до коэффициентов</td><td style="padding:6px 0;text-align:right">${money(r.baseNoK)}</td></tr>
-      <tr><td style="padding:6px 0">Коэф. заставленности: ${esc(r.clutter.label)}</td><td style="padding:6px 0;text-align:right">× ${r.clutterPriceK.toFixed(2)} → ${money(r.baseAfterClutter)}</td></tr>
-      <tr><td style="padding:6px 0">Коэф. загрязнённости: ${esc(r.dirt.label)}</td><td style="padding:6px 0;text-align:right">× ${r.dirtPriceK.toFixed(2)} → ${money(r.baseWithK)}</td></tr>
-      <tr><td style="padding:6px 0">Стоимость по уборке</td><td style="padding:6px 0;text-align:right">${money(r.baseRaw)}</td></tr>
-      <tr><td style="padding:6px 0">Доп. услуги</td><td style="padding:6px 0;text-align:right">${money(r.extrasTotal)}</td></tr>
-      <tr><td style="padding:6px 0">Выезд</td><td style="padding:6px 0;text-align:right">${money(r.travelTotal)}</td></tr>
-      <tr><td style="padding:6px 0">Скидка</td><td style="padding:6px 0;text-align:right">− ${money(r.discountValue)}</td></tr>
-      <tr><td style="padding:6px 0">Цена по рынку после скидки</td><td style="padding:6px 0;text-align:right">${money(r.marketPrice)}</td></tr>
-      <tr><td style="padding:6px 0">Цена по себестоимости + прибыль</td><td style="padding:6px 0;text-align:right">${money(r.costBasedPrice)}</td></tr>
-      <tr><td style="padding:10px 0;font-weight:800">Итого для клиента</td><td style="padding:10px 0;text-align:right;font-weight:800">${money(r.recommendedPrice)}</td></tr>
-      <tr><td style="padding:6px 0">Сумма нормо-часов</td><td style="padding:6px 0;text-align:right">${hours(r.normHours)}</td></tr>
-      <tr><td style="padding:6px 0">Примерное время уборки бригады</td><td style="padding:6px 0;text-align:right">${hours(r.brigadeHours)}</td></tr>
-      <tr><td style="padding:6px 0">Количество сотрудников</td><td style="padding:6px 0;text-align:right">${num(state.form.workers)} чел.</td></tr>
-    </table>`,
+    pricing: (()=>{
+      const rows=[];
+      rows.push(`<tr><td style="padding:6px 0">Стоимость уборки</td><td style="padding:6px 0;text-align:right">${money(r.baseRaw)}</td></tr>`);
+      if(num(r.extrasTotal)>0) rows.push(`<tr><td style="padding:6px 0">Дополнительные услуги</td><td style="padding:6px 0;text-align:right">${money(r.extrasTotal)}</td></tr>`);
+      if(num(r.travelTotal)>0) rows.push(`<tr><td style="padding:6px 0">Выезд</td><td style="padding:6px 0;text-align:right">${money(r.travelTotal)}</td></tr>`);
+      if(num(r.discountValue)>0) rows.push(`<tr><td style="padding:6px 0">Скидка</td><td style="padding:6px 0;text-align:right">− ${money(r.discountValue)}</td></tr>`);
+      rows.push(`<tr><td style="padding:12px 0;border-top:2px solid #0f172a;font-weight:800;font-size:17px">Итого к оплате</td><td style="padding:12px 0;border-top:2px solid #0f172a;text-align:right;font-weight:800;font-size:17px">${money(r.recommendedPrice)}</td></tr>`);
+      rows.push(`<tr><td style="padding:6px 0">Сумма нормо-часов</td><td style="padding:6px 0;text-align:right">${hours(r.normHours)}</td></tr>`);
+      rows.push(`<tr><td style="padding:6px 0">Примерное время уборки</td><td style="padding:6px 0;text-align:right">${hours(r.brigadeHours)}</td></tr>`);
+      rows.push(`<tr><td style="padding:6px 0">Количество сотрудников</td><td style="padding:6px 0;text-align:right">${r.peopleOnSite} чел.</td></tr>`);
+      return `<div style="font-size:18px;font-weight:800;margin:18px 0 8px">Стоимость</div><table style="width:100%;border-collapse:collapse;font-size:14px">${rows.join('')}</table>`;
+    })(),
     useful_info: `<div style="font-size:18px;font-weight:800;margin:18px 0 8px">Дополнительная информация</div><div style="border:1px solid #cbd5e1;border-radius:14px;padding:14px;margin-bottom:18px">${state.mainInfo.usefulInfo?esc(state.mainInfo.usefulInfo).replace(/\n/g,'<br>'):'—'}</div>`,
     main_info: `<div style="font-size:18px;font-weight:800;margin:18px 0 8px">Основная информация</div><div style="border:1px solid #cbd5e1;border-radius:14px;padding:14px;margin-bottom:18px">${state.mainInfo.equipmentText?`<div><strong>Техника:</strong><br>${esc(state.mainInfo.equipmentText).replace(/\n/g,'<br>')}</div>`:''}${state.mainInfo.chemistryText?`<div style="margin-top:10px"><strong>Химия / сертификаты:</strong><br>${esc(state.mainInfo.chemistryText).replace(/\n/g,'<br>')}</div>`:''}${!state.mainInfo.equipmentText && !state.mainInfo.chemistryText ? '<div>—</div>' : ''}</div>`,
     notes: `<div style="font-size:18px;font-weight:800;margin:18px 0 8px">Заметки</div><div style="border:1px solid #cbd5e1;border-radius:14px;padding:14px;min-height:60px">${esc(state.form.notes||'—')}</div>`
@@ -530,11 +594,11 @@ function bind(){
   $('includedServices').oninput=(e)=>{ state.includedByType[state.form.cleanType]=e.target.value; saveState(); renderIncludedPreview(); };
   $('saveOrderBtn').onclick=()=>{ if(validateCurrentOrder().length) return; const r=calc(); state.savedOrders.unshift({id:Date.now(), version:APP_VERSION, clientName:state.form.clientName||'Без имени', objectType:state.form.objectType, area:num(state.form.area), cleanType:r.rate.label, recommendedPrice:r.recommendedPrice, brigadeHours:r.brigadeHours, normHours:r.normHours, form:clone(state.form), extras:clone(r.selectedExtras), calculation:{recommendedPrice:r.recommendedPrice,marketPrice:r.marketPrice,payroll:r.payroll,normHours:r.normHours,brigadeHours:r.brigadeHours}, createdAt:new Date().toLocaleString('ru-RU')}); state.savedOrders=state.savedOrders.slice(0,50); state.ui=state.ui||{}; state.ui.ordersSinceBackup=Number(state.ui.ordersSinceBackup||0)+1; saveState(); renderSavedOrders(); updateBackupReminder(); toast('Заказ сохранён'); if(state.ui.autoBackup && state.ui.ordersSinceBackup>=AUTO_BACKUP_EVERY){ exportBackup(); toast('Авто-копия сохранена'); } };
   $('clearBtn').onclick=()=>{ state.form=clone(defaults.form); state.extras=state.extras.map(x=>({...x, qty:0})); fillForm(); renderExtras(); recalc(); toast('Форма очищена'); };
-  $('resetStorageBtn').onclick=()=>requestEditAccess(()=>{ if(!confirm('Сбросить все сохранённые данные в этом браузере?')) return; localStorage.removeItem(STORAGE_KEY); state=mergeState(clone(defaults)); migrateV43(); fillForm(); renderTariffs(); renderExtras(); recalc(); toast('Все данные сброшены'); });
-  $('demoBtn').onclick=()=>{ state.form={...state.form, clientName:'Ирина', objectType:'Квартира', area:68, cleanType:'general', discount:5, clutter:'medium', dirtiness:'medium', travelType:'km15', travelKm:20, workers:2, workerPay:4000, profitPercent:35, notes:'Есть кот. Уборка нужна в пятницу после 11:00.'}; state.extras=state.extras.map(x=>({...x, qty:({1:1,9:1,14:4,18:1}[x.id]||0)})); fillForm(); renderExtras(); recalc(); toast('Подставлен пример'); };
+  $('resetStorageBtn').onclick=()=>requestEditAccess(()=>{ if(!confirm('Сбросить все сохранённые данные в этом браузере?')) return; localStorage.removeItem(STORAGE_KEY); state=mergeState(clone(defaults)); migrateV43(); migrateV46(); fillForm(); renderTariffs(); renderExtras(); recalc(); toast("Все данные сброшены"); });
+  $('demoBtn').onclick=()=>{ state.form={...state.form, clientName:'Ирина', objectType:'Квартира', area:68, cleanType:'general', discount:5, clutter:'medium', dirtiness:'medium', travelType:'km15', travelKm:20, ownerRole:'cleaner_manager', profitPercent:25, notes:'Есть кот. Уборка нужна в пятницу после 11:00.'}; state.extras=state.extras.map(x=>({...x, qty:({1:1,9:1,14:4,18:1}[x.id]||0)})); fillForm(); renderExtras(); recalc(); toast('Подставлен пример'); };
   $('showOnlySelected').onchange=e=>{ state.form.showOnlySelected=e.target.checked; saveState(); renderExtras(); };
-  ['clientName','objectType','area','discount','discountAmount','travelKm','workers','workerPay','profitPercent','notes'].forEach(id=>$(id).oninput=e=>{ state.form[id]=['area','discount','discountAmount','travelKm','workers','workerPay','profitPercent'].includes(id)?num(e.target.value):e.target.value; recalc(); });
-  ['cleanType','clutter','dirtiness','travelType','payMode','discountMode'].forEach(id=>$(id).onchange=e=>{ state.form[id]=e.target.value; if(id==='cleanType'){ $('includedTypeLabel').textContent=state.baseRates[state.form.cleanType].label; $('includedServices').value=state.includedByType[state.form.cleanType]||''; } if(id==='discountMode'){ updateDiscountInputs(); } recalc(); });
+  ['clientName','objectType','area','discount','discountAmount','travelKm','profitPercent','notes'].forEach(id=>$(id).oninput=e=>{ state.form[id]=['area','discount','discountAmount','travelKm','profitPercent'].includes(id)?num(e.target.value):e.target.value; recalc(); });
+  ['cleanType','clutter','dirtiness','travelType','ownerRole','discountMode'].forEach(id=>$(id).onchange=e=>{ state.form[id]=e.target.value; if(id==='cleanType'){ $('includedTypeLabel').textContent=state.baseRates[state.form.cleanType].label; $('includedServices').value=state.includedByType[state.form.cleanType]||''; } if(id==='discountMode'){ updateDiscountInputs(); } recalc(); });
   ['brandName','brandPhone','brandTagline','brandSite'].forEach(id=>$(id).oninput=e=>{ const map={brandName:'name',brandPhone:'phone',brandTagline:'tagline',brandSite:'site'}; state.brand[map[id]]=e.target.value; saveState(); renderBrandLogoPreview(); });
   $('brandLogo').onchange=e=>{ const file=e.target.files&&e.target.files[0]; if(!file) return; if(file.size>2*1024*1024){ toast('Логотип слишком большой. Лучше до 2 МБ'); e.target.value=''; return; } const reader=new FileReader(); reader.onload=()=>{ state.brand.logoDataUrl=String(reader.result||''); saveState(); renderBrandLogoPreview(); toast('Логотип сохранён'); $('brandLogo').value=''; }; reader.readAsDataURL(file); };
   $('removeLogoBtn').onclick=()=>{ if(!state.brand.logoDataUrl){ toast('Логотип не загружен'); return; } state.brand.logoDataUrl=''; saveState(); renderBrandLogoPreview(); toast('Логотип удалён'); };
@@ -543,6 +607,6 @@ function bind(){
   $('addExtraBtn').onclick=()=>requestEditAccess(()=>{ const name=$('newExtraName').value.trim(), unit=$('newExtraUnit').value.trim()||'шт', price=num($('newExtraPrice').value), time=num($('newExtraTime').value), category=$('newExtraCategory').value.trim()||'Другое'; if(!name||!price){ toast('Заполни название и цену'); return; } state.extras.push({id:Date.now(), name, unit, price, qty:0, time, category, builtIn:false}); $('newExtraName').value=''; $('newExtraPrice').value=''; $('newExtraTime').value=''; saveState(); renderExtras(); recalc(); toast('Услуга добавлена'); });
 }
 function updateDiscountInputs(){ const mode=state.form.discountMode==='amount'?'amount':'percent'; const sel=$('discountMode'); if(sel) sel.value=mode; const pct=$('discount'), amt=$('discountAmount'); if(pct) pct.classList.toggle('hidden', mode!=='percent'); if(amt) amt.classList.toggle('hidden', mode!=='amount'); }
-function fillForm(){ if(!isEditUnlocked()){ state.ui.showTariffs=false; state.ui.showSettings=false; } $('clientName').value=state.form.clientName; $('objectType').value=state.form.objectType; $('area').value=state.form.area; $('discount').value=state.form.discount; if($('discountAmount')) $('discountAmount').value=state.form.discountAmount||0; updateDiscountInputs(); $('travelKm').value=state.form.travelKm; $('workers').value=state.form.workers; $('workerPay').value=state.form.workerPay; $('profitPercent').value=state.form.profitPercent; $('notes').value=state.form.notes; $('showOnlySelected').checked=!!state.form.showOnlySelected; $('tariffsCard').classList.toggle('hidden', !state.ui.showTariffs); $('settingsCard').classList.toggle('hidden', !state.ui.showSettings); populateMainSelects(); $('includedServices').value=state.includedByType[state.form.cleanType]||''; renderSettingsPanel(); }
+function fillForm(){ if(!isEditUnlocked()){ state.ui.showTariffs=false; state.ui.showSettings=false; } $('clientName').value=state.form.clientName; $('objectType').value=state.form.objectType; $('area').value=state.form.area; $('discount').value=state.form.discount; if($('discountAmount')) $('discountAmount').value=state.form.discountAmount||0; updateDiscountInputs(); $('travelKm').value=state.form.travelKm; if($('ownerRole')) $('ownerRole').value=state.form.ownerRole||'none'; $('profitPercent').value=state.form.profitPercent; $('notes').value=state.form.notes; $('showOnlySelected').checked=!!state.form.showOnlySelected; $('tariffsCard').classList.toggle('hidden', !state.ui.showTariffs); $('settingsCard').classList.toggle('hidden', !state.ui.showSettings); populateMainSelects(); $('includedServices').value=state.includedByType[state.form.cleanType]||''; renderSettingsPanel(); }
 fillForm(); renderTariffs(); bind(); renderExtras(); renderSettingsPanel(); recalc(); updateBackupReminder(); attemptIdbRecovery(); if($('versionBadge')) $('versionBadge').textContent=APP_VERSION; setupAccess();
 if('serviceWorker' in navigator){ window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{})); }
