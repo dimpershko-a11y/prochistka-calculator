@@ -121,3 +121,35 @@ input[type="color"]{height:45px;padding:4px}
   .extra-controls{grid-template-columns:1fr 1fr 1fr}
   .inline-check{justify-content:center}
 }
+
+/* v4.6.2: адаптивность и читаемость */
+.card,.grid>*,.topbar>*,.summary-box,.selected-item,.saved-item{min-width:0}
+input,select,textarea,button{max-width:100%}
+textarea{overflow-wrap:anywhere;word-break:normal}
+button{white-space:normal;line-height:1.25}
+.compact-textarea{min-height:92px}
+.summary-big{overflow-wrap:anywhere}
+.row span,.row strong{overflow-wrap:anywhere;word-break:normal}
+.extra-name-row{min-width:0}
+.service-name-field{word-break:normal;overflow-wrap:anywhere}
+.more-menu{max-width:min(92vw,360px)}
+.pdf-preview-shell #pdfPreviewContent{overflow:hidden}
+
+@media(max-width:520px){
+  .extra-controls{grid-template-columns:1fr}
+  .discount-row{display:grid;grid-template-columns:82px 1fr}
+  .discount-row input{grid-column:2}
+  .row{flex-wrap:wrap;align-items:flex-start;gap:4px 10px}
+  .row>:first-child{flex:1 1 100%}
+  .row>:last-child{white-space:normal;text-align:left;flex:1 1 100%}
+  .summary-big{font-size:34px}
+  .pdf-preview-shell #pdfPreviewContent{font-size:13px}
+}
+
+@media(max-width:380px){
+  body{padding-left:7px;padding-right:7px}
+  .card{padding:12px;border-radius:15px}
+  .title{font-size:24px}
+  .summary-big{font-size:30px}
+  input,select,textarea{font-size:15px;padding:10px 10px}
+}

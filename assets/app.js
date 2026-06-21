@@ -1,10 +1,11 @@
 const STORAGE_KEY = 'prochistka_calc_app_v4';
 const APP_CONFIG = window.PROCHISTKA_CONFIG || {};
 const CORE = window.PROCHISTKA_CORE;
-const APP_VERSION = APP_CONFIG.APP_VERSION || 'v4.6.0';
+const APP_VERSION = APP_CONFIG.APP_VERSION || 'v4.6.2';
 const defaults = APP_CONFIG.defaults || {};
-defaults.brand = defaults.brand || {name:'PRO-CHISTKA', phone:'', tagline:'Клининговые услуги', site:'', logoDataUrl:''};
-defaults.pdfHeader = defaults.pdfHeader || {useLogo:false,fontFamily:'Arial, sans-serif',nameFontSize:30,taglineFontSize:13,contactFontSize:13,nameWeight:800,nameLetterSpacing:1.2,taglineLetterSpacing:0.2,contactLetterSpacing:0.2,nameLineHeight:1.05,taglineLineHeight:1.25,uppercaseName:true,nameColor:'#0f172a',taglineColor:'#475569',contactColor:'#0f172a',borderColor:'#0f172a',borderWidth:2,paddingBottom:16,marginBottom:22};
+defaults.brand = defaults.brand || {name:'PRO-CHISTKA', phone:'', tagline:'Клининговые услуги', site:'', contactText:'', logoDataUrl:''};
+if(!defaults.brand.contactText){ defaults.brand.contactText = [defaults.brand.phone, defaults.brand.site].filter(Boolean).join('\n'); }
+defaults.pdfHeader = defaults.pdfHeader || {useLogo:false,fontFamily:'Arial, sans-serif',nameFontSize:30,taglineFontSize:13,contactFontSize:13,nameWeight:800,contactWeight:600,nameLetterSpacing:1.2,taglineLetterSpacing:0.2,contactLetterSpacing:0.2,nameLineHeight:1.05,taglineLineHeight:1.25,contactLineHeight:1.35,contactFontFamily:'',contactAlign:'right',uppercaseName:true,nameColor:'#0f172a',taglineColor:'#475569',contactColor:'#0f172a',borderColor:'#0f172a',borderWidth:2,paddingBottom:16,marginBottom:22};
 defaults.baseRates = defaults.baseRates || {};
 defaults.clutter = defaults.clutter || {};
 defaults.dirtiness = defaults.dirtiness || {};
@@ -21,6 +22,31 @@ defaults.form = defaults.form || {clientName:'',objectType:'Квартира',ar
 defaults.savedOrders = [];
 defaults.ui = defaults.ui || {showTariffs:false, showSettings:false, extraGroupsCollapsed:{}};
 function clone(x){return JSON.parse(JSON.stringify(x));}
+function getDefaultContactText(){ return [defaults.brand?.phone, defaults.brand?.site].filter(Boolean).join('\n'); }
+function ensureBrandContactText(obj){
+  if(!obj.brand) obj.brand={};
+  if(!obj.brand.contactText) obj.brand.contactText=[obj.brand.phone,obj.brand.site].filter(Boolean).join('\n') || getDefaultContactText();
+}
+function mergeConfiguredExtras(configExtras, currentExtras){
+  const qtyById = new Map((Array.isArray(currentExtras)?currentExtras:[]).map(x=>[String(x.id), Math.max(0, Number(x.qty)||0)]));
+  return (Array.isArray(configExtras)?configExtras:[]).map(x=>({...clone(x), qty: qtyById.has(String(x.id)) ? qtyById.get(String(x.id)) : Math.max(0, Number(x.qty)||0)}));
+}
+function applyConfigRevisionData(){
+  state.baseRates = clone(defaults.baseRates);
+  state.clutter = clone(defaults.clutter);
+  state.dirtiness = clone(defaults.dirtiness);
+  state.travel = clone(defaults.travel);
+  state.labor = clone(defaults.labor);
+  state.materialPerM2 = defaults.materialPerM2;
+  state.overhead = clone(defaults.overhead);
+  state.extras = mergeConfiguredExtras(defaults.extras, state.extras);
+  state.includedByType = clone(defaults.includedByType);
+  state.serviceDescriptions = clone(defaults.serviceDescriptions);
+  state.mainInfo = {...(state.mainInfo||{}), ...(clone(defaults.mainInfo)||{})};
+  state.brand = {...(state.brand||{}), ...(clone(defaults.brand)||{})};
+  state.pdfHeader = {...(state.pdfHeader||{}), ...(clone(defaults.pdfHeader)||{})};
+  ensureBrandContactText(state);
+}
 function mergeState(parsed){
   const d=clone(defaults);
   return {
@@ -47,6 +73,7 @@ function mergeState(parsed){
 let __rawLocal=null; try{ __rawLocal=localStorage.getItem(STORAGE_KEY); }catch(e){}
 const hadLocalState = !!__rawLocal;
 let state; try{ state=__rawLocal?mergeState(JSON.parse(__rawLocal)):mergeState(clone(defaults)); }catch(e){state=mergeState(clone(defaults))}
+ensureBrandContactText(state);
 // Миграция: новая шапка PDF по умолчанию текстовая, старый тяжёлый base64-логотип удаляем из локального состояния.
 if(state.pdfHeader && state.pdfHeader.useLogo === false && state.brand && state.brand.logoDataUrl && String(state.brand.logoDataUrl).length > 10000){ state.brand.logoDataUrl=''; try{saveState();}catch(e){} }
 
@@ -119,26 +146,21 @@ function attemptIdbRecovery(){
   }).catch(()=>{});
 }
 
-// Источник истины для цен — config.js. При повышении CONFIG_REVISION цены
-// (ставки, коэффициенты, выезд) перезаписываются из конфига на всех устройствах.
+// Источник истины для экономики и общих настроек — config.js.
+// При повышении CONFIG_REVISION приложение перезаписывает из конфига ставки,
+// коэффициенты, выезд, труд, материалы, накладные, доп. услуги, описания и PDF-шапку.
+// Количество выбранных доп. услуг в текущем расчёте сохраняется по id.
 function syncConfigRevision(){
   const rev = Number(APP_CONFIG.CONFIG_REVISION)||0;
   state.ui = state.ui || {};
-  if(state.ui.configRevision === undefined){
-    // Первый запуск этой версии: принимаем текущие цены как есть, без перезаписи.
-    if(!state.travel || !Object.keys(state.travel).length) state.travel = clone(defaults.travel);
+  const currentRev = Number(state.ui.configRevision || 0);
+  if(rev > currentRev){
+    applyConfigRevisionData();
     state.ui.configRevision = rev;
     saveState();
-    return;
-  }
-  if(rev > Number(state.ui.configRevision||0)){
-    state.baseRates = clone(defaults.baseRates);
-    state.clutter = clone(defaults.clutter);
-    state.dirtiness = clone(defaults.dirtiness);
-    state.travel = clone(defaults.travel);
-    state.ui.configRevision = rev;
-    saveState();
-    if(typeof toast==='function') setTimeout(()=>toast('Цены обновлены из настроек (config.js)'),300);
+    if(typeof toast==='function') setTimeout(()=>toast('Настройки и экономика обновлены из config.js'),300);
+  } else {
+    ensureBrandContactText(state);
   }
 }
 
@@ -321,9 +343,8 @@ function renderExtrasEditor(){
 }
 function renderSettingsPanel(){
   if($('brandName')) $('brandName').value=state.brand.name;
-  if($('brandPhone')) $('brandPhone').value=state.brand.phone;
   if($('brandTagline')) $('brandTagline').value=state.brand.tagline;
-  if($('brandSite')) $('brandSite').value=state.brand.site;
+  if($('brandContactText')) $('brandContactText').value=state.brand.contactText || [state.brand.phone,state.brand.site].filter(Boolean).join('\n');
   setPdfHeaderInputs();
   bindPdfHeaderInputs();
   if($('equipmentText')) $('equipmentText').value=state.mainInfo.equipmentText||'';
@@ -445,8 +466,12 @@ function setPdfHeaderInputs(){
   set('pdfHeaderNameLetterSpacing',h.nameLetterSpacing??0);
   set('pdfHeaderTaglineSize',h.taglineFontSize||13);
   set('pdfHeaderTaglineLetterSpacing',h.taglineLetterSpacing??0);
+  set('pdfHeaderContactFontFamily',h.contactFontFamily||'');
   set('pdfHeaderContactSize',h.contactFontSize||13);
+  set('pdfHeaderContactWeight',h.contactWeight||600);
   set('pdfHeaderContactLetterSpacing',h.contactLetterSpacing??0);
+  set('pdfHeaderContactLineHeight',h.contactLineHeight??1.35);
+  set('pdfHeaderContactAlign',h.contactAlign||'right');
   set('pdfHeaderUppercaseName',String(h.uppercaseName!==false));
   set('pdfHeaderNameColor',h.nameColor||'#0f172a');
   set('pdfHeaderTaglineColor',h.taglineColor||'#475569');
@@ -460,7 +485,7 @@ function setPdfHeaderInputs(){
 function bindPdfHeaderInputs(){
   const fields={
     pdfHeaderFontFamily:['fontFamily','string'], pdfHeaderNameSize:['nameFontSize','number'], pdfHeaderNameWeight:['nameWeight','number'], pdfHeaderNameLetterSpacing:['nameLetterSpacing','number'],
-    pdfHeaderTaglineSize:['taglineFontSize','number'], pdfHeaderTaglineLetterSpacing:['taglineLetterSpacing','number'], pdfHeaderContactSize:['contactFontSize','number'], pdfHeaderContactLetterSpacing:['contactLetterSpacing','number'],
+    pdfHeaderTaglineSize:['taglineFontSize','number'], pdfHeaderTaglineLetterSpacing:['taglineLetterSpacing','number'], pdfHeaderContactFontFamily:['contactFontFamily','string'], pdfHeaderContactSize:['contactFontSize','number'], pdfHeaderContactWeight:['contactWeight','number'], pdfHeaderContactLetterSpacing:['contactLetterSpacing','number'], pdfHeaderContactLineHeight:['contactLineHeight','number'], pdfHeaderContactAlign:['contactAlign','string'],
     pdfHeaderUppercaseName:['uppercaseName','bool'], pdfHeaderNameColor:['nameColor','string'], pdfHeaderTaglineColor:['taglineColor','string'], pdfHeaderContactColor:['contactColor','string'], pdfHeaderBorderColor:['borderColor','string'],
     pdfHeaderBorderWidth:['borderWidth','number'], pdfHeaderPaddingBottom:['paddingBottom','number'], pdfHeaderMarginBottom:['marginBottom','number'], pdfHeaderUseLogo:['useLogo','bool']
   };
@@ -524,7 +549,11 @@ function buildPrintHtml(){
   const nameText=h.uppercaseName!==false ? String(state.brand.name||'PRO-CHISTKA').toUpperCase() : String(state.brand.name||'PRO-CHISTKA');
   const logo=(h.useLogo && state.brand.logoDataUrl) ? `<img src="${state.brand.logoDataUrl}" alt="Логотип" style="max-height:70px;max-width:160px;object-fit:contain">` : '';
   const brandBlock=`<div style="display:flex;align-items:center;gap:14px">${logo}<div><div style="font-family:${font};font-size:${num(h.nameFontSize)||30}px;font-weight:${num(h.nameWeight)||800};letter-spacing:${Number(h.nameLetterSpacing)||0}px;line-height:${Number(h.nameLineHeight)||1.05};color:${cleanCss(h.nameColor,'#0f172a')}">${esc(nameText)}</div><div style="font-family:${font};font-size:${num(h.taglineFontSize)||13}px;letter-spacing:${Number(h.taglineLetterSpacing)||0}px;line-height:${Number(h.taglineLineHeight)||1.25};color:${cleanCss(h.taglineColor,'#475569')};margin-top:6px">${esc(state.brand.tagline||'')}</div></div></div>`;
-  const contactStyle=`font-family:${font};font-size:${num(h.contactFontSize)||13}px;letter-spacing:${Number(h.contactLetterSpacing)||0}px;color:${cleanCss(h.contactColor,'#0f172a')}`;
+  const contactFont=cleanCss(h.contactFontFamily || font, font);
+  const contactAlign=['left','center','right'].includes(String(h.contactAlign)) ? h.contactAlign : 'right';
+  const contactStyle=`font-family:${contactFont};font-size:${num(h.contactFontSize)||13}px;font-weight:${num(h.contactWeight)||600};letter-spacing:${Number(h.contactLetterSpacing)||0}px;line-height:${Number(h.contactLineHeight)||1.35};color:${cleanCss(h.contactColor,'#0f172a')}`;
+  const contactText = state.brand.contactText || [state.brand.phone,state.brand.site].filter(Boolean).join('\n');
+  const contactHtml = String(contactText||'').split(/\n+/).filter(Boolean).map((line,i)=>`<div style="${i?'margin-top:6px;':''}color:${cleanCss(h.contactColor,'#0f172a')}">${esc(line)}</div>`).join('');
   const headerStyle=`display:flex;justify-content:space-between;gap:24px;border-bottom:${num(h.borderWidth)}px solid ${cleanCss(h.borderColor,'#0f172a')};padding-bottom:${num(h.paddingBottom)||16}px;margin-bottom:${num(h.marginBottom)||22}px`;
   const blocks = {
     client: `<table style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:14px">
@@ -558,7 +587,7 @@ function buildPrintHtml(){
   <div style="padding:32px;font-family:Arial,sans-serif;color:#0f172a">
     <div style="${headerStyle}">
       <div>${brandBlock}</div>
-      <div style="text-align:right;${contactStyle}"><div>${esc(state.brand.phone)}</div><div style="margin-top:6px;color:${cleanCss(h.contactColor,'#0f172a')}">${esc(state.brand.site)}</div></div>
+      <div style="text-align:${contactAlign};${contactStyle}">${contactHtml || '&nbsp;'}</div>
     </div>
     <div style="font-size:24px;font-weight:800;margin-bottom:18px">Смета на уборку</div>
     ${content}
@@ -599,7 +628,8 @@ function bind(){
   $('showOnlySelected').onchange=e=>{ state.form.showOnlySelected=e.target.checked; saveState(); renderExtras(); };
   ['clientName','objectType','area','discount','discountAmount','travelKm','profitPercent','notes'].forEach(id=>$(id).oninput=e=>{ state.form[id]=['area','discount','discountAmount','travelKm','profitPercent'].includes(id)?num(e.target.value):e.target.value; recalc(); });
   ['cleanType','clutter','dirtiness','travelType','ownerRole','discountMode'].forEach(id=>$(id).onchange=e=>{ state.form[id]=e.target.value; if(id==='cleanType'){ $('includedTypeLabel').textContent=state.baseRates[state.form.cleanType].label; $('includedServices').value=state.includedByType[state.form.cleanType]||''; } if(id==='discountMode'){ updateDiscountInputs(); } recalc(); });
-  ['brandName','brandPhone','brandTagline','brandSite'].forEach(id=>$(id).oninput=e=>{ const map={brandName:'name',brandPhone:'phone',brandTagline:'tagline',brandSite:'site'}; state.brand[map[id]]=e.target.value; saveState(); renderBrandLogoPreview(); });
+  ['brandName','brandTagline'].forEach(id=>{ const el=$(id); if(!el) return; el.oninput=e=>{ const map={brandName:'name',brandTagline:'tagline'}; state.brand[map[id]]=e.target.value; saveState(); renderBrandLogoPreview(); }; });
+  if($('brandContactText')) $('brandContactText').oninput=e=>{ state.brand.contactText=e.target.value; const lines=String(e.target.value||'').split(/\n+/).map(x=>x.trim()).filter(Boolean); state.brand.phone=lines[0]||''; state.brand.site=lines[1]||''; saveState(); };
   $('brandLogo').onchange=e=>{ const file=e.target.files&&e.target.files[0]; if(!file) return; if(file.size>2*1024*1024){ toast('Логотип слишком большой. Лучше до 2 МБ'); e.target.value=''; return; } const reader=new FileReader(); reader.onload=()=>{ state.brand.logoDataUrl=String(reader.result||''); saveState(); renderBrandLogoPreview(); toast('Логотип сохранён'); $('brandLogo').value=''; }; reader.readAsDataURL(file); };
   $('removeLogoBtn').onclick=()=>{ if(!state.brand.logoDataUrl){ toast('Логотип не загружен'); return; } state.brand.logoDataUrl=''; saveState(); renderBrandLogoPreview(); toast('Логотип удалён'); };
   if($('backupNowBtn')) $('backupNowBtn').onclick=exportBackup;

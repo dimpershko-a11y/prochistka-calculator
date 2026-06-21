@@ -5,7 +5,7 @@
 <title>Калькулятор стоимости уборки</title>
 
 <link href="assets/style.css" rel="stylesheet"/><link href="manifest.json" rel="manifest"/><meta content="#0f172a" name="theme-color"/><script defer="defer" src="config.js"></script><script defer="defer" src="assets/core.js"></script><script defer="defer" src="assets/app.js"></script></head>
-<body><div class="version-badge" id="versionBadge">v4.6.0</div>
+<body><div class="version-badge" id="versionBadge">v4.6.2</div>
 <div class="login-overlay hidden" id="loginOverlay">
 <div class="login-card">
 <div class="login-title">PRO-CHISTKA</div>
@@ -113,9 +113,12 @@
 <div class="chip">Компания и PDF</div>
 <div class="grid g2">
 <div><label>Название компании</label><input id="brandName"/></div>
-<div><label>Телефон</label><input id="brandPhone"/></div>
 <div><label>Подзаголовок</label><input id="brandTagline"/></div>
-<div><label>Сайт / соцсеть</label><input id="brandSite"/></div>
+</div>
+<div style="margin-top:12px">
+<label>Контакты в шапке PDF</label>
+<textarea id="brandContactText" class="compact-textarea" placeholder="+7 (993) 635-60-64&#10;pro-chistka.pro&#10;Telegram: @prochistka"></textarea>
+<div class="muted" style="font-size:13px;margin-top:6px">Вписывай телефон, сайт, Telegram, почту и другие данные в столбец. В PDF они выйдут отдельными строками справа в шапке.</div>
 </div>
 <div class="extra-card" style="margin-top:14px">
 <div class="chip">Текстовая шапка PDF</div>
@@ -126,8 +129,12 @@
 <div><label>Межбуквенное название, px</label><input id="pdfHeaderNameLetterSpacing" step="0.1" type="number"/></div>
 <div><label>Размер подзаголовка, px</label><input id="pdfHeaderTaglineSize" min="8" max="40" type="number"/></div>
 <div><label>Межбуквенное подзаголовка, px</label><input id="pdfHeaderTaglineLetterSpacing" step="0.1" type="number"/></div>
+<div><label>Шрифт контактов</label><input id="pdfHeaderContactFontFamily" placeholder="по умолчанию как шапка"/></div>
 <div><label>Размер контактов, px</label><input id="pdfHeaderContactSize" min="8" max="40" type="number"/></div>
+<div><label>Жирность контактов</label><select id="pdfHeaderContactWeight"><option value="400">400</option><option value="500">500</option><option value="600">600</option><option value="700">700</option><option value="800">800</option></select></div>
 <div><label>Межбуквенное контактов, px</label><input id="pdfHeaderContactLetterSpacing" step="0.1" type="number"/></div>
+<div><label>Межстрочный интервал контактов</label><input id="pdfHeaderContactLineHeight" min="0.8" max="3" step="0.05" type="number"/></div>
+<div><label>Выравнивание контактов</label><select id="pdfHeaderContactAlign"><option value="right">Справа</option><option value="center">По центру</option><option value="left">Слева</option></select></div>
 <div><label>Название большими буквами</label><select id="pdfHeaderUppercaseName"><option value="true">Да</option><option value="false">Нет</option></select></div>
 <div><label>Цвет названия</label><input id="pdfHeaderNameColor" type="color"/></div>
 <div><label>Цвет подзаголовка</label><input id="pdfHeaderTaglineColor" type="color"/></div>

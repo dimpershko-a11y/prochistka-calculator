@@ -1,7 +1,7 @@
 window.PROCHISTKA_CONFIG = {
-  "APP_VERSION": "v4.6.0",
+  "APP_VERSION": "v4.6.2",
   "APP_PASSWORD": "7421",
-  "CONFIG_REVISION": 1,
+  "CONFIG_REVISION": 3,
   "WINDOW_CATEGORIES": [
     "Окна"
   ],
@@ -12,25 +12,26 @@ window.PROCHISTKA_CONFIG = {
       "tagline": "Клининговые услуги",
       "site": "pro-chistka.pro",
       "logoDataUrl": "",
-      "font": "Arial, sans-serif"
+      "font": "Arial, sans-serif",
+      "contactText": "+7 (993) 635-60-64\npro-chistka.pro"
     },
     "baseRates": {
       "maintenance": {
         "label": "Поддерживающая",
-        "rate": 80,
-        "min": 5000,
+        "rate": 150,
+        "min": 6000,
         "speed": 25
       },
       "general": {
         "label": "Генеральная",
-        "rate": 200,
-        "min": 9000,
+        "rate": 300,
+        "min": 12000,
         "speed": 7
       },
       "postreno": {
         "label": "После ремонта",
-        "rate": 300,
-        "min": 12000,
+        "rate": 390,
+        "min": 18000,
         "speed": 5
       }
     },
@@ -69,9 +70,21 @@ window.PROCHISTKA_CONFIG = {
       }
     },
     "travel": {
-      "kad": { "label": "В пределах КАД", "base": 0, "perKm": 0 },
-      "km15": { "label": "До 15 км от КАД", "base": 1500, "perKm": 0 },
-      "km20plus": { "label": "20+ км", "base": 1500, "perKm": 15 }
+      "kad": {
+        "label": "В пределах КАД",
+        "base": 0,
+        "perKm": 0
+      },
+      "km15": {
+        "label": "До 15 км от КАД",
+        "base": 1500,
+        "perKm": 0
+      },
+      "km20plus": {
+        "label": "20+ км",
+        "base": 1500,
+        "perKm": 15
+      }
     },
     "includedByType": {
       "maintenance": "Влажная уборка всех доступных поверхностей.\nСухая и влажная уборка пола.\nМытьё санузла и сантехники.\nПротирка кухни и техники снаружи.\nВынос мусора.\nНе удаляются сложные загрязнения.\nНе используются агрессивные моющие средства.\nУборка на высоте до 2 метров.\nНе используем спец.технику (пароочистители, стремянки, сгоны, роторные машины, озонаторы, экстракторы и тд.).\nПылесос предоставляет заказчик, если пылесоса нет, можем предоставить в аренду за 1000₽/уборка.\n\nДополнительные задачи. Могут включать: уход за растениями, мойка лотка животного, мойка посуды и тд.\n",
@@ -472,7 +485,11 @@ window.PROCHISTKA_CONFIG = {
       "borderColor": "#0f172a",
       "borderWidth": 2,
       "paddingBottom": 16,
-      "marginBottom": 22
+      "marginBottom": 22,
+      "contactFontFamily": "",
+      "contactWeight": 600,
+      "contactLineHeight": 1.35,
+      "contactAlign": "right"
     }
   }
 };
