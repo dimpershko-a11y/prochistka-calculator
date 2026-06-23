@@ -7,11 +7,33 @@
   const isRecord = value => !!value && typeof value === 'object' && !Array.isArray(value);
   const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(object || {}, key);
 
+  function getCleaningType(state, cleanType){
+    return state.cleaningTypes && state.cleaningTypes[cleanType] ? state.cleaningTypes[cleanType] : null;
+  }
+
+  function getRateConf(state, form){
+    const type = getCleaningType(state, form.cleanType);
+    if(type){
+      return {label:type.label, rate:type.rate, min:type.min, speed:type.speed, code:form.cleanType};
+    }
+    return state.baseRates?.[form.cleanType];
+  }
+
+  function getClutterCollection(state, form){
+    const type = getCleaningType(state, form.cleanType);
+    return (type && isRecord(type.clutter)) ? type.clutter : state.clutter;
+  }
+
+  function getDirtinessCollection(state, form){
+    const type = getCleaningType(state, form.cleanType);
+    return (type && isRecord(type.dirtiness)) ? type.dirtiness : state.dirtiness;
+  }
+
   function calculateOrder(state){
     const form = state.form || {};
-    const rate = state.baseRates?.[form.cleanType];
-    const clutter = state.clutter?.[form.clutter];
-    const dirt = state.dirtiness?.[form.dirtiness];
+    const rate = getRateConf(state, form);
+    const clutter = getClutterCollection(state, form)?.[form.clutter];
+    const dirt = getDirtinessCollection(state, form)?.[form.dirtiness];
     if(!rate || !clutter || !dirt) throw new Error('Некорректные параметры тарифа');
 
     const area = num(form.area);
@@ -135,9 +157,12 @@
     const errors = [];
     const form = state.form || {};
     if(num(form.area) <= 0) errors.push('Укажите площадь больше 0 м².');
-    if(!hasOwn(state.baseRates, form.cleanType)) errors.push('Выберите корректный тип уборки.');
-    if(!hasOwn(state.clutter, form.clutter)) errors.push('Выберите корректную заставленность.');
-    if(!hasOwn(state.dirtiness, form.dirtiness)) errors.push('Выберите корректную загрязнённость.');
+    const rateConf = getRateConf(state, form);
+    const clutterCollection = getClutterCollection(state, form) || {};
+    const dirtinessCollection = getDirtinessCollection(state, form) || {};
+    if(!rateConf) errors.push('Выберите корректный тип уборки.');
+    if(!hasOwn(clutterCollection, form.clutter)) errors.push('Выберите корректную заставленность.');
+    if(!hasOwn(dirtinessCollection, form.dirtiness)) errors.push('Выберите корректную загрязнённость.');
     const travelKeys = state.travel ? Object.keys(state.travel) : ['kad', 'km15', 'km20plus'];
     if(!travelKeys.includes(form.travelType)) errors.push('Выберите корректный тип выезда.');
     if(form.discountMode && !['percent', 'amount'].includes(form.discountMode)) errors.push('Выберите корректный режим скидки.');
@@ -152,11 +177,13 @@
       return {ok:false, error:'Выбран файл другого типа.'};
     }
     const form = isRecord(payload.form) ? payload.form : {};
+    const cleanTypes = isRecord(payload.cleaningTypes) ? payload.cleaningTypes : (isRecord(defaults.cleaningTypes) ? defaults.cleaningTypes : null);
+    const activeType = cleanTypes && form.cleanType ? cleanTypes[form.cleanType] : null;
     const baseRates = isRecord(payload.baseRates) ? payload.baseRates : defaults.baseRates;
-    const clutter = isRecord(payload.clutter) ? payload.clutter : defaults.clutter;
-    const dirtiness = isRecord(payload.dirtiness) ? payload.dirtiness : defaults.dirtiness;
+    const clutter = activeType && isRecord(activeType.clutter) ? activeType.clutter : (isRecord(payload.clutter) ? payload.clutter : defaults.clutter);
+    const dirtiness = activeType && isRecord(activeType.dirtiness) ? activeType.dirtiness : (isRecord(payload.dirtiness) ? payload.dirtiness : defaults.dirtiness);
     const checks = [
-      [form.cleanType, baseRates, 'тип уборки'],
+      [form.cleanType, cleanTypes || baseRates, 'тип уборки'],
       [form.clutter, clutter, 'заставленность'],
       [form.dirtiness, dirtiness, 'загрязнённость']
     ];

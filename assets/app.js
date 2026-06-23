@@ -1,7 +1,7 @@
 const STORAGE_KEY = 'prochistka_calc_app_v4';
 const APP_CONFIG = window.PROCHISTKA_CONFIG || {};
 const CORE = window.PROCHISTKA_CORE;
-const APP_VERSION = APP_CONFIG.APP_VERSION || 'v4.6.2';
+const APP_VERSION = APP_CONFIG.APP_VERSION || 'v4.7.0';
 const defaults = APP_CONFIG.defaults || {};
 defaults.brand = defaults.brand || {name:'PRO-CHISTKA', phone:'', tagline:'Клининговые услуги', site:'', contactText:'', logoDataUrl:''};
 if(!defaults.brand.contactText){ defaults.brand.contactText = [defaults.brand.phone, defaults.brand.site].filter(Boolean).join('\n'); }
@@ -22,6 +22,82 @@ defaults.form = defaults.form || {clientName:'',objectType:'Квартира',ar
 defaults.savedOrders = [];
 defaults.ui = defaults.ui || {showTariffs:false, showSettings:false, extraGroupsCollapsed:{}};
 function clone(x){return JSON.parse(JSON.stringify(x));}
+function buildCleaningTypesFromLegacy(target){
+  const baseRates = (target && target.baseRates) || {};
+  const includedByType = (target && target.includedByType) || {};
+  const fallbackClutter = (target && target.clutter) || {};
+  const fallbackDirtiness = (target && target.dirtiness) || {};
+  const out = {};
+  Object.entries(baseRates).forEach(([key, value])=>{
+    const rate = value || {};
+    out[key] = {
+      label: rate.label || key,
+      rate: Number(rate.rate)||0,
+      min: Number(rate.min)||0,
+      speed: Number(rate.speed)||1,
+      included: includedByType[key] || '',
+      clutter: clone(fallbackClutter),
+      dirtiness: clone(fallbackDirtiness)
+    };
+  });
+  return out;
+}
+function normalizeCleaningTypes(cleaningTypes, target){
+  const legacy = buildCleaningTypesFromLegacy(target || {});
+  const source = cleaningTypes && typeof cleaningTypes === 'object' && !Array.isArray(cleaningTypes) && Object.keys(cleaningTypes).length ? cleaningTypes : legacy;
+  const fallbackClutter = (target && target.clutter) || defaults.clutter || {};
+  const fallbackDirtiness = (target && target.dirtiness) || defaults.dirtiness || {};
+  const includedByType = (target && target.includedByType) || {};
+  const out = {};
+  Object.entries(source || {}).forEach(([key, value])=>{
+    const t = value || {};
+    out[key] = {
+      label: t.label || (legacy[key] && legacy[key].label) || key,
+      rate: Number(t.rate ?? (legacy[key] && legacy[key].rate)) || 0,
+      min: Number(t.min ?? (legacy[key] && legacy[key].min)) || 0,
+      speed: Number(t.speed ?? (legacy[key] && legacy[key].speed)) || 1,
+      included: t.included ?? includedByType[key] ?? (legacy[key] && legacy[key].included) ?? '',
+      clutter: (t.clutter && typeof t.clutter === 'object' && Object.keys(t.clutter).length) ? clone(t.clutter) : clone(fallbackClutter),
+      dirtiness: (t.dirtiness && typeof t.dirtiness === 'object' && Object.keys(t.dirtiness).length) ? clone(t.dirtiness) : clone(fallbackDirtiness)
+    };
+  });
+  if(!Object.keys(out).length){
+    out.general = {label:'Генеральная', rate:300, min:12000, speed:7, included:'', clutter:{low:{label:'Обычная',priceK:1,timeK:1}}, dirtiness:{low:{label:'Обычная',priceK:1,timeK:1}}};
+  }
+  return out;
+}
+function syncLegacyFromCleaningTypes(target){
+  if(!target.cleaningTypes || typeof target.cleaningTypes !== 'object' || Array.isArray(target.cleaningTypes) || !Object.keys(target.cleaningTypes).length){
+    target.cleaningTypes = buildCleaningTypesFromLegacy(target);
+  }
+  if(!target.cleaningTypes || !Object.keys(target.cleaningTypes).length){
+    target.cleaningTypes = {general:{label:'Генеральная', rate:300, min:12000, speed:7, included:'', clutter:{low:{label:'Обычная',priceK:1,timeK:1}}, dirtiness:{low:{label:'Обычная',priceK:1,timeK:1}}}};
+  }
+  const fallbackClutter = (target && target.clutter && Object.keys(target.clutter).length) ? target.clutter : (defaults.clutter || {});
+  const fallbackDirtiness = (target && target.dirtiness && Object.keys(target.dirtiness).length) ? target.dirtiness : (defaults.dirtiness || {});
+  Object.entries(target.cleaningTypes).forEach(([key,t])=>{
+    if(!t || typeof t !== 'object') target.cleaningTypes[key]={label:key, rate:0, min:0, speed:1, included:'', clutter:clone(fallbackClutter), dirtiness:clone(fallbackDirtiness)};
+    const item=target.cleaningTypes[key];
+    item.label = item.label || key;
+    item.rate = Number(item.rate)||0;
+    item.min = Number(item.min)||0;
+    item.speed = Number(item.speed)||1;
+    item.included = item.included ?? target.includedByType?.[key] ?? '';
+    if(!item.clutter || typeof item.clutter !== 'object' || !Object.keys(item.clutter).length) item.clutter = clone(fallbackClutter);
+    if(!item.dirtiness || typeof item.dirtiness !== 'object' || !Object.keys(item.dirtiness).length) item.dirtiness = clone(fallbackDirtiness);
+  });
+  const baseRates = {};
+  const includedByType = {};
+  Object.entries(target.cleaningTypes).forEach(([key,t])=>{
+    baseRates[key] = {label:t.label, rate:Number(t.rate)||0, min:Number(t.min)||0, speed:Number(t.speed)||1};
+    includedByType[key] = t.included || '';
+  });
+  target.baseRates = baseRates;
+  target.includedByType = {...(target.includedByType||{}), ...includedByType};
+  return target;
+}
+defaults.cleaningTypes = normalizeCleaningTypes(defaults.cleaningTypes, defaults);
+syncLegacyFromCleaningTypes(defaults);
 function getDefaultContactText(){ return [defaults.brand?.phone, defaults.brand?.site].filter(Boolean).join('\n'); }
 function ensureBrandContactText(obj){
   if(!obj.brand) obj.brand={};
@@ -32,19 +108,23 @@ function mergeConfiguredExtras(configExtras, currentExtras){
   return (Array.isArray(configExtras)?configExtras:[]).map(x=>({...clone(x), qty: qtyById.has(String(x.id)) ? qtyById.get(String(x.id)) : Math.max(0, Number(x.qty)||0)}));
 }
 function applyConfigRevisionData(){
-  state.baseRates = clone(defaults.baseRates);
-  state.clutter = clone(defaults.clutter);
-  state.dirtiness = clone(defaults.dirtiness);
+  state.cleaningTypes = clone(defaults.cleaningTypes);
+  syncLegacyFromCleaningTypes(state);
   state.travel = clone(defaults.travel);
   state.labor = clone(defaults.labor);
   state.materialPerM2 = defaults.materialPerM2;
   state.overhead = clone(defaults.overhead);
   state.extras = mergeConfiguredExtras(defaults.extras, state.extras);
-  state.includedByType = clone(defaults.includedByType);
+  state.includedByType = clone(state.includedByType || defaults.includedByType);
   state.serviceDescriptions = clone(defaults.serviceDescriptions);
   state.mainInfo = {...(state.mainInfo||{}), ...(clone(defaults.mainInfo)||{})};
-  state.brand = {...(state.brand||{}), ...(clone(defaults.brand)||{})};
-  state.pdfHeader = {...(state.pdfHeader||{}), ...(clone(defaults.pdfHeader)||{})};
+  // Шапка PDF и контакты часто настраиваются вручную в браузере.
+  // По умолчанию повышение CONFIG_REVISION не перезаписывает их, чтобы обновления цен не сбивали оформление сметы.
+  // Для принудительной раздачи шапки из config.js можно поставить SYNC_BRAND_PDF_ON_REVISION: true.
+  if(APP_CONFIG.SYNC_BRAND_PDF_ON_REVISION === true){
+    state.brand = {...(state.brand||{}), ...(clone(defaults.brand)||{})};
+    state.pdfHeader = {...(state.pdfHeader||{}), ...(clone(defaults.pdfHeader)||{})};
+  }
   ensureBrandContactText(state);
 }
 function mergeState(parsed){
@@ -52,6 +132,7 @@ function mergeState(parsed){
   return {
     ...d,...parsed,
     brand:{...d.brand,...(parsed.brand||{})},
+    cleaningTypes: normalizeCleaningTypes(parsed.cleaningTypes || d.cleaningTypes, {...d, ...parsed}),
     baseRates:{...d.baseRates,...(parsed.baseRates||{})},
     pdfHeader:{...d.pdfHeader,...(parsed.pdfHeader||{})},
     clutter:{...d.clutter,...(parsed.clutter||{})},
@@ -73,6 +154,7 @@ function mergeState(parsed){
 let __rawLocal=null; try{ __rawLocal=localStorage.getItem(STORAGE_KEY); }catch(e){}
 const hadLocalState = !!__rawLocal;
 let state; try{ state=__rawLocal?mergeState(JSON.parse(__rawLocal)):mergeState(clone(defaults)); }catch(e){state=mergeState(clone(defaults))}
+syncLegacyFromCleaningTypes(state);
 ensureBrandContactText(state);
 // Миграция: новая шапка PDF по умолчанию текстовая, старый тяжёлый base64-логотип удаляем из локального состояния.
 if(state.pdfHeader && state.pdfHeader.useLogo === false && state.brand && state.brand.logoDataUrl && String(state.brand.logoDataUrl).length > 10000){ state.brand.logoDataUrl=''; try{saveState();}catch(e){} }
@@ -198,11 +280,67 @@ const money=n=>new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(M
 const num=n=>Math.max(0, Number(n)||0);
 const hours=n=>(Math.round((Number(n)||0)*10)/10).toFixed(1)+' ч';
 
+function getCleaningTypes(){
+  syncLegacyFromCleaningTypes(state);
+  return state.cleaningTypes || {};
+}
+function getFirstCleanTypeKey(){
+  return Object.keys(getCleaningTypes())[0] || 'general';
+}
+function getCleaningType(key){
+  const types=getCleaningTypes();
+  return types[key] || types[getFirstCleanTypeKey()] || null;
+}
+function getActiveCleaningType(){ return getCleaningType(state.form.cleanType); }
+function getTypeClutter(typeKey=state.form.cleanType){
+  const t=getCleaningType(typeKey);
+  return (t && t.clutter) || state.clutter || {};
+}
+function getTypeDirtiness(typeKey=state.form.cleanType){
+  const t=getCleaningType(typeKey);
+  return (t && t.dirtiness) || state.dirtiness || {};
+}
+function getTypeIncluded(typeKey=state.form.cleanType){
+  const t=getCleaningType(typeKey);
+  return (t && t.included) || state.includedByType?.[typeKey] || '';
+}
+function setTypeIncluded(typeKey, text){
+  const t=getCleaningType(typeKey);
+  if(t) t.included=text;
+  state.includedByType=state.includedByType||{};
+  state.includedByType[typeKey]=text;
+  syncLegacyFromCleaningTypes(state);
+}
+function ensureFormCleanTypeAndCoefs(resetCoefs=false){
+  const types=getCleaningTypes();
+  if(!types[state.form.cleanType]) state.form.cleanType=getFirstCleanTypeKey();
+  const cl=getTypeClutter(state.form.cleanType);
+  const di=getTypeDirtiness(state.form.cleanType);
+  if(resetCoefs || !cl[state.form.clutter]) state.form.clutter=Object.keys(cl)[0] || '';
+  if(resetCoefs || !di[state.form.dirtiness]) state.form.dirtiness=Object.keys(di)[0] || '';
+}
+function uniqueCleanTypeKey(label){
+  const base = String(label||'type').toLowerCase()
+    .replace(/ё/g,'e').replace(/[а-я]/g, ch=>({а:'a',б:'b',в:'v',г:'g',д:'d',е:'e',ж:'zh',з:'z',и:'i',й:'y',к:'k',л:'l',м:'m',н:'n',о:'o',п:'p',р:'r',с:'s',т:'t',у:'u',ф:'f',х:'h',ц:'c',ч:'ch',ш:'sh',щ:'sch',ы:'y',э:'e',ю:'yu',я:'ya'}[ch]||''))
+    .replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'') || 'type';
+  let key=base, i=2;
+  const types=getCleaningTypes();
+  while(types[key]) key=`${base}_${i++}`;
+  return key;
+}
+function uniqueCoefKey(collection, prefix){
+  const base=prefix || 'level';
+  let key=`${base}_${Date.now().toString(36)}`;
+  let i=2;
+  while(collection[key]) key=`${base}_${Date.now().toString(36)}_${i++}`;
+  return key;
+}
+
 const WINDOW_CATEGORIES = APP_CONFIG.WINDOW_CATEGORIES || ['Окна'];
 function isWindowExtra(item){ const cat=String(item?.category||'').toLowerCase(); return WINDOW_CATEGORIES.some(x=>cat.includes(String(x).toLowerCase())) || /окн|остекл/i.test(String(item?.name||'')); }
 function hasSelectedWindowExtras(){ return (state.extras||[]).some(x=>num(x.qty)>0 && isWindowExtra(x)); }
 function getIncludedLines(){
-  const base=(state.includedByType?.[state.form.cleanType]||'').trim().split(/\n+/).filter(Boolean);
+  const base=(getTypeIncluded(state.form.cleanType)||'').trim().split(/\n+/).filter(Boolean);
   const win=(state.serviceDescriptions?.windows||'').trim().split(/\n+/).filter(Boolean);
   return hasSelectedWindowExtras() ? base.concat(win) : base;
 }
@@ -355,38 +493,129 @@ function renderSettingsPanel(){
   renderPdfBlocks();
   renderExtrasEditor();
 }
+function getTariffEditorKey(){
+  const types=getCleaningTypes();
+  state.ui=state.ui||{};
+  if(!types[state.ui.tariffCleanType]) state.ui.tariffCleanType = state.form.cleanType && types[state.form.cleanType] ? state.form.cleanType : getFirstCleanTypeKey();
+  return state.ui.tariffCleanType;
+}
+function renderCoefficientEditor(wrapId, typeKey, groupName, fieldName){
+  const wrap=$(wrapId); if(!wrap) return;
+  const type=getCleaningType(typeKey); if(!type) { wrap.innerHTML=''; return; }
+  const collection=type[fieldName]=type[fieldName]||{};
+  wrap.innerHTML='';
+  const head=document.createElement('div'); head.className='extra-card';
+  head.innerHTML=`<div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap">
+    <div><strong>${esc(groupName)}</strong><div class="muted" style="font-size:13px">Настраивается только для вида: ${esc(type.label)}</div></div>
+    <button type="button" class="primary" data-add-coef="${fieldName}">Добавить тип</button>
+  </div>`;
+  wrap.appendChild(head);
+  Object.entries(collection).forEach(([key,v])=>{
+    const div=document.createElement('div'); div.className='extra-card';
+    div.innerHTML=`<div class="grid g3">
+      <div><label>Название</label><input type="text" data-coef-edit="${fieldName}" data-key="${key}" data-field="label" value="${esc(v.label||key)}"></div>
+      <div><label>Коэффициент цены</label><input type="number" step="0.01" min="0" data-coef-edit="${fieldName}" data-key="${key}" data-field="priceK" value="${Number(v.priceK)||1}"></div>
+      <div><label>Коэффициент времени</label><input type="number" step="0.01" min="0" data-coef-edit="${fieldName}" data-key="${key}" data-field="timeK" value="${Number(v.timeK)||1}"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap">
+      <span class="muted" style="font-size:12px">ID: ${esc(key)}</span>
+      <button type="button" class="danger" data-delete-coef="${fieldName}" data-key="${key}">Удалить тип</button>
+    </div>`;
+    wrap.appendChild(div);
+  });
+  wrap.querySelectorAll('[data-add-coef]').forEach(btn=>btn.onclick=()=>{
+    const field=btn.dataset.addCoef;
+    const label=prompt(field==='clutter'?'Название новой заставленности':'Название новой загрязнённости','Новый тип');
+    if(!label) return;
+    const col=type[field]=type[field]||{};
+    const key=uniqueCoefKey(col, field==='clutter'?'clutter':'dirt');
+    col[key]={label, priceK:1, timeK:1};
+    if(field==='clutter' && !state.form.clutter) state.form.clutter=key;
+    if(field==='dirtiness' && !state.form.dirtiness) state.form.dirtiness=key;
+    syncLegacyFromCleaningTypes(state); saveState(); renderTariffs(); populateMainSelects(); recalc();
+  });
+  wrap.querySelectorAll('[data-coef-edit]').forEach(inp=>inp.oninput=e=>{
+    const {coefEdit,key,field}=e.target.dataset;
+    const col=type[coefEdit]=type[coefEdit]||{};
+    col[key]=col[key]||{};
+    col[key][field]=field==='label'?e.target.value:num(e.target.value);
+    syncLegacyFromCleaningTypes(state); saveState(); populateMainSelects(); recalc();
+  });
+  wrap.querySelectorAll('[data-delete-coef]').forEach(btn=>btn.onclick=()=>{
+    const field=btn.dataset.deleteCoef, key=btn.dataset.key;
+    const col=type[field]||{};
+    if(Object.keys(col).length<=1){ toast('Должен остаться хотя бы один тип'); return; }
+    if(!confirm('Удалить этот тип коэффициента?')) return;
+    delete col[key];
+    if(field==='clutter' && state.form.cleanType===typeKey && state.form.clutter===key) state.form.clutter=Object.keys(col)[0];
+    if(field==='dirtiness' && state.form.cleanType===typeKey && state.form.dirtiness===key) state.form.dirtiness=Object.keys(col)[0];
+    syncLegacyFromCleaningTypes(state); saveState(); renderTariffs(); populateMainSelects(); recalc();
+  });
+}
 function renderTariffs(){
-  const rates=$('ratesWrap'); rates.innerHTML='';
-  Object.entries(state.baseRates).forEach(([k,v])=>{
-    const div=document.createElement('div'); div.className='extra-card';
-    div.innerHTML=`<div style="font-weight:800;margin-bottom:10px">${esc(v.label)}</div>
-      <div class="grid g3">
-        <div><label>₽ / м²</label><input type="number" min="0" data-kind="baseRates" data-key="${k}" data-field="rate" value="${v.rate}"></div>
-        <div><label>Минималка</label><input type="number" min="0" data-kind="baseRates" data-key="${k}" data-field="min" value="${v.min}"></div>
-        <div><label>м² / час</label><input type="number" min="0" data-kind="baseRates" data-key="${k}" data-field="speed" value="${v.speed}"></div>
-      </div>`;
-    rates.appendChild(div);
+  syncLegacyFromCleaningTypes(state);
+  const rates=$('ratesWrap'); if(!rates) return; rates.innerHTML='';
+  const types=getCleaningTypes();
+  const typeKey=getTariffEditorKey();
+  const type=getCleaningType(typeKey);
+  const card=document.createElement('div'); card.className='extra-card';
+  card.innerHTML=`<div class="grid g2">
+    <div><label>Страница настроек вида уборки</label><select id="tariffCleanTypeSelect">${Object.entries(types).map(([k,t])=>`<option value="${esc(k)}" ${k===typeKey?'selected':''}>${esc(t.label||k)}</option>`).join('')}</select></div>
+    <div class="btns" style="align-items:end">
+      <button type="button" class="primary" id="addCleanTypeBtn">Добавить вид уборки</button>
+      <button type="button" id="duplicateCleanTypeBtn">Дублировать</button>
+      <button type="button" class="danger" id="deleteCleanTypeBtn">Удалить</button>
+    </div>
+  </div>
+  <div class="notice" style="margin-top:12px">У каждого вида уборки теперь свои цена за м², минимальная стоимость, скорость, описание, заставленность и загрязнённость. Сначала выбери страницу вида уборки здесь, затем редактируй его параметры ниже.</div>`;
+  rates.appendChild(card);
+  const main=document.createElement('div'); main.className='extra-card';
+  main.innerHTML=`<div class="chip">Основные параметры выбранного вида</div>
+    <div class="grid g3">
+      <div><label>Название вида уборки</label><input type="text" data-clean-main="label" value="${esc(type.label||typeKey)}"></div>
+      <div><label>Цена, ₽ / м²</label><input type="number" min="0" data-clean-main="rate" value="${num(type.rate)}"></div>
+      <div><label>Минимальная стоимость</label><input type="number" min="0" data-clean-main="min" value="${num(type.min)}"></div>
+      <div><label>Скорость, м² / час</label><input type="number" min="0.1" step="0.1" data-clean-main="speed" value="${num(type.speed)||1}"></div>
+      <div><label>ID вида</label><input type="text" value="${esc(typeKey)}" readonly></div>
+    </div>
+    <div style="margin-top:12px"><label>Описание / что входит именно в этот вид уборки</label><textarea id="tariffIncludedText" placeholder="Описание будет попадать в смету для выбранного вида уборки">${esc(type.included||'')}</textarea></div>`;
+  rates.appendChild(main);
+  const select=$('tariffCleanTypeSelect'); if(select) select.onchange=e=>{ state.ui.tariffCleanType=e.target.value; saveState(); renderTariffs(); };
+  const addBtn=$('addCleanTypeBtn'); if(addBtn) addBtn.onclick=()=>{
+    const label=prompt('Название нового вида уборки','Новый вид уборки');
+    if(!label) return;
+    const key=uniqueCleanTypeKey(label);
+    const src=clone(type || Object.values(types)[0] || {});
+    state.cleaningTypes[key]={...src,label, included:'', clutter:clone(src.clutter||getTypeClutter()), dirtiness:clone(src.dirtiness||getTypeDirtiness())};
+    state.ui.tariffCleanType=key;
+    syncLegacyFromCleaningTypes(state); saveState(); populateMainSelects(); renderTariffs(); toast('Вид уборки добавлен');
+  };
+  const dupBtn=$('duplicateCleanTypeBtn'); if(dupBtn) dupBtn.onclick=()=>{
+    const label=prompt('Название копии вида уборки', `${type.label||typeKey} — копия`);
+    if(!label) return;
+    const key=uniqueCleanTypeKey(label);
+    state.cleaningTypes[key]={...clone(type), label};
+    state.ui.tariffCleanType=key;
+    syncLegacyFromCleaningTypes(state); saveState(); populateMainSelects(); renderTariffs(); toast('Вид уборки скопирован');
+  };
+  const delBtn=$('deleteCleanTypeBtn'); if(delBtn) delBtn.onclick=()=>{
+    if(Object.keys(types).length<=1){ toast('Должен остаться хотя бы один вид уборки'); return; }
+    if(!confirm(`Удалить вид уборки «${type.label}»?`)) return;
+    delete state.cleaningTypes[typeKey];
+    const next=getFirstCleanTypeKey();
+    state.ui.tariffCleanType=next;
+    if(state.form.cleanType===typeKey) state.form.cleanType=next;
+    ensureFormCleanTypeAndCoefs(true);
+    syncLegacyFromCleaningTypes(state); saveState(); populateMainSelects(); renderTariffs(); recalc(); toast('Вид уборки удалён');
+  };
+  rates.querySelectorAll('[data-clean-main]').forEach(inp=>inp.oninput=e=>{
+    const field=e.target.dataset.cleanMain;
+    type[field]=field==='label'?e.target.value:num(e.target.value);
+    syncLegacyFromCleaningTypes(state); saveState(); populateMainSelects(); renderIncludedPreview(); recalc();
   });
-  const clutter=$('clutterWrap'); clutter.innerHTML='';
-  Object.entries(state.clutter).forEach(([k,v])=>{
-    const div=document.createElement('div'); div.className='extra-card';
-    div.innerHTML=`<div style="font-weight:800;margin-bottom:10px">${esc(v.label)}</div>
-      <div class="grid g2">
-        <div><label>Коэффициент цены</label><input type="number" step="0.01" min="0" data-kind="clutter" data-key="${k}" data-field="priceK" value="${v.priceK}"></div>
-        <div><label>Коэффициент времени</label><input type="number" step="0.01" min="0" data-kind="clutter" data-key="${k}" data-field="timeK" value="${v.timeK}"></div>
-      </div>`;
-    clutter.appendChild(div);
-  });
-  const dirt=$('dirtWrap'); dirt.innerHTML='';
-  Object.entries(state.dirtiness).forEach(([k,v])=>{
-    const div=document.createElement('div'); div.className='extra-card';
-    div.innerHTML=`<div style="font-weight:800;margin-bottom:10px">${esc(v.label)}</div>
-      <div class="grid g2">
-        <div><label>Коэффициент цены</label><input type="number" step="0.01" min="0" data-kind="dirtiness" data-key="${k}" data-field="priceK" value="${v.priceK}"></div>
-        <div><label>Коэффициент времени</label><input type="number" step="0.01" min="0" data-kind="dirtiness" data-key="${k}" data-field="timeK" value="${v.timeK}"></div>
-      </div>`;
-    dirt.appendChild(div);
-  });
+  const inc=$('tariffIncludedText'); if(inc) inc.oninput=e=>{ setTypeIncluded(typeKey,e.target.value); saveState(); if(state.form.cleanType===typeKey){ if($('includedServices')) $('includedServices').value=e.target.value; renderIncludedPreview(); } };
+  renderCoefficientEditor('clutterWrap', typeKey, 'Типы заставленности для этого вида уборки', 'clutter');
+  renderCoefficientEditor('dirtWrap', typeKey, 'Типы загрязнённости для этого вида уборки', 'dirtiness');
   const travel=$('travelWrap'); if(travel){ travel.innerHTML='';
     Object.entries(state.travel||{}).forEach(([k,v])=>{
       const div=document.createElement('div'); div.className='extra-card';
@@ -421,7 +650,7 @@ function renderTariffs(){
   document.querySelectorAll('[data-cfg]').forEach(inp=>inp.oninput=(e)=>{ const {cfg,field}=e.target.dataset; const val=num(e.target.value); if(cfg==='material'){ state.materialPerM2=val; } else { state[cfg]=state[cfg]||{}; state[cfg][field]=val; } if($('overheadPerJobHint')){ const O=state.overhead||{}; $('overheadPerJobHint').textContent=money(num(O.jobsPerMonth)>0?num(O.monthly)/num(O.jobsPerMonth):0); } saveState(); recalc(); });
   document.querySelectorAll('[data-kind]').forEach(inp=>inp.oninput=(e)=>{ const {kind,key,field}=e.target.dataset; state[kind][key][field]=(field==='label')?e.target.value:num(e.target.value); saveState(); populateMainSelects(); recalc(); });
 }
-function populateMainSelects(){ fillSelect('cleanType', state.baseRates, state.form.cleanType); fillSelect('clutter', state.clutter, state.form.clutter); fillSelect('dirtiness', state.dirtiness, state.form.dirtiness); const travelOpts=(state.travel&&Object.keys(state.travel).length)?state.travel:{kad:{label:'В пределах КАД'},km15:{label:'До 15 км от КАД'},km20plus:{label:'20+ км'}}; fillSelect('travelType', travelOpts, state.form.travelType); $('includedTypeLabel').textContent=state.baseRates[state.form.cleanType].label; $('includedServices').value=state.includedByType[state.form.cleanType]||''; }
+function populateMainSelects(){ ensureFormCleanTypeAndCoefs(false); const types=getCleaningTypes(); fillSelect('cleanType', types, state.form.cleanType); const active=getActiveCleaningType(); const clutter=getTypeClutter(state.form.cleanType); const dirtiness=getTypeDirtiness(state.form.cleanType); fillSelect('clutter', clutter, state.form.clutter); fillSelect('dirtiness', dirtiness, state.form.dirtiness); const travelOpts=(state.travel&&Object.keys(state.travel).length)?state.travel:{kad:{label:'В пределах КАД'},km15:{label:'До 15 км от КАД'},km20plus:{label:'20+ км'}}; fillSelect('travelType', travelOpts, state.form.travelType); if($('includedTypeLabel')) $('includedTypeLabel').textContent=active ? active.label : '—'; if($('includedServices')) $('includedServices').value=getTypeIncluded(state.form.cleanType)||''; }
 function getGroupedExtras(){ const arr=state.form.showOnlySelected?state.extras.filter(x=>num(x.qty)>0):state.extras; const map={}; arr.forEach(x=>{ const c=x.category||'Другое'; (map[c]||(map[c]=[])).push(x); }); return map; }
 function isExtraGroupOpen(cat){ return !!(state.ui.extraGroupsOpen && state.ui.extraGroupsOpen[cat]); }
 function setExtraGroupOpen(cat, isOpen){ state.ui.extraGroupsOpen=state.ui.extraGroupsOpen||{}; state.ui.extraGroupsOpen[cat]=!!isOpen; saveState(); }
@@ -526,6 +755,25 @@ function recalc(){
   $('travelHint').textContent = tPerKm>0 ? `Выезд: ${money(tBase)} + ${money(tPerKm)}/км → ${money(tBase + tPerKm*num(state.form.travelKm))}` : (tBase>0 ? `Выезд: ${money(tBase)}` : 'Выезд: бесплатно');
   renderEconomyWarning(r); renderIncludedPreview(); renderSelectedExtras(); renderSavedOrders(); if(!$('pdfPreviewModal')?.classList.contains('hidden')) refreshPdfPreview(); saveState(); return r;
 }
+function teamTextLines(r){
+  const lines=[];
+  const cleaners=num(r.hiredCleaners);
+  const ownerOnSite=['manager','cleaner_manager'].includes(String(r.ownerRole||''));
+  if(cleaners>0) lines.push(`Клинеры: ${cleaners} чел.`);
+  if(ownerOnSite) lines.push('Бригадир-менеджер: 1 чел.');
+  if(!lines.length && num(r.peopleOnSite)>0) lines.push(`Клинеры: ${num(r.peopleOnSite)} чел.`);
+  return lines;
+}
+function teamPdfRows(r){
+  const rows=[];
+  const cleaners=num(r.hiredCleaners);
+  const ownerOnSite=['manager','cleaner_manager'].includes(String(r.ownerRole||''));
+  const row=(label,value)=>`<tr><td style="padding:6px 0">${label}</td><td style="padding:6px 0;text-align:right">${value}</td></tr>`;
+  if(cleaners>0) rows.push(row('Клинеры', `${cleaners} чел.`));
+  if(ownerOnSite) rows.push(row('Бригадир-менеджер', '1 чел.'));
+  if(!rows.length && num(r.peopleOnSite)>0) rows.push(row('Клинеры', `${num(r.peopleOnSite)} чел.`));
+  return rows;
+}
 function estimateText(){
   const r=calc(); const included=getIncludedText()||'Не заполнено'; const extras=r.selectedExtras.length?r.selectedExtras.map(x=>`• ${x.name} × ${num(x.qty)} — ${money(num(x.qty)*num(x.price))}`).join('\n'):'• Без доп. услуг';
   const lines=[`Стоимость уборки: ${money(r.baseRaw)}`];
@@ -535,7 +783,7 @@ function estimateText(){
   lines.push(`\nИТОГО к оплате: ${money(r.recommendedPrice)}`);
   lines.push(`Сумма нормо-часов: ${hours(r.normHours)}`);
   lines.push(`Примерное время уборки: ${hours(r.brigadeHours)}`);
-  lines.push(`Количество сотрудников: ${r.peopleOnSite} чел.`);
+  teamTextLines(r).forEach(line=>lines.push(line));
   return `Смета на уборку\n\nКлиент: ${state.form.clientName||'—'}\nОбъект: ${state.form.objectType}\nПлощадь: ${num(state.form.area)} м²\nТип уборки: ${r.rate.label}\nЗаставленность: ${r.clutter.label} (коэф. × ${r.clutterPriceK.toFixed(2)})\nЗагрязнённость: ${r.dirt.label} (коэф. × ${r.dirtPriceK.toFixed(2)})\n\nВ услуги входят:\n${included}\n\nДоп. услуги:\n${extras}\n\n${lines.join('\n')}\n\nДополнительная информация:\n${state.mainInfo.usefulInfo||'—'}\n\nЗаметки: ${state.form.notes||'—'}`;
 }
 async function copyEstimate(){ if(validateCurrentOrder().length) return; const text=estimateText(); try{ await navigator.clipboard.writeText(text); toast('Смета скопирована'); }catch(e){ $('shareText').value=text; $('shareModal').classList.remove('hidden'); toast('Открыл смету для ручного копирования'); } }
@@ -568,14 +816,16 @@ function buildPrintHtml(){
     extras: `<div style="font-size:18px;font-weight:800;margin:18px 0 8px">Дополнительные услуги</div><div style="border:1px solid #cbd5e1;border-radius:14px;padding:14px;margin-bottom:18px">${extras.length?extras.map(x=>`<div style="display:flex;justify-content:space-between;gap:12px;margin:0 0 6px"><span>${esc(x.name)} × ${num(x.qty)}</span><span>${money(num(x.qty)*num(x.price))}</span></div>`).join(''):'<div>Без доп. услуг</div>'}</div>`,
     pricing: (()=>{
       const rows=[];
-      rows.push(`<tr><td style="padding:6px 0">Стоимость уборки</td><td style="padding:6px 0;text-align:right">${money(r.baseRaw)}</td></tr>`);
+      rows.push(`<tr><td style="padding:6px 0">Стоимость уборки</td><td style="padding:6px 0;text-align:right">${money(r.baseNoK)}</td></tr>`);
+      rows.push(`<tr><td style="padding:6px 0">Стоимость с коэффициентом заставленности</td><td style="padding:6px 0;text-align:right">${money(r.baseAfterClutter)}</td></tr>`);
+      rows.push(`<tr><td style="padding:6px 0">Стоимость с коэффициентом загрязнённости</td><td style="padding:6px 0;text-align:right">${money(r.baseWithK)}</td></tr>`);
       if(num(r.extrasTotal)>0) rows.push(`<tr><td style="padding:6px 0">Дополнительные услуги</td><td style="padding:6px 0;text-align:right">${money(r.extrasTotal)}</td></tr>`);
       if(num(r.travelTotal)>0) rows.push(`<tr><td style="padding:6px 0">Выезд</td><td style="padding:6px 0;text-align:right">${money(r.travelTotal)}</td></tr>`);
       if(num(r.discountValue)>0) rows.push(`<tr><td style="padding:6px 0">Скидка</td><td style="padding:6px 0;text-align:right">− ${money(r.discountValue)}</td></tr>`);
       rows.push(`<tr><td style="padding:12px 0;border-top:2px solid #0f172a;font-weight:800;font-size:17px">Итого к оплате</td><td style="padding:12px 0;border-top:2px solid #0f172a;text-align:right;font-weight:800;font-size:17px">${money(r.recommendedPrice)}</td></tr>`);
       rows.push(`<tr><td style="padding:6px 0">Сумма нормо-часов</td><td style="padding:6px 0;text-align:right">${hours(r.normHours)}</td></tr>`);
       rows.push(`<tr><td style="padding:6px 0">Примерное время уборки</td><td style="padding:6px 0;text-align:right">${hours(r.brigadeHours)}</td></tr>`);
-      rows.push(`<tr><td style="padding:6px 0">Количество сотрудников</td><td style="padding:6px 0;text-align:right">${r.peopleOnSite} чел.</td></tr>`);
+      teamPdfRows(r).forEach(row=>rows.push(row));
       return `<div style="font-size:18px;font-weight:800;margin:18px 0 8px">Стоимость</div><table style="width:100%;border-collapse:collapse;font-size:14px">${rows.join('')}</table>`;
     })(),
     useful_info: `<div style="font-size:18px;font-weight:800;margin:18px 0 8px">Дополнительная информация</div><div style="border:1px solid #cbd5e1;border-radius:14px;padding:14px;margin-bottom:18px">${state.mainInfo.usefulInfo?esc(state.mainInfo.usefulInfo).replace(/\n/g,'<br>'):'—'}</div>`,
@@ -619,15 +869,15 @@ function bind(){
   $('chemistryText').oninput=e=>{ state.mainInfo.chemistryText=e.target.value; saveState(); };
   if($('usefulInfoText')) $('usefulInfoText').oninput=e=>{ state.mainInfo.usefulInfo=e.target.value; saveState(); };
   if($('windowServicesDescription')) $('windowServicesDescription').oninput=e=>{ state.serviceDescriptions.windows=e.target.value; saveState(); renderIncludedPreview(); };
-  $('saveIncludedBtn').onclick=()=>{ state.includedByType[state.form.cleanType]=$('includedServices').value; saveState(); renderIncludedPreview(); toast('Шаблон сохранён'); };
-  $('includedServices').oninput=(e)=>{ state.includedByType[state.form.cleanType]=e.target.value; saveState(); renderIncludedPreview(); };
+  $('saveIncludedBtn').onclick=()=>{ setTypeIncluded(state.form.cleanType, $('includedServices').value); saveState(); renderIncludedPreview(); renderTariffs(); toast('Шаблон сохранён'); };
+  $('includedServices').oninput=(e)=>{ setTypeIncluded(state.form.cleanType, e.target.value); saveState(); renderIncludedPreview(); };
   $('saveOrderBtn').onclick=()=>{ if(validateCurrentOrder().length) return; const r=calc(); state.savedOrders.unshift({id:Date.now(), version:APP_VERSION, clientName:state.form.clientName||'Без имени', objectType:state.form.objectType, area:num(state.form.area), cleanType:r.rate.label, recommendedPrice:r.recommendedPrice, brigadeHours:r.brigadeHours, normHours:r.normHours, form:clone(state.form), extras:clone(r.selectedExtras), calculation:{recommendedPrice:r.recommendedPrice,marketPrice:r.marketPrice,payroll:r.payroll,normHours:r.normHours,brigadeHours:r.brigadeHours}, createdAt:new Date().toLocaleString('ru-RU')}); state.savedOrders=state.savedOrders.slice(0,50); state.ui=state.ui||{}; state.ui.ordersSinceBackup=Number(state.ui.ordersSinceBackup||0)+1; saveState(); renderSavedOrders(); updateBackupReminder(); toast('Заказ сохранён'); if(state.ui.autoBackup && state.ui.ordersSinceBackup>=AUTO_BACKUP_EVERY){ exportBackup(); toast('Авто-копия сохранена'); } };
   $('clearBtn').onclick=()=>{ state.form=clone(defaults.form); state.extras=state.extras.map(x=>({...x, qty:0})); fillForm(); renderExtras(); recalc(); toast('Форма очищена'); };
   $('resetStorageBtn').onclick=()=>requestEditAccess(()=>{ if(!confirm('Сбросить все сохранённые данные в этом браузере?')) return; localStorage.removeItem(STORAGE_KEY); state=mergeState(clone(defaults)); migrateV43(); migrateV46(); fillForm(); renderTariffs(); renderExtras(); recalc(); toast("Все данные сброшены"); });
   $('demoBtn').onclick=()=>{ state.form={...state.form, clientName:'Ирина', objectType:'Квартира', area:68, cleanType:'general', discount:5, clutter:'medium', dirtiness:'medium', travelType:'km15', travelKm:20, ownerRole:'cleaner_manager', profitPercent:25, notes:'Есть кот. Уборка нужна в пятницу после 11:00.'}; state.extras=state.extras.map(x=>({...x, qty:({1:1,9:1,14:4,18:1}[x.id]||0)})); fillForm(); renderExtras(); recalc(); toast('Подставлен пример'); };
   $('showOnlySelected').onchange=e=>{ state.form.showOnlySelected=e.target.checked; saveState(); renderExtras(); };
   ['clientName','objectType','area','discount','discountAmount','travelKm','profitPercent','notes'].forEach(id=>$(id).oninput=e=>{ state.form[id]=['area','discount','discountAmount','travelKm','profitPercent'].includes(id)?num(e.target.value):e.target.value; recalc(); });
-  ['cleanType','clutter','dirtiness','travelType','ownerRole','discountMode'].forEach(id=>$(id).onchange=e=>{ state.form[id]=e.target.value; if(id==='cleanType'){ $('includedTypeLabel').textContent=state.baseRates[state.form.cleanType].label; $('includedServices').value=state.includedByType[state.form.cleanType]||''; } if(id==='discountMode'){ updateDiscountInputs(); } recalc(); });
+  ['cleanType','clutter','dirtiness','travelType','ownerRole','discountMode'].forEach(id=>$(id).onchange=e=>{ state.form[id]=e.target.value; if(id==='cleanType'){ ensureFormCleanTypeAndCoefs(true); populateMainSelects(); } if(id==='discountMode'){ updateDiscountInputs(); } recalc(); });
   ['brandName','brandTagline'].forEach(id=>{ const el=$(id); if(!el) return; el.oninput=e=>{ const map={brandName:'name',brandTagline:'tagline'}; state.brand[map[id]]=e.target.value; saveState(); renderBrandLogoPreview(); }; });
   if($('brandContactText')) $('brandContactText').oninput=e=>{ state.brand.contactText=e.target.value; const lines=String(e.target.value||'').split(/\n+/).map(x=>x.trim()).filter(Boolean); state.brand.phone=lines[0]||''; state.brand.site=lines[1]||''; saveState(); };
   $('brandLogo').onchange=e=>{ const file=e.target.files&&e.target.files[0]; if(!file) return; if(file.size>2*1024*1024){ toast('Логотип слишком большой. Лучше до 2 МБ'); e.target.value=''; return; } const reader=new FileReader(); reader.onload=()=>{ state.brand.logoDataUrl=String(reader.result||''); saveState(); renderBrandLogoPreview(); toast('Логотип сохранён'); $('brandLogo').value=''; }; reader.readAsDataURL(file); };
@@ -637,6 +887,6 @@ function bind(){
   $('addExtraBtn').onclick=()=>requestEditAccess(()=>{ const name=$('newExtraName').value.trim(), unit=$('newExtraUnit').value.trim()||'шт', price=num($('newExtraPrice').value), time=num($('newExtraTime').value), category=$('newExtraCategory').value.trim()||'Другое'; if(!name||!price){ toast('Заполни название и цену'); return; } state.extras.push({id:Date.now(), name, unit, price, qty:0, time, category, builtIn:false}); $('newExtraName').value=''; $('newExtraPrice').value=''; $('newExtraTime').value=''; saveState(); renderExtras(); recalc(); toast('Услуга добавлена'); });
 }
 function updateDiscountInputs(){ const mode=state.form.discountMode==='amount'?'amount':'percent'; const sel=$('discountMode'); if(sel) sel.value=mode; const pct=$('discount'), amt=$('discountAmount'); if(pct) pct.classList.toggle('hidden', mode!=='percent'); if(amt) amt.classList.toggle('hidden', mode!=='amount'); }
-function fillForm(){ if(!isEditUnlocked()){ state.ui.showTariffs=false; state.ui.showSettings=false; } $('clientName').value=state.form.clientName; $('objectType').value=state.form.objectType; $('area').value=state.form.area; $('discount').value=state.form.discount; if($('discountAmount')) $('discountAmount').value=state.form.discountAmount||0; updateDiscountInputs(); $('travelKm').value=state.form.travelKm; if($('ownerRole')) $('ownerRole').value=state.form.ownerRole||'none'; $('profitPercent').value=state.form.profitPercent; $('notes').value=state.form.notes; $('showOnlySelected').checked=!!state.form.showOnlySelected; $('tariffsCard').classList.toggle('hidden', !state.ui.showTariffs); $('settingsCard').classList.toggle('hidden', !state.ui.showSettings); populateMainSelects(); $('includedServices').value=state.includedByType[state.form.cleanType]||''; renderSettingsPanel(); }
+function fillForm(){ if(!isEditUnlocked()){ state.ui.showTariffs=false; state.ui.showSettings=false; } $('clientName').value=state.form.clientName; $('objectType').value=state.form.objectType; $('area').value=state.form.area; $('discount').value=state.form.discount; if($('discountAmount')) $('discountAmount').value=state.form.discountAmount||0; updateDiscountInputs(); $('travelKm').value=state.form.travelKm; if($('ownerRole')) $('ownerRole').value=state.form.ownerRole||'none'; $('profitPercent').value=state.form.profitPercent; $('notes').value=state.form.notes; $('showOnlySelected').checked=!!state.form.showOnlySelected; $('tariffsCard').classList.toggle('hidden', !state.ui.showTariffs); $('settingsCard').classList.toggle('hidden', !state.ui.showSettings); populateMainSelects(); $('includedServices').value=getTypeIncluded(state.form.cleanType)||''; renderSettingsPanel(); }
 fillForm(); renderTariffs(); bind(); renderExtras(); renderSettingsPanel(); recalc(); updateBackupReminder(); attemptIdbRecovery(); if($('versionBadge')) $('versionBadge').textContent=APP_VERSION; setupAccess();
 if('serviceWorker' in navigator){ window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{})); }

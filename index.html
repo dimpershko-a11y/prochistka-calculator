@@ -5,7 +5,7 @@
 <title>Калькулятор стоимости уборки</title>
 
 <link href="assets/style.css" rel="stylesheet"/><link href="manifest.json" rel="manifest"/><meta content="#0f172a" name="theme-color"/><script defer="defer" src="config.js"></script><script defer="defer" src="assets/core.js"></script><script defer="defer" src="assets/app.js"></script></head>
-<body><div class="version-badge" id="versionBadge">v4.6.2</div>
+<body><div class="version-badge" id="versionBadge">v4.7.0</div>
 <div class="login-overlay hidden" id="loginOverlay">
 <div class="login-card">
 <div class="login-title">PRO-CHISTKA</div>
@@ -63,7 +63,7 @@
 <div class="topbar" style="margin-bottom:12px">
 <div>
 <div class="section-title">Тарифы</div>
-<div class="muted">Здесь меняются базовые ставки и коэффициенты.</div>
+<div class="muted">Здесь настраиваются виды уборки, их цены, минимальная стоимость, описание и отдельные коэффициенты.</div>
 </div>
 <div class="btns">
 <button class="primary" id="saveTariffsSettingsBtn" type="button">Сохранить настройки</button>
@@ -72,15 +72,15 @@
 </div>
 <div class="grid" style="gap:18px">
 <div>
-<div class="chip">Базовые ставки</div>
+<div class="chip">Виды уборки / страница тарифа</div>
 <div class="grid" id="ratesWrap"></div>
 </div>
 <div>
-<div class="chip">Коэффициенты заставленности</div>
+<div class="chip">Заставленность выбранного вида</div>
 <div class="grid" id="clutterWrap"></div>
 </div>
 <div>
-<div class="chip">Коэффициенты загрязнённости</div>
+<div class="chip">Загрязнённость выбранного вида</div>
 <div class="grid" id="dirtWrap"></div>
 </div>
 <div>
@@ -276,7 +276,7 @@
 <div class="row"><span class="muted">После заставленности</span><span id="sumAfterClutter">0 ₽</span></div>
 <div class="row"><span class="muted">Коэф. загрязнённости</span><span id="sumDirtK">× 1.00</span></div>
 <div class="row"><span class="muted">База с коэффициентами</span><span id="sumBase">0 ₽</span></div>
-<div class="row"><span class="muted">Минималка</span><span id="sumBaseMin">0 ₽</span></div>
+<div class="row"><span class="muted">Минимальная стоимость</span><span id="sumBaseMin">0 ₽</span></div>
 <div class="row"><span class="muted">Доп. услуги</span><span id="sumExtras">0 ₽</span></div>
 <div class="row"><span class="muted">Выезд</span><span id="sumTravel">0 ₽</span></div>
 <div class="row"><span class="muted">Скидка</span><span id="sumDiscount">− 0 ₽</span></div>
