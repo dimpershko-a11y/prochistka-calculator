@@ -1,5 +1,5 @@
 window.PROCHISTKA_CONFIG = {
-  "APP_VERSION": "v4.7.1",
+  "APP_VERSION": "codex v4.7.2",
   "APP_PASSWORD": "7421",
   "CONFIG_REVISION": 5,
   "SYNC_BRAND_PDF_ON_REVISION": false,
@@ -437,6 +437,7 @@ window.PROCHISTKA_CONFIG = {
       "discount": 0,
       "discountMode": "percent",
       "discountAmount": 0,
+      "forceDiscount": false,
       "clutter": "low",
       "dirtiness": "low",
       "travelType": "kad",

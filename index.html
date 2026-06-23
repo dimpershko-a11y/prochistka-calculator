@@ -5,7 +5,7 @@
 <title>Калькулятор стоимости уборки</title>
 
 <link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="anonymous" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/><link href="assets/style.css" rel="stylesheet"/><link href="manifest.json" rel="manifest"/><meta content="#0f172a" name="theme-color"/><script defer="defer" src="config.js"></script><script defer="defer" src="assets/core.js"></script><script defer="defer" src="assets/app.js"></script></head>
-<body><div class="version-badge" id="versionBadge">v4.7.1</div>
+<body><div class="version-badge" id="versionBadge">codex v4.7.2</div>
 <div class="login-overlay hidden" id="loginOverlay">
 <div class="login-card">
 <div class="login-title">PRO-CHISTKA</div>
@@ -215,6 +215,8 @@
 <input id="discount" max="100" min="0" placeholder="0" type="number"/>
 <input class="hidden" id="discountAmount" min="0" placeholder="0" type="number"/>
 </div>
+<label class="check-row" style="margin-top:8px"><input id="forceDiscount" type="checkbox"/> Принудительная скидка</label>
+<div class="muted" style="font-size:13px;margin-top:6px">Итог будет равен цене после скидки, без автоматического подъёма до себестоимости.</div>
 </div>
 <div><label>Заставленность мебелью</label><select id="clutter"><option value="low">Минимальная</option><option value="medium">Средняя</option><option value="high">Высокая</option></select></div>
 <div><label>Загрязнённость</label><select id="dirtiness"><option value="low">Обычная</option><option value="medium">Повышенная</option><option value="high">Сильная</option></select></div>

@@ -39,6 +39,7 @@
     const area = num(form.area);
     const profitPercent = num(form.profitPercent);
     const discountPercent = Math.min(100, num(form.discount));
+    const forceDiscount = form.forceDiscount === true;
     const clutterPriceK = Number(clutter.priceK) || 1;
     const dirtPriceK = Number(dirt.priceK) || 1;
     const clutterTimeK = Number(clutter.timeK) || 1;
@@ -117,7 +118,7 @@
     const directCost = laborCost + materialsCost;              // жёсткий пол: ниже = прямой убыток
     const fullCost = directCost + overheadPerJob;              // полная себестоимость
     const targetPrice = fullCost * (1 + profitPercent / 100);  // целевая цена (наценка на полную себестоимость)
-    const recommendedPrice = Math.max(marketPrice, targetPrice, directCost);
+    const recommendedPrice = forceDiscount ? marketPrice : Math.max(marketPrice, targetPrice, directCost);
 
     const netProfit = recommendedPrice - fullCost;             // факт. прибыль при рекомендованной цене
     const marginPct = recommendedPrice > 0 ? (netProfit / recommendedPrice) * 100 : 0;
@@ -125,6 +126,8 @@
     const marketNetProfit = marketPrice - fullCost;            // прибыль, если продать строго по рынку
     const belowDirect = area > 0 && marketPrice < directCost;
     const belowFull = area > 0 && marketPrice < fullCost;
+    const forcedBelowDirect = forceDiscount && belowDirect;
+    const forcedBelowFull = forceDiscount && !belowDirect && belowFull;
     const economyGap = Math.max(0, fullCost - marketPrice);
 
     const selectedExtras = extras.filter(item => num(item.qty) > 0);
@@ -133,13 +136,13 @@
       rate, clutter, dirt, clutterPriceK, dirtPriceK, clutterTimeK, dirtTimeK, priceK, timeK,
       baseNoK, baseAfterClutter, baseWithK, minBase, minBaseApplied, baseRaw,
       extrasTotal, travelTotal, travelBase, travelPerKm, subtotal,
-      discountValue, discountBase, discountPercent, marketPrice,
+      discountValue, discountBase, discountPercent, forceDiscount, marketPrice,
       baseHours, extrasHours, normHours, brigadeHours, maxHoursPerDay,
       crewNeeded, hiredCleaners, peopleOnSite, ownerRole, ownerCost,
       cleanerDay, ownerManagerDay, ownerCleanerManagerDay,
       laborCost, materialPerM2, materialsCost, overheadMonthly, jobsPerMonth, overheadPerJob,
       directCost, fullCost, profitPercent, targetPrice, recommendedPrice,
-      netProfit, marginPct, contribution, marketNetProfit, belowDirect, belowFull, economyGap,
+      netProfit, marginPct, contribution, marketNetProfit, belowDirect, belowFull, forcedBelowDirect, forcedBelowFull, economyGap,
       selectedExtras,
       // алиасы для обратной совместимости со старым кодом отображения
       payroll: laborCost,
@@ -147,7 +150,7 @@
       directCostFloor: directCost,
       breakEvenNoProfit: directCost,
       targetProfitValue: targetPrice - fullCost,
-      economyTopup: Math.max(0, recommendedPrice - marketPrice),
+      economyTopup: forceDiscount ? 0 : Math.max(0, recommendedPrice - marketPrice),
       priceBeforeDiscount: Math.max(subtotal, targetPrice),
       maxAllowedDiscount: subtotal > 0 ? Math.max(0, Math.min(100, (1 - fullCost / subtotal) * 100)) : 0
     };
