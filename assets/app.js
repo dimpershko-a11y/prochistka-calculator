@@ -424,6 +424,33 @@ function saveSettingsNow(){
   saveState();
   toast('Настройки сохранены');
 }
+function setSettingsTab(tab){
+  const active = ['company','texts','services'].includes(tab) ? tab : 'company';
+  state.ui = state.ui || {};
+  state.ui.settingsTab = active;
+  document.querySelectorAll('[data-settings-tab]').forEach(btn=>{
+    const selected = btn.dataset.settingsTab === active;
+    btn.setAttribute('aria-selected', selected ? 'true' : 'false');
+    btn.setAttribute('tabindex', selected ? '0' : '-1');
+  });
+  document.querySelectorAll('[data-settings-panel]').forEach(panel=>{
+    panel.classList.toggle('hidden', panel.dataset.settingsPanel !== active);
+  });
+}
+function enhanceAccessibility(){
+  document.querySelectorAll('label').forEach((label, index)=>{
+    if(label.htmlFor) return;
+    const control = label.querySelector('input,select,textarea') || label.parentElement?.querySelector('input,select,textarea');
+    if(!control) return;
+    if(!control.id) control.id = `fieldAuto${index}`;
+    label.htmlFor = control.id;
+  });
+  const menuBtn = $('moreMenuBtn'), menu = $('moreMenuPanel');
+  if(menuBtn && menu){
+    menuBtn.setAttribute('aria-controls','moreMenuPanel');
+    menuBtn.setAttribute('aria-expanded', menu.classList.contains('hidden') ? 'false' : 'true');
+  }
+}
 
 function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.remove('hidden'); clearTimeout(window._tt); window._tt=setTimeout(()=>t.classList.add('hidden'),2500); }
 function validateCurrentOrder(){
@@ -848,7 +875,19 @@ function openPdfPreview(){ if(validateCurrentOrder().length) return; refreshPdfP
 function closePdfPreview(){ const m=$('pdfPreviewModal'); if(m) m.classList.add('hidden'); }
 function bind(){
   $('tariffsBtn').onclick=()=>requestEditAccess(()=>{ state.ui.showTariffs=!state.ui.showTariffs; $('tariffsCard').classList.toggle('hidden', !state.ui.showTariffs); if(state.ui.showTariffs) renderTariffs(); saveState(); });
-  $('settingsBtn').onclick=()=>requestEditAccess(()=>{ state.ui.showSettings=!state.ui.showSettings; $('settingsCard').classList.toggle('hidden', !state.ui.showSettings); if(state.ui.showSettings) renderSettingsPanel(); saveState(); });
+  $('settingsBtn').onclick=()=>requestEditAccess(()=>{ state.ui.showSettings=!state.ui.showSettings; $('settingsCard').classList.toggle('hidden', !state.ui.showSettings); if(state.ui.showSettings){ renderSettingsPanel(); setSettingsTab(state.ui.settingsTab); } saveState(); });
+  document.querySelectorAll('[data-settings-tab]').forEach(btn=>{
+    btn.onclick=()=>{ setSettingsTab(btn.dataset.settingsTab); saveState(); };
+    btn.onkeydown=e=>{
+      if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key)) return;
+      const tabs=Array.from(document.querySelectorAll('[data-settings-tab]'));
+      const i=tabs.indexOf(btn);
+      const next=e.key==='Home' ? 0 : e.key==='End' ? tabs.length-1 : e.key==='ArrowRight' ? Math.min(tabs.length-1,i+1) : Math.max(0,i-1);
+      e.preventDefault();
+      tabs[next]?.focus();
+      tabs[next]?.click();
+    };
+  });
   if($('saveSettingsBtn')) $('saveSettingsBtn').onclick=saveSettingsNow;
   if($('saveTariffsSettingsBtn')) $('saveTariffsSettingsBtn').onclick=saveSettingsNow;
   if($('exportOrdersBtn')) $('exportOrdersBtn').onclick=exportOrders;
@@ -858,9 +897,9 @@ function bind(){
   if($('importBackupBtn')) $('importBackupBtn').onclick=()=>requestEditAccess(()=>$('importBackupFile').click());
   if($('importBackupFile')) $('importBackupFile').onchange=e=>importBackupFile(e.target.files?.[0]);
   $('closeShareBtn').onclick=()=>$('shareModal').classList.add('hidden');
-  if($('moreMenuBtn')) $('moreMenuBtn').onclick=()=>$('moreMenuPanel')&&$('moreMenuPanel').classList.toggle('hidden');
+  if($('moreMenuBtn')) $('moreMenuBtn').onclick=()=>{ const panel=$('moreMenuPanel'); if(!panel) return; panel.classList.toggle('hidden'); $('moreMenuBtn').setAttribute('aria-expanded', panel.classList.contains('hidden') ? 'false' : 'true'); };
   if($('lockEditBtn')) $('lockEditBtn').onclick=lockEditing;
-  document.addEventListener('click', e=>{ const panel=$('moreMenuPanel'), btn=$('moreMenuBtn'); if(panel && btn && !panel.classList.contains('hidden') && !panel.contains(e.target) && e.target!==btn){ panel.classList.add('hidden'); } });
+  document.addEventListener('click', e=>{ const panel=$('moreMenuPanel'), btn=$('moreMenuBtn'); if(panel && btn && !panel.classList.contains('hidden') && !panel.contains(e.target) && e.target!==btn){ panel.classList.add('hidden'); btn.setAttribute('aria-expanded','false'); } });
   if($('previewPdfBtn')) $('previewPdfBtn').onclick=openPdfPreview;
   if($('closePdfPreviewBtn')) $('closePdfPreviewBtn').onclick=closePdfPreview;
   if($('refreshPdfPreviewBtn')) $('refreshPdfPreviewBtn').onclick=refreshPdfPreview;
@@ -887,6 +926,6 @@ function bind(){
   $('addExtraBtn').onclick=()=>requestEditAccess(()=>{ const name=$('newExtraName').value.trim(), unit=$('newExtraUnit').value.trim()||'шт', price=num($('newExtraPrice').value), time=num($('newExtraTime').value), category=$('newExtraCategory').value.trim()||'Другое'; if(!name||!price){ toast('Заполни название и цену'); return; } state.extras.push({id:Date.now(), name, unit, price, qty:0, time, category, builtIn:false}); $('newExtraName').value=''; $('newExtraPrice').value=''; $('newExtraTime').value=''; saveState(); renderExtras(); recalc(); toast('Услуга добавлена'); });
 }
 function updateDiscountInputs(){ const mode=state.form.discountMode==='amount'?'amount':'percent'; const sel=$('discountMode'); if(sel) sel.value=mode; const pct=$('discount'), amt=$('discountAmount'); if(pct) pct.classList.toggle('hidden', mode!=='percent'); if(amt) amt.classList.toggle('hidden', mode!=='amount'); }
-function fillForm(){ if(!isEditUnlocked()){ state.ui.showTariffs=false; state.ui.showSettings=false; } $('clientName').value=state.form.clientName; $('objectType').value=state.form.objectType; $('area').value=state.form.area; $('discount').value=state.form.discount; if($('discountAmount')) $('discountAmount').value=state.form.discountAmount||0; updateDiscountInputs(); $('travelKm').value=state.form.travelKm; if($('ownerRole')) $('ownerRole').value=state.form.ownerRole||'none'; $('profitPercent').value=state.form.profitPercent; $('notes').value=state.form.notes; $('showOnlySelected').checked=!!state.form.showOnlySelected; $('tariffsCard').classList.toggle('hidden', !state.ui.showTariffs); $('settingsCard').classList.toggle('hidden', !state.ui.showSettings); populateMainSelects(); $('includedServices').value=getTypeIncluded(state.form.cleanType)||''; renderSettingsPanel(); }
-fillForm(); renderTariffs(); bind(); renderExtras(); renderSettingsPanel(); recalc(); updateBackupReminder(); attemptIdbRecovery(); if($('versionBadge')) $('versionBadge').textContent=APP_VERSION; setupAccess();
+function fillForm(){ if(!isEditUnlocked()){ state.ui.showTariffs=false; state.ui.showSettings=false; } $('clientName').value=state.form.clientName; $('objectType').value=state.form.objectType; $('area').value=state.form.area; $('discount').value=state.form.discount; if($('discountAmount')) $('discountAmount').value=state.form.discountAmount||0; updateDiscountInputs(); $('travelKm').value=state.form.travelKm; if($('ownerRole')) $('ownerRole').value=state.form.ownerRole||'none'; $('profitPercent').value=state.form.profitPercent; $('notes').value=state.form.notes; $('showOnlySelected').checked=!!state.form.showOnlySelected; $('tariffsCard').classList.toggle('hidden', !state.ui.showTariffs); $('settingsCard').classList.toggle('hidden', !state.ui.showSettings); populateMainSelects(); $('includedServices').value=getTypeIncluded(state.form.cleanType)||''; renderSettingsPanel(); setSettingsTab(state.ui.settingsTab); }
+fillForm(); renderTariffs(); bind(); renderExtras(); renderSettingsPanel(); setSettingsTab(state.ui.settingsTab); enhanceAccessibility(); recalc(); updateBackupReminder(); attemptIdbRecovery(); if($('versionBadge')) $('versionBadge').textContent=APP_VERSION; setupAccess();
 if('serviceWorker' in navigator){ window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{})); }

@@ -4,8 +4,8 @@
 <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
 <title>Калькулятор стоимости уборки</title>
 
-<link href="assets/style.css" rel="stylesheet"/><link href="manifest.json" rel="manifest"/><meta content="#0f172a" name="theme-color"/><script defer="defer" src="config.js"></script><script defer="defer" src="assets/core.js"></script><script defer="defer" src="assets/app.js"></script></head>
-<body><div class="version-badge" id="versionBadge">v4.7.0</div>
+<link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="anonymous" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/><link href="assets/style.css" rel="stylesheet"/><link href="manifest.json" rel="manifest"/><meta content="#0f172a" name="theme-color"/><script defer="defer" src="config.js"></script><script defer="defer" src="assets/core.js"></script><script defer="defer" src="assets/app.js"></script></head>
+<body><div class="version-badge" id="versionBadge">v4.7.1</div>
 <div class="login-overlay hidden" id="loginOverlay">
 <div class="login-card">
 <div class="login-title">PRO-CHISTKA</div>
@@ -27,18 +27,18 @@
 <div class="top-actions">
 <button class="primary" id="saveOrderBtn">Сохранить заказ</button>
 <div class="menu-wrap">
-<button class="soft" id="moreMenuBtn" type="button">Доп. меню ▾</button>
-<div class="more-menu hidden" id="moreMenuPanel">
-<button id="demoBtn" type="button">Пример</button>
-<button id="tariffsBtn" type="button">Тарифы</button>
-<button class="soft" id="settingsBtn" type="button">Настройки</button>
-<button id="lockEditBtn" type="button">Закрыть режим изменений</button>
-<button id="clearBtn" type="button">Очистить форму</button>
+<button aria-controls="moreMenuPanel" aria-expanded="false" class="soft" id="moreMenuBtn" type="button">Доп. меню ▾</button>
+<div aria-label="Дополнительное меню" class="more-menu hidden" id="moreMenuPanel" role="menu">
+<button id="demoBtn" role="menuitem" type="button">Пример</button>
+<button id="tariffsBtn" role="menuitem" type="button">Тарифы</button>
+<button class="soft" id="settingsBtn" role="menuitem" type="button">Настройки</button>
+<button id="lockEditBtn" role="menuitem" type="button">Закрыть режим изменений</button>
+<button id="clearBtn" role="menuitem" type="button">Очистить форму</button>
 <div class="menu-sep"></div>
-<button id="exportOrdersBtn" type="button">Экспорт заказов</button>
-<button id="importOrdersBtn" type="button">Импорт заказов</button>
-<button id="exportBackupBtn" type="button">Резервная копия</button>
-<button id="importBackupBtn" type="button">Восстановить</button>
+<button id="exportOrdersBtn" role="menuitem" type="button">Экспорт заказов</button>
+<button id="importOrdersBtn" role="menuitem" type="button">Импорт заказов</button>
+<button id="exportBackupBtn" role="menuitem" type="button">Резервная копия</button>
+<button id="importBackupBtn" role="menuitem" type="button">Восстановить</button>
 </div>
 </div>
 <input accept="application/json,.json" class="hidden" id="importOrdersFile" type="file"/>
@@ -108,8 +108,13 @@
 </div>
 <div class="btns"><button class="primary" id="saveSettingsBtn" type="button">Сохранить настройки</button></div>
 </div>
+<div class="settings-tabs" aria-label="Разделы настроек" role="tablist">
+<button class="settings-tab" data-settings-tab="company" id="settingsTabCompany" role="tab" type="button">Компания / PDF</button>
+<button class="settings-tab" data-settings-tab="texts" id="settingsTabTexts" role="tab" type="button">Тексты</button>
+<button class="settings-tab" data-settings-tab="services" id="settingsTabServices" role="tab" type="button">Услуги</button>
+</div>
 <div class="grid" style="gap:18px">
-<div>
+<div data-settings-panel="company" role="tabpanel" aria-labelledby="settingsTabCompany">
 <div class="chip">Компания и PDF</div>
 <div class="grid g2">
 <div><label>Название компании</label><input id="brandName"/></div>
@@ -161,19 +166,19 @@
 <div class="muted" style="font-size:13px;margin-top:8px">Можно включать или выключать блоки и менять их порядок.</div>
 </div>
 </div>
-<div>
+<div data-settings-panel="texts" role="tabpanel" aria-labelledby="settingsTabTexts">
 <div class="chip">Дополнительная информация для клиента</div>
 <div class="muted" style="font-size:13px;margin-bottom:10px">Этот блок попадёт в PDF перед заметками. Здесь удобно указать оплату, договор, технику, химию и другие условия.</div>
 <textarea id="usefulInfoText" placeholder="Например: Работаем по договору. Технику и химию привозим самостоятельно. Оплата: наличные, перевод, СБП..."></textarea>
 </div>
-<div>
+<div data-settings-panel="texts" role="tabpanel" aria-labelledby="settingsTabTexts">
 <div class="chip">Основная информация</div>
 <div class="grid g2">
 <div><label>Список техники</label><textarea id="equipmentText" placeholder="Например: пылесос, парогенератор, лестница, удлинитель"></textarea></div>
 <div><label>Информация о химии / сертификатах</label><textarea id="chemistryText" placeholder="Например: используем сертифицированную профессиональную химию..."></textarea></div>
 </div>
 </div>
-<div class="card">
+<div class="card" data-settings-panel="texts" role="tabpanel" aria-labelledby="settingsTabTexts">
 <div class="topbar" style="margin-bottom:10px">
 <div>
 <div class="section-title">Описание услуг / что входит в услугу</div>
@@ -184,12 +189,12 @@
 <div class="muted" style="margin-bottom:10px">Редактируется шаблон для: <strong id="includedTypeLabel">После ремонта</strong></div>
 <textarea id="includedServices"></textarea>
 </div>
-<div>
+<div data-settings-panel="texts" role="tabpanel" aria-labelledby="settingsTabTexts">
 <div class="chip">Описание работ по окнам / остеклению</div>
 <div class="muted" style="font-size:13px;margin-bottom:10px">Этот текст добавляется в смету только если в заказ добавлены услуги из категории «Окна».</div>
 <textarea id="windowServicesDescription"></textarea>
 </div>
-<div>
+<div data-settings-panel="services" role="tabpanel" aria-labelledby="settingsTabServices">
 <div class="chip">Редактор доп.услуг</div>
 <div class="muted" style="font-size:13px;margin-bottom:10px">Здесь можно менять единицы измерения, категорию и порядок услуг.</div>
 <div class="grid" id="extrasEditorWrap"></div>
