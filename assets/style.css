@@ -180,3 +180,27 @@ button{white-space:normal;line-height:1.25}
 #extrasEditorWrap .extra-card{padding:12px;border-radius:15px}
 @media(min-width:920px){#extrasWrap details.extra-card>div{grid-template-columns:1fr 1fr}}
 @media(max-width:759px){.icon-menu-btn{width:100%;min-width:0}.extra-qty-control{grid-template-columns:72px 1fr}#savedOrdersWrap{max-height:none}}
+
+/* v4.7.4: компактные PDF-блоки и внутренние вкладки тарифов */
+#pdfBlocksWrap{display:grid;grid-template-columns:1fr;gap:8px}
+@media(min-width:760px){#pdfBlocksWrap{grid-template-columns:1fr 1fr}}
+.pdf-block-card{display:grid;grid-template-columns:1fr auto;align-items:center;gap:10px;border:1px solid var(--line);border-radius:14px;background:#fff;padding:9px 10px;min-height:54px}
+.pdf-block-toggle{display:flex;align-items:center;gap:9px;margin:0;font-size:14px;font-weight:700;line-height:1.25;min-width:0}
+.pdf-block-toggle input{width:18px;min-width:18px;height:18px;min-height:18px;padding:0;margin:0;accent-color:#0f7bd8}
+.pdf-block-toggle span{overflow-wrap:anywhere}
+.pdf-block-actions{display:flex;gap:6px;align-items:center}
+.pdf-block-actions button{width:38px;min-width:38px;min-height:38px;padding:8px;font-size:16px;line-height:1}
+.tariff-editor-card{display:grid;gap:12px}
+.tariff-inner-tabs{display:flex;gap:8px;flex-wrap:wrap;border:1px solid var(--line);background:#f8fafc;border-radius:16px;padding:8px;margin-top:4px}
+.tariff-inner-tabs button{min-height:38px;padding:8px 12px;background:#fff;border-radius:12px;font-size:13px}
+.tariff-inner-tabs button[aria-selected="true"]{background:linear-gradient(135deg,#0f172a,#1e293b);border-color:#0f172a;color:#fff;box-shadow:0 7px 14px rgba(15,23,42,.12)}
+.tariff-main-panel{margin-top:0}
+.tariff-type-actions button{flex:1 1 auto}
+@media(max-width:759px){
+  #pdfBlocksWrap{grid-template-columns:1fr!important}
+  .pdf-block-card{padding:8px 9px;min-height:50px}
+  .pdf-block-actions button{width:34px;min-width:34px;min-height:34px}
+  .tariff-inner-tabs{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+  .tariff-inner-tabs button{width:100%}
+}
+@media(max-width:420px){.tariff-inner-tabs{grid-template-columns:1fr}.pdf-block-card{grid-template-columns:1fr}.pdf-block-actions{justify-content:flex-start}}

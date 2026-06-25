@@ -1,7 +1,7 @@
 window.PROCHISTKA_CONFIG = {
-  "APP_VERSION": "v4.7.3",
+  "APP_VERSION": "v4.7.4",
   "APP_PASSWORD": "",
-  "CONFIG_REVISION": 7,
+  "CONFIG_REVISION": 8,
   "SYNC_BRAND_PDF_ON_REVISION": true,
   "WINDOW_CATEGORIES": [
     "Окна"
@@ -469,7 +469,7 @@ window.PROCHISTKA_CONFIG = {
     },
     "pdfHeader": {
       "useLogo": false,
-      "fontFamily": "Orbitron Black, Arial, sans-serif",
+      "fontFamily": "Orbitron, Arial, sans-serif",
       "nameFontSize": 30,
       "taglineFontSize": 13,
       "contactFontSize": 14,
