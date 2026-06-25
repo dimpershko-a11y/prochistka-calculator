@@ -5,7 +5,7 @@
 <title>Калькулятор стоимости уборки</title>
 
 <link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="anonymous" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Orbitron:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/><link href="assets/style.css" rel="stylesheet"/><link href="manifest.json" rel="manifest"/><meta content="#0f172a" name="theme-color"/><script defer="defer" src="config.js"></script><script defer="defer" src="assets/core.js"></script><script defer="defer" src="assets/app.js"></script></head>
-<body><div class="version-badge" id="versionBadge">v4.7.4</div>
+<body><div class="version-badge" id="versionBadge">v4.7.6</div>
 <div class="login-overlay hidden" id="loginOverlay">
 <div class="login-card">
 <div class="login-title">PRO-CHISTKA</div>
@@ -29,16 +29,12 @@
 <div class="menu-wrap">
 <button aria-controls="moreMenuPanel" aria-expanded="false" aria-label="Дополнительное меню" class="soft icon-menu-btn" id="moreMenuBtn" title="Дополнительное меню" type="button">☰</button>
 <div aria-label="Дополнительное меню" class="more-menu hidden" id="moreMenuPanel" role="menu">
-<button id="demoBtn" role="menuitem" type="button">Пример</button>
-<button id="tariffsBtn" role="menuitem" type="button">Тарифы</button>
 <button class="soft" id="settingsBtn" role="menuitem" type="button">Настройки</button>
-<button id="lockEditBtn" role="menuitem" type="button">Закрыть режим изменений</button>
-<button id="clearBtn" role="menuitem" type="button">Очистить форму</button>
+<button id="dataModalBtn" role="menuitem" type="button">Данные</button>
+<button id="backupModalBtn" role="menuitem" type="button">Резервные копии</button>
 <div class="menu-sep"></div>
-<button id="exportOrdersBtn" role="menuitem" type="button">Экспорт заказов</button>
-<button id="importOrdersBtn" role="menuitem" type="button">Импорт заказов</button>
-<button id="exportBackupBtn" role="menuitem" type="button">Резервная копия</button>
-<button id="importBackupBtn" role="menuitem" type="button">Восстановить</button>
+<button id="demoBtn" role="menuitem" type="button">Пример</button>
+<button id="clearBtn" role="menuitem" type="button">Очистить форму</button>
 </div>
 </div>
 <input accept="application/json,.json" class="hidden" id="importOrdersFile" type="file"/>
@@ -46,18 +42,9 @@
 </div>
 </div>
 </div>
-<div class="card" id="backupCard">
-<div class="topbar">
-<div>
-<div class="section-title" style="margin-bottom:4px">Резервное копирование</div>
-<div class="muted" id="backupStatus">Данные хранятся в этом браузере и дублируются локально.</div>
-</div>
-<div class="btns">
-<label class="inline-check"><input id="autoBackupToggle" type="checkbox"/> Авто-копия каждые 10 заказов</label>
-<button class="primary" id="backupNowBtn" type="button">Скачать резервную копию</button>
-</div>
-</div>
-<div class="backup-reminder hidden" id="backupReminder"></div>
+<div class="backup-chipbar" id="backupCard">
+  <div class="backup-chip" id="backupStatus">Резервная копия: ещё не скачивалась</div>
+  <button class="soft" id="backupQuickOpenBtn" type="button">Резервные копии</button>
 </div>
 <div aria-modal="true" class="settings-modal hidden" id="settingsModal" role="dialog">
 <div class="card settings-modal-card" id="settingsCard">
@@ -66,7 +53,7 @@
 <div class="section-title">Настройки</div>
 <div class="muted">Здесь настраиваются тарифы, PDF, компания, тексты и редактор доп.услуг.</div>
 </div>
-<div class="btns"><button class="primary" id="saveSettingsBtn" type="button">Сохранить настройки</button><button id="exportConfigBtn" type="button">Скачать config.js</button><button id="closeSettingsBtn" type="button">Закрыть</button></div>
+<div class="btns"><button class="primary" id="saveSettingsBtn" type="button">Сохранить настройки</button><button id="closeSettingsBtn" type="button">Закрыть</button></div>
 </div>
 <div class="settings-tabs" aria-label="Разделы настроек" role="tablist">
 <button class="settings-tab" data-settings-tab="company" id="settingsTabCompany" role="tab" type="button">Компания / PDF</button>
@@ -180,25 +167,14 @@
 <div><label>Информация о химии / сертификатах</label><textarea id="chemistryText" placeholder="Например: используем сертифицированную профессиональную химию..."></textarea></div>
 </div>
 </div>
-<div class="card" data-settings-panel="texts" role="tabpanel" aria-labelledby="settingsTabTexts">
-<div class="topbar" style="margin-bottom:10px">
-<div>
-<div class="section-title">Описание услуг / что входит в услугу</div>
-<div class="muted">Шаблон сохраняется отдельно для каждого вида уборки.</div>
-</div>
-<button class="primary" id="saveIncludedBtn">Сохранить шаблон</button>
-</div>
-<div class="muted" style="margin-bottom:10px">Редактируется шаблон для: <strong id="includedTypeLabel">После ремонта</strong></div>
-<textarea id="includedServices"></textarea>
-</div>
-<div data-settings-panel="texts" role="tabpanel" aria-labelledby="settingsTabTexts">
-<div class="chip">Описание работ по окнам / остеклению</div>
-<div class="muted" style="font-size:13px;margin-bottom:10px">Этот текст добавляется в смету только если в заказ добавлены услуги из категории «Окна».</div>
-<textarea id="windowServicesDescription"></textarea>
-</div>
 <div data-settings-panel="services" role="tabpanel" aria-labelledby="settingsTabServices">
 <div class="chip">Редактор доп.услуг</div>
 <div class="muted" style="font-size:13px;margin-bottom:10px">Здесь можно добавлять услуги, менять единицы измерения, категорию, цену, время и порядок услуг.</div>
+<div class="extra-card" style="margin-bottom:14px">
+<div class="section-title" style="font-size:16px">Категории доп. услуг</div>
+<div class="muted" style="font-size:13px;margin-bottom:10px">Можно переименовать категорию или удалить её с переносом услуг в другую категорию. Категория «Другое» используется как безопасная по умолчанию.</div>
+<div class="grid" id="extraCategoriesWrap"></div>
+</div>
 <div class="extra-card" style="margin-bottom:14px">
 <div class="section-title" style="font-size:16px">Добавить новую услугу</div>
 <div class="grid g3">
@@ -206,7 +182,8 @@
 <div><label>Ед. изм.</label><input id="newExtraUnit" value="шт"/></div>
 <div><label>Цена</label><input id="newExtraPrice" min="0" type="number"/></div>
 <div><label>Время, ч</label><input id="newExtraTime" min="0" step="0.1" type="number"/></div>
-<div><label>Категория</label><input id="newExtraCategory" value="Другое"/></div>
+<div><label>Категория</label><select id="newExtraCategory"></select></div>
+<div><label>Новая категория</label><input id="newExtraCategoryCustom" placeholder="Например: Балконы"/></div>
 <div style="align-self:end"><button class="primary" id="addExtraBtn" style="width:100%">Добавить услугу</button></div>
 </div>
 </div>
@@ -368,6 +345,47 @@
   </div>
 </div>
 
+<div class="hidden" id="dataModal" style="position:fixed;inset:0;background:rgba(15,23,42,.55);padding:16px;z-index:66;overflow:auto">
+  <div style="max-width:720px;margin:40px auto;background:#fff;border-radius:22px;padding:18px;border:1px solid #dbe3ef;box-shadow:0 20px 60px rgba(0,0,0,.25)">
+    <div class="topbar" style="margin-bottom:12px">
+      <div>
+        <div class="section-title" style="margin-bottom:4px">Данные</div>
+        <div class="muted">Экспорт и импорт заказов, а также выгрузка текущих настроек калькулятора в config.js.</div>
+      </div>
+      <button id="closeDataModalBtn" type="button">Закрыть</button>
+    </div>
+    <div class="grid g2">
+      <div class="extra-card">
+        <div class="section-title" style="font-size:16px">Заказы</div>
+        <div class="muted" style="font-size:13px;margin-bottom:10px">Экспортирует или импортирует только сохранённые заказы.</div>
+        <div class="btns"><button id="exportOrdersBtn" type="button">Экспорт заказов</button><button id="importOrdersBtn" type="button">Импорт заказов</button></div>
+      </div>
+      <div class="extra-card">
+        <div class="section-title" style="font-size:16px">Настройки для GitHub</div>
+        <div class="muted" style="font-size:13px;margin-bottom:10px">Скачивает готовый config.js с текущими тарифами, видами уборки, услугами, PDF-шапкой и текстами.</div>
+        <button class="primary" id="exportConfigBtn" type="button">Скачать config.js</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="hidden" id="backupModal" style="position:fixed;inset:0;background:rgba(15,23,42,.55);padding:16px;z-index:66;overflow:auto">
+  <div style="max-width:760px;margin:40px auto;background:#fff;border-radius:22px;padding:18px;border:1px solid #dbe3ef;box-shadow:0 20px 60px rgba(0,0,0,.25)">
+    <div class="topbar" style="margin-bottom:12px">
+      <div>
+        <div class="section-title" style="margin-bottom:4px">Резервные копии</div>
+        <div class="muted">Полная копия состояния: заказы, настройки, услуги, тарифы и PDF-шапка.</div>
+      </div>
+      <button id="closeBackupModalBtn" type="button">Закрыть</button>
+    </div>
+    <div class="notice" id="backupStatusFull" style="margin-bottom:12px">Резервная копия ещё не скачивалась.</div>
+    <div class="btns" style="margin-bottom:12px">
+      <button class="primary" id="backupNowBtn" type="button">Скачать резервную копию</button>
+      <button id="importBackupBtn" type="button">Восстановить из копии</button>
+      <label class="inline-check"><input id="autoBackupToggle" type="checkbox"/> Авто-копия каждые 10 заказов</label>
+    </div>
+    <div class="backup-reminder hidden" id="backupReminder"></div>
+  </div>
+</div>
 <div class="print-area" id="printArea"></div>
 <div class="toast hidden" id="toast">Логотип удалён</div>
 

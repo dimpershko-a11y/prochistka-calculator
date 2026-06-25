@@ -1,7 +1,7 @@
 const STORAGE_KEY = 'prochistka_calc_app_v4';
 const APP_CONFIG = window.PROCHISTKA_CONFIG || {};
 const CORE = window.PROCHISTKA_CORE;
-const APP_VERSION = APP_CONFIG.APP_VERSION || 'v4.7.4';
+const APP_VERSION = APP_CONFIG.APP_VERSION || 'v4.7.6';
 const defaults = APP_CONFIG.defaults || {};
 defaults.brand = defaults.brand || {name:'PRO-CHISTKA', phone:'', tagline:'Клининговые услуги', site:'', contactText:'', logoDataUrl:''};
 if(!defaults.brand.contactText){ defaults.brand.contactText = [defaults.brand.phone, defaults.brand.site].filter(Boolean).join('\n'); }
@@ -18,6 +18,7 @@ defaults.serviceDescriptions = defaults.serviceDescriptions || {windows:''};
 defaults.pdfSettings = defaults.pdfSettings || {order:['client','included','extras','pricing','main_info','useful_info','notes'], visible:{client:true,included:true,extras:true,pricing:true,main_info:true,useful_info:true,notes:true}};
 defaults.mainInfo = defaults.mainInfo || {equipmentText:'', chemistryText:'', usefulInfo:'Всё необходимое для клининга — техника и моющие средства — привозим самостоятельно.\nРаботаем по договору.\nПриём оплаты: наличные, перевод, QR-код СБП, ссылка СБП, карта VISA/MasterCard/МИР, Долями от Т-Банка, безналичный расчёт для юридических лиц.'};
 defaults.extras = defaults.extras || [];
+defaults.extraCategories = defaults.extraCategories || [];
 defaults.form = defaults.form || {clientName:'',objectType:'Квартира',area:0,cleanType:'general',discount:0,discountMode:'percent',discountAmount:0,clutter:'low',dirtiness:'low',travelType:'kad',travelKm:20,ownerRole:'cleaner_manager',profitPercent:25,notes:'',showOnlySelected:false};
 defaults.savedOrders = [];
 defaults.ui = defaults.ui || {showTariffs:false, showSettings:false, extraGroupsCollapsed:{}};
@@ -36,6 +37,7 @@ function buildCleaningTypesFromLegacy(target){
       min: Number(rate.min)||0,
       speed: Number(rate.speed)||1,
       included: includedByType[key] || '',
+      windowsDescription: (target && target.serviceDescriptions && target.serviceDescriptions.windows) || '',
       clutter: clone(fallbackClutter),
       dirtiness: clone(fallbackDirtiness)
     };
@@ -57,6 +59,7 @@ function normalizeCleaningTypes(cleaningTypes, target){
       min: Number(t.min ?? (legacy[key] && legacy[key].min)) || 0,
       speed: Number(t.speed ?? (legacy[key] && legacy[key].speed)) || 1,
       included: t.included ?? includedByType[key] ?? (legacy[key] && legacy[key].included) ?? '',
+      windowsDescription: t.windowsDescription ?? t.windows ?? (target && target.serviceDescriptions && target.serviceDescriptions.windows) ?? (legacy[key] && legacy[key].windowsDescription) ?? '',
       clutter: (t.clutter && typeof t.clutter === 'object' && Object.keys(t.clutter).length) ? clone(t.clutter) : clone(fallbackClutter),
       dirtiness: (t.dirtiness && typeof t.dirtiness === 'object' && Object.keys(t.dirtiness).length) ? clone(t.dirtiness) : clone(fallbackDirtiness)
     };
@@ -76,13 +79,14 @@ function syncLegacyFromCleaningTypes(target){
   const fallbackClutter = (target && target.clutter && Object.keys(target.clutter).length) ? target.clutter : (defaults.clutter || {});
   const fallbackDirtiness = (target && target.dirtiness && Object.keys(target.dirtiness).length) ? target.dirtiness : (defaults.dirtiness || {});
   Object.entries(target.cleaningTypes).forEach(([key,t])=>{
-    if(!t || typeof t !== 'object') target.cleaningTypes[key]={label:key, rate:0, min:0, speed:1, included:'', clutter:clone(fallbackClutter), dirtiness:clone(fallbackDirtiness)};
+    if(!t || typeof t !== 'object') target.cleaningTypes[key]={label:key, rate:0, min:0, speed:1, included:'', windowsDescription:(target.serviceDescriptions&&target.serviceDescriptions.windows)||'', clutter:clone(fallbackClutter), dirtiness:clone(fallbackDirtiness)};
     const item=target.cleaningTypes[key];
     item.label = item.label || key;
     item.rate = Number(item.rate)||0;
     item.min = Number(item.min)||0;
     item.speed = Number(item.speed)||1;
     item.included = item.included ?? target.includedByType?.[key] ?? '';
+    item.windowsDescription = item.windowsDescription ?? item.windows ?? (target.serviceDescriptions&&target.serviceDescriptions.windows) ?? '';
     if(!item.clutter || typeof item.clutter !== 'object' || !Object.keys(item.clutter).length) item.clutter = clone(fallbackClutter);
     if(!item.dirtiness || typeof item.dirtiness !== 'object' || !Object.keys(item.dirtiness).length) item.dirtiness = clone(fallbackDirtiness);
   });
@@ -115,6 +119,7 @@ function applyConfigRevisionData(){
   state.materialPerM2 = defaults.materialPerM2;
   state.overhead = clone(defaults.overhead);
   state.extras = mergeConfiguredExtras(defaults.extras, state.extras);
+  state.extraCategories = clone(defaults.extraCategories || state.extraCategories || []);
   state.includedByType = clone(state.includedByType || defaults.includedByType);
   state.serviceDescriptions = clone(defaults.serviceDescriptions);
   state.mainInfo = {...(state.mainInfo||{}), ...(clone(defaults.mainInfo)||{})};
@@ -148,6 +153,7 @@ function mergeState(parsed){
     form:{...d.form,...(parsed.form||{})},
     savedOrders:Array.isArray(parsed.savedOrders)?parsed.savedOrders:[],
     extras:Array.isArray(parsed.extras)?parsed.extras:d.extras,
+    extraCategories:Array.isArray(parsed.extraCategories)?parsed.extraCategories:(Array.isArray(d.extraCategories)?d.extraCategories:[]),
     ui:{...d.ui,...(parsed.ui||{})}
   };
 }
@@ -260,9 +266,14 @@ function updateBackupReminder(){
   const since = Number(state.ui.ordersSinceBackup||0);
   const last = state.ui.lastBackupAt;
   const toggle=$('autoBackupToggle'); if(toggle) toggle.checked=!!state.ui.autoBackup;
+  const statusText = last
+    ? `Резервная копия: ${new Date(last).toLocaleString('ru-RU')} · новых заказов: ${since}`
+    : 'Резервная копия: ещё не скачивалась';
   const status=$('backupStatus');
-  if(status){
-    status.textContent = last
+  if(status) status.textContent = statusText;
+  const statusFull=$('backupStatusFull');
+  if(statusFull){
+    statusFull.textContent = last
       ? `Последняя копия: ${new Date(last).toLocaleString('ru-RU')}. Новых заказов с тех пор: ${since}.`
       : 'Резервная копия ещё не скачивалась. Сделайте первую копию и храните её вне браузера.';
   }
@@ -311,6 +322,16 @@ function setTypeIncluded(typeKey, text){
   state.includedByType[typeKey]=text;
   syncLegacyFromCleaningTypes(state);
 }
+function getTypeWindowDescription(typeKey=state.form.cleanType){
+  const t=getCleaningType(typeKey);
+  return (t && (t.windowsDescription || t.windows)) || state.serviceDescriptions?.windows || '';
+}
+function setTypeWindowDescription(typeKey, text){
+  const t=getCleaningType(typeKey);
+  if(t) t.windowsDescription=text;
+  state.serviceDescriptions=state.serviceDescriptions||{};
+  if(!state.serviceDescriptions.windows) state.serviceDescriptions.windows=text;
+}
 function ensureFormCleanTypeAndCoefs(resetCoefs=false){
   const types=getCleaningTypes();
   if(!types[state.form.cleanType]) state.form.cleanType=getFirstCleanTypeKey();
@@ -341,7 +362,7 @@ function isWindowExtra(item){ const cat=String(item?.category||'').toLowerCase()
 function hasSelectedWindowExtras(){ return (state.extras||[]).some(x=>num(x.qty)>0 && isWindowExtra(x)); }
 function getIncludedLines(){
   const base=(getTypeIncluded(state.form.cleanType)||'').trim().split(/\n+/).filter(Boolean);
-  const win=(state.serviceDescriptions?.windows||'').trim().split(/\n+/).filter(Boolean);
+  const win=(getTypeWindowDescription(state.form.cleanType)||'').trim().split(/\n+/).filter(Boolean);
   return hasSelectedWindowExtras() ? base.concat(win) : base;
 }
 function getIncludedText(){ return getIncludedLines().join('\n'); }
@@ -399,6 +420,7 @@ function buildConfigDefaultsFromState(){
     ui:{showTariffs:false, showSettings:false, settingsTab:'company', tariffInnerTab:'main', extraGroupsOpen:{}},
     savedOrders:[],
     serviceDescriptions: clone(state.serviceDescriptions || defaults.serviceDescriptions || {}),
+    extraCategories: getExtraCategories(),
     pdfHeader: clone(state.pdfHeader || defaults.pdfHeader || {}),
     cleaningTypes: clone(state.cleaningTypes || defaults.cleaningTypes || {})
   };
@@ -518,7 +540,7 @@ function setSettingsTab(tab){
   });
 }
 function setTariffInnerTab(tab){
-  const active = ['main','clutter','dirtiness','travel','economy'].includes(tab) ? tab : 'main';
+  const active = ['main','description','clutter','dirtiness','travel','economy'].includes(tab) ? tab : 'main';
   state.ui = state.ui || {};
   state.ui.tariffInnerTab = active;
   document.querySelectorAll('[data-tariff-inner-tab]').forEach(btn=>{
@@ -528,6 +550,8 @@ function setTariffInnerTab(tab){
   });
   const mainPanel = $('tariffMainPanel');
   if(mainPanel) mainPanel.classList.toggle('hidden', active !== 'main');
+  const descPanel = $('tariffDescriptionPanel');
+  if(descPanel) descPanel.classList.toggle('hidden', active !== 'description');
   const mapping = {clutter:'clutterWrap', dirtiness:'dirtWrap', travel:'travelWrap'};
   Object.entries(mapping).forEach(([key,id])=>{
     const wrap=$(id);
@@ -572,6 +596,64 @@ function moveItem(arr, from, to){
   copy.splice(to,0,item);
   return copy;
 }
+
+function ensureExtraCategories(){
+  state.extraCategories = Array.isArray(state.extraCategories) ? state.extraCategories : [];
+  if(!state.extraCategories.includes('Другое')) state.extraCategories.push('Другое');
+}
+function getExtraCategories(){
+  ensureExtraCategories();
+  const seen=new Set();
+  const out=[];
+  const add=cat=>{ const name=String(cat||'').trim() || 'Другое'; if(!seen.has(name)){ seen.add(name); out.push(name); } };
+  state.extraCategories.forEach(add);
+  (state.extras||[]).forEach(x=>add(x.category));
+  add('Другое');
+  return out;
+}
+function renderCategoryOptions(selected){
+  const sel=$('newExtraCategory'); if(!sel) return;
+  const current=selected || sel.value || 'Другое';
+  sel.innerHTML=getExtraCategories().map(cat=>`<option value="${esc(cat)}" ${cat===current?'selected':''}>${esc(cat)}</option>`).join('');
+  if(!getExtraCategories().includes(current)){ const opt=document.createElement('option'); opt.value=current; opt.textContent=current; opt.selected=true; sel.appendChild(opt); }
+}
+function addExtraCategory(name){
+  const cat=String(name||'').trim();
+  if(!cat){ toast('Укажите название категории'); return false; }
+  ensureExtraCategories();
+  const exists=getExtraCategories().some(x=>x.toLowerCase()===cat.toLowerCase());
+  if(!exists) state.extraCategories.push(cat);
+  saveState(); renderCategoryOptions(cat); renderCategoryManager(); return true;
+}
+function renameExtraCategory(oldCat, newCat){
+  oldCat=String(oldCat||'').trim(); newCat=String(newCat||'').trim();
+  if(!oldCat||!newCat||oldCat===newCat) return;
+  ensureExtraCategories();
+  state.extraCategories=state.extraCategories.map(x=>x===oldCat?newCat:x).filter((x,i,a)=>x && a.indexOf(x)===i);
+  (state.extras||[]).forEach(x=>{ if(String(x.category||'')===oldCat) x.category=newCat; });
+  saveState(); renderCategoryOptions(newCat); renderCategoryManager(); renderExtras(); renderExtrasEditor(); renderSelectedExtras(); toast('Категория переименована');
+}
+function deleteExtraCategory(cat, target){
+  cat=String(cat||'').trim(); target=String(target||'').trim()||'Другое';
+  if(!cat || cat==='Другое'){ toast('Категорию «Другое» удалять нельзя'); return; }
+  ensureExtraCategories();
+  if(target===cat){ toast('Выберите другую категорию для переноса'); return; }
+  if(!getExtraCategories().includes(target)) state.extraCategories.push(target);
+  (state.extras||[]).forEach(x=>{ if(String(x.category||'')===cat) x.category=target; });
+  state.extraCategories=state.extraCategories.filter(x=>x!==cat);
+  saveState(); renderCategoryOptions(target); renderCategoryManager(); renderExtras(); renderExtrasEditor(); renderSelectedExtras(); toast('Категория удалена, услуги перенесены');
+}
+function renderCategoryManager(){
+  const wrap=$('extraCategoriesWrap'); if(!wrap) return;
+  const cats=getExtraCategories();
+  wrap.innerHTML=cats.map(cat=>{
+    const count=(state.extras||[]).filter(x=>String(x.category||'Другое')===cat).length;
+    const opts=cats.filter(x=>x!==cat).map(x=>`<option value="${esc(x)}" ${x==='Другое'?'selected':''}>${esc(x)}</option>`).join('');
+    return `<div class="category-row"><div><strong>${esc(cat)}</strong><div class="muted" style="font-size:12px">Услуг: ${count}</div></div><div class="category-row-controls"><button type="button" data-cat-rename="${esc(cat)}">Переименовать</button>${cat==='Другое'?'':`<select data-cat-target="${esc(cat)}">${opts}</select><button type="button" class="danger" data-cat-delete="${esc(cat)}">Удалить</button>`}</div></div>`;
+  }).join('');
+  wrap.querySelectorAll('[data-cat-rename]').forEach(btn=>btn.onclick=()=>{ const old=btn.dataset.catRename; const next=prompt('Новое название категории', old); if(next) renameExtraCategory(old,next); });
+  wrap.querySelectorAll('[data-cat-delete]').forEach(btn=>btn.onclick=()=>{ const cat=btn.dataset.catDelete; const target=wrap.querySelector(`[data-cat-target="${CSS.escape(cat)}"]`)?.value || 'Другое'; if(confirm(`Удалить категорию «${cat}» и перенести услуги в «${target}»?`)) deleteExtraCategory(cat,target); });
+}
 function renderPdfBlocks(){
   const labels = {client:'Шапка и данные клиента', included:'Что входит в уборку', extras:'Дополнительные услуги', pricing:'Стоимость и итоги', useful_info:'Дополнительная информация', main_info:'Основная информация', notes:'Заметки'};
   const wrap = $('pdfBlocksWrap'); if(!wrap) return;
@@ -595,15 +677,15 @@ function renderExtrasEditor(){
     div.innerHTML = `<div class="grid g3">
       <div><label>Название</label><input data-edit-extra="${item.id}" data-field="name" value="${esc(item.name)}"></div>
       <div><label>Ед. изм.</label><input data-edit-extra="${item.id}" data-field="unit" value="${esc(item.unit)}"></div>
-      <div><label>Категория / блок</label><input data-edit-extra="${item.id}" data-field="category" value="${esc(item.category)}"></div>
+      <div><label>Категория / блок</label><select data-edit-extra="${item.id}" data-field="category">${getExtraCategories().map(cat=>`<option value="${esc(cat)}" ${cat===(item.category||'Другое')?'selected':''}>${esc(cat)}</option>`).join('')}</select></div>
       <div><label>Цена</label><input type="number" min="0" data-edit-extra="${item.id}" data-field="price" value="${num(item.price)}"></div>
       <div><label>Время, ч</label><input type="number" min="0" step="0.1" data-edit-extra="${item.id}" data-field="time" value="${num(item.time)}"></div>
       <div class="btns" style="align-items:end"><button type="button" data-extra-up="${item.id}">↑</button><button type="button" data-extra-down="${item.id}">↓</button><button type="button" data-extra-delete="${item.id}" class="danger">Удалить</button></div>
     </div>`;
     wrap.appendChild(div);
   });
-  wrap.querySelectorAll('[data-edit-extra]').forEach(el=>el.oninput=e=>{ const item=state.extras.find(x=>x.id===Number(e.target.dataset.editExtra)); if(!item) return; const f=e.target.dataset.field; item[f]=['price','time'].includes(f)?(Number(e.target.value)||0):e.target.value; saveState(); renderExtras(); });
-  wrap.querySelectorAll('[data-extra-delete]').forEach(el=>el.onclick=()=>{ state.extras=state.extras.filter(x=>x.id!==Number(el.dataset.extraDelete)); saveState(); renderExtras(); renderExtrasEditor(); });
+  wrap.querySelectorAll('[data-edit-extra]').forEach(el=>{ const handler=e=>{ const item=state.extras.find(x=>x.id===Number(e.target.dataset.editExtra)); if(!item) return; const f=e.target.dataset.field; item[f]=['price','time'].includes(f)?(Number(e.target.value)||0):e.target.value; if(f==='category' && !state.extraCategories.includes(item[f])) state.extraCategories.push(item[f]); saveState(); renderCategoryOptions(item.category); renderCategoryManager(); renderExtras(); }; el.oninput=handler; el.onchange=handler; });
+  wrap.querySelectorAll('[data-extra-delete]').forEach(el=>el.onclick=()=>{ state.extras=state.extras.filter(x=>x.id!==Number(el.dataset.extraDelete)); saveState(); renderCategoryManager(); renderExtras(); renderExtrasEditor(); });
   wrap.querySelectorAll('[data-extra-up]').forEach(el=>el.onclick=()=>{ const i=state.extras.findIndex(x=>x.id===Number(el.dataset.extraUp)); state.extras=moveItem(state.extras,i,i-1); saveState(); renderExtras(); renderExtrasEditor(); });
   wrap.querySelectorAll('[data-extra-down]').forEach(el=>el.onclick=()=>{ const i=state.extras.findIndex(x=>x.id===Number(el.dataset.extraDown)); state.extras=moveItem(state.extras,i,i+1); saveState(); renderExtras(); renderExtrasEditor(); });
 }
@@ -616,9 +698,10 @@ function renderSettingsPanel(){
   if($('equipmentText')) $('equipmentText').value=state.mainInfo.equipmentText||'';
   if($('chemistryText')) $('chemistryText').value=state.mainInfo.chemistryText||'';
   if($('usefulInfoText')) $('usefulInfoText').value=state.mainInfo.usefulInfo||'';
-  if($('windowServicesDescription')) $('windowServicesDescription').value=state.serviceDescriptions?.windows||'';
   renderBrandLogoPreview();
   renderPdfBlocks();
+  renderCategoryOptions();
+  renderCategoryManager();
   renderExtrasEditor();
 }
 function getTariffEditorKey(){
@@ -698,6 +781,7 @@ function renderTariffs(){
   <div class="notice" style="margin-top:12px">У каждого вида уборки теперь свои цена за м², минимальная стоимость, скорость, описание, заставленность и загрязнённость.</div>
   <div class="tariff-inner-tabs" role="tablist" aria-label="Настройки выбранного вида уборки">
     <button type="button" data-tariff-inner-tab="main" role="tab">Вид уборки</button>
+    <button type="button" data-tariff-inner-tab="description" role="tab">Описание</button>
     <button type="button" data-tariff-inner-tab="clutter" role="tab">Заставленность</button>
     <button type="button" data-tariff-inner-tab="dirtiness" role="tab">Загрязнённость</button>
     <button type="button" data-tariff-inner-tab="travel" role="tab">Выезд</button>
@@ -712,16 +796,22 @@ function renderTariffs(){
       <div><label>Минимальная стоимость</label><input type="number" min="0" data-clean-main="min" value="${num(type.min)}"></div>
       <div><label>Скорость, м² / час</label><input type="number" min="0.1" step="0.1" data-clean-main="speed" value="${num(type.speed)||1}"></div>
       <div><label>ID вида</label><input type="text" value="${esc(typeKey)}" readonly></div>
-    </div>
-    <div style="margin-top:12px"><label>Описание / что входит именно в этот вид уборки</label><textarea id="tariffIncludedText" placeholder="Описание будет попадать в смету для выбранного вида уборки">${esc(type.included||'')}</textarea></div>`;
+    </div>`;
   rates.appendChild(main);
+  const description=document.createElement('div'); description.className='extra-card tariff-main-panel'; description.id='tariffDescriptionPanel';
+  description.innerHTML=`<div class="chip">Описание выбранного вида</div>
+    <div class="grid g2">
+      <div><label>Описание / что входит именно в этот вид уборки</label><textarea id="tariffIncludedText" placeholder="Описание будет попадать в смету для выбранного вида уборки">${esc(type.included||'')}</textarea></div>
+      <div><label>Описание работ по окнам / остеклению для этого вида</label><textarea id="tariffWindowsText" placeholder="Добавляется в смету только если выбраны услуги из категории Окна">${esc(getTypeWindowDescription(typeKey)||'')}</textarea></div>
+    </div>`;
+  rates.appendChild(description);
   const select=$('tariffCleanTypeSelect'); if(select) select.onchange=e=>{ state.ui.tariffCleanType=e.target.value; saveState(); renderTariffs(); };
   const addBtn=$('addCleanTypeBtn'); if(addBtn) addBtn.onclick=()=>{
     const label=prompt('Название нового вида уборки','Новый вид уборки');
     if(!label) return;
     const key=uniqueCleanTypeKey(label);
     const src=clone(type || Object.values(types)[0] || {});
-    state.cleaningTypes[key]={...src,label, included:'', clutter:clone(src.clutter||getTypeClutter()), dirtiness:clone(src.dirtiness||getTypeDirtiness())};
+    state.cleaningTypes[key]={...src,label, included:'', windowsDescription:src.windowsDescription||'', clutter:clone(src.clutter||getTypeClutter()), dirtiness:clone(src.dirtiness||getTypeDirtiness())};
     state.ui.tariffCleanType=key;
     syncLegacyFromCleaningTypes(state); saveState(); populateMainSelects(); renderTariffs(); toast('Вид уборки добавлен');
   };
@@ -749,6 +839,7 @@ function renderTariffs(){
     syncLegacyFromCleaningTypes(state); saveState(); populateMainSelects(); renderIncludedPreview(); recalc();
   });
   const inc=$('tariffIncludedText'); if(inc) inc.oninput=e=>{ setTypeIncluded(typeKey,e.target.value); saveState(); if(state.form.cleanType===typeKey){ if($('includedServices')) $('includedServices').value=e.target.value; renderIncludedPreview(); } };
+  const winText=$('tariffWindowsText'); if(winText) winText.oninput=e=>{ setTypeWindowDescription(typeKey,e.target.value); saveState(); if(state.form.cleanType===typeKey) renderIncludedPreview(); };
   renderCoefficientEditor('clutterWrap', typeKey, 'Типы заставленности для этого вида уборки', 'clutter');
   renderCoefficientEditor('dirtWrap', typeKey, 'Типы загрязнённости для этого вида уборки', 'dirtiness');
   const travel=$('travelWrap'); if(travel){ travel.innerHTML='';
@@ -945,7 +1036,7 @@ function buildPrintHtml(){
       <tr><td style="padding:6px 0;font-weight:700">Загрязнённость</td><td style="padding:6px 0">${esc(r.dirt.label)} (коэф. × ${r.dirtPriceK.toFixed(2)})</td></tr>
     </table>`,
     included: `<div style="font-size:18px;font-weight:800;margin:18px 0 8px">В услуги входят</div><div style="border:1px solid #cbd5e1;border-radius:14px;padding:14px;margin-bottom:18px">${included.length?included.map(x=>`<div style="margin:0 0 6px">• ${esc(x)}</div>`).join(''):'<div>—</div>'}</div>`,
-    extras: `<div style="font-size:18px;font-weight:800;margin:18px 0 8px">Дополнительные услуги</div><div style="border:1px solid #cbd5e1;border-radius:14px;padding:14px;margin-bottom:18px">${extras.length?extras.map(x=>`<div style="display:flex;justify-content:space-between;gap:12px;margin:0 0 6px"><span>${esc(x.name)} × ${num(x.qty)}</span><span>${money(num(x.qty)*num(x.price))}</span></div>`).join(''):'<div>Без доп. услуг</div>'}</div>`,
+    extras: `<div style="font-size:18px;font-weight:800;margin:18px 0 8px">Дополнительные услуги</div><div style="border:1px solid #cbd5e1;border-radius:14px;padding:14px;margin-bottom:18px">${extras.length?extras.map(x=>`<div style="display:flex;justify-content:space-between;gap:12px;margin:0 0 7px;align-items:flex-start"><span><span style="display:inline-block;font-size:10px;line-height:1;padding:4px 7px;border-radius:999px;background:#eef2f7;color:#475569;font-weight:700;margin-right:7px;vertical-align:middle;text-transform:uppercase;letter-spacing:.2px">${esc(x.category||'Другое')}</span>${esc(x.name)} × ${num(x.qty)}</span><span style="white-space:nowrap">${money(num(x.qty)*num(x.price))}</span></div>`).join(''):'<div>Без доп. услуг</div>'}</div>`,
     pricing: (()=>{
       const rows=[];
       rows.push(`<tr><td style="padding:6px 0">Стоимость уборки</td><td style="padding:6px 0;text-align:right">${money(r.baseNoK)}</td></tr>`);
@@ -979,8 +1070,7 @@ function refreshPdfPreview(){ const c=$('pdfPreviewContent'); if(c) c.innerHTML=
 function openPdfPreview(){ if(validateCurrentOrder().length) return; refreshPdfPreview(); const m=$('pdfPreviewModal'); if(m) m.classList.remove('hidden'); }
 function closePdfPreview(){ const m=$('pdfPreviewModal'); if(m) m.classList.add('hidden'); }
 function bind(){
-  $('tariffsBtn').onclick=()=>requestEditAccess(()=>{ state.ui.settingsTab='tariffs'; openSettingsModal(); renderTariffs(); });
-  $('settingsBtn').onclick=()=>requestEditAccess(openSettingsModal);
+  if($('settingsBtn')) $('settingsBtn').onclick=()=>requestEditAccess(openSettingsModal);
   document.querySelectorAll('[data-settings-tab]').forEach(btn=>{
     btn.onclick=()=>{ setSettingsTab(btn.dataset.settingsTab); saveState(); };
     btn.onkeydown=e=>{
@@ -997,6 +1087,14 @@ function bind(){
   if($('exportConfigBtn')) $('exportConfigBtn').onclick=exportConfigFile;
   if($('closeSettingsBtn')) $('closeSettingsBtn').onclick=()=>{ closeSettingsModal(); saveState(); };
   if($('settingsModal')) $('settingsModal').onclick=e=>{ if(e.target===$('settingsModal')){ closeSettingsModal(); saveState(); } };
+  if($('dataModalBtn')) $('dataModalBtn').onclick=()=>{ $('dataModal')?.classList.remove('hidden'); };
+  if($('closeDataModalBtn')) $('closeDataModalBtn').onclick=()=>{ $('dataModal')?.classList.add('hidden'); };
+  if($('dataModal')) $('dataModal').onclick=e=>{ if(e.target===$('dataModal')) $('dataModal')?.classList.add('hidden'); };
+  const openBackupModal=()=>{ $('backupModal')?.classList.remove('hidden'); updateBackupReminder(); };
+  if($('backupModalBtn')) $('backupModalBtn').onclick=openBackupModal;
+  if($('backupQuickOpenBtn')) $('backupQuickOpenBtn').onclick=openBackupModal;
+  if($('closeBackupModalBtn')) $('closeBackupModalBtn').onclick=()=>{ $('backupModal')?.classList.add('hidden'); };
+  if($('backupModal')) $('backupModal').onclick=e=>{ if(e.target===$('backupModal')) $('backupModal')?.classList.add('hidden'); };
   if($('saveTariffsSettingsBtn')) $('saveTariffsSettingsBtn').onclick=saveSettingsNow;
   if($('exportOrdersBtn')) $('exportOrdersBtn').onclick=exportOrders;
   if($('importOrdersBtn')) $('importOrdersBtn').onclick=()=>$('importOrdersFile').click();
@@ -1006,9 +1104,8 @@ function bind(){
   if($('importBackupFile')) $('importBackupFile').onchange=e=>importBackupFile(e.target.files?.[0]);
   $('closeShareBtn').onclick=()=>$('shareModal').classList.add('hidden');
   if($('moreMenuBtn')) $('moreMenuBtn').onclick=()=>{ const panel=$('moreMenuPanel'); if(!panel) return; panel.classList.toggle('hidden'); $('moreMenuBtn').setAttribute('aria-expanded', panel.classList.contains('hidden') ? 'false' : 'true'); };
-  if($('lockEditBtn')) $('lockEditBtn').onclick=lockEditing;
   document.addEventListener('click', e=>{ const panel=$('moreMenuPanel'), btn=$('moreMenuBtn'); if(panel && btn && !panel.classList.contains('hidden') && !panel.contains(e.target) && e.target!==btn){ panel.classList.add('hidden'); btn.setAttribute('aria-expanded','false'); } });
-  document.addEventListener('keydown', e=>{ if(e.key==='Escape' && $('settingsModal') && !$('settingsModal').classList.contains('hidden')){ closeSettingsModal(); saveState(); } });
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ if($('settingsModal') && !$('settingsModal').classList.contains('hidden')){ closeSettingsModal(); saveState(); } $('dataModal')?.classList.add('hidden'); $('backupModal')?.classList.add('hidden'); } });
   if($('previewPdfBtn')) $('previewPdfBtn').onclick=openPdfPreview;
   if($('closePdfPreviewBtn')) $('closePdfPreviewBtn').onclick=closePdfPreview;
   if($('refreshPdfPreviewBtn')) $('refreshPdfPreviewBtn').onclick=refreshPdfPreview;
@@ -1016,9 +1113,8 @@ function bind(){
   $('equipmentText').oninput=e=>{ state.mainInfo.equipmentText=e.target.value; saveState(); };
   $('chemistryText').oninput=e=>{ state.mainInfo.chemistryText=e.target.value; saveState(); };
   if($('usefulInfoText')) $('usefulInfoText').oninput=e=>{ state.mainInfo.usefulInfo=e.target.value; saveState(); };
-  if($('windowServicesDescription')) $('windowServicesDescription').oninput=e=>{ state.serviceDescriptions.windows=e.target.value; saveState(); renderIncludedPreview(); };
-  $('saveIncludedBtn').onclick=()=>{ setTypeIncluded(state.form.cleanType, $('includedServices').value); saveState(); renderIncludedPreview(); renderTariffs(); toast('Шаблон сохранён'); };
-  $('includedServices').oninput=(e)=>{ setTypeIncluded(state.form.cleanType, e.target.value); saveState(); renderIncludedPreview(); };
+  if($('saveIncludedBtn')) $('saveIncludedBtn').onclick=()=>{ setTypeIncluded(state.form.cleanType, $('includedServices').value); saveState(); renderIncludedPreview(); renderTariffs(); toast('Шаблон сохранён'); };
+  if($('includedServices')) $('includedServices').oninput=(e)=>{ setTypeIncluded(state.form.cleanType, e.target.value); saveState(); renderIncludedPreview(); };
   $('saveOrderBtn').onclick=()=>{ if(validateCurrentOrder().length) return; const r=calc(); state.savedOrders.unshift({id:Date.now(), version:APP_VERSION, clientName:state.form.clientName||'Без имени', objectType:state.form.objectType, area:num(state.form.area), cleanType:r.rate.label, recommendedPrice:r.recommendedPrice, brigadeHours:r.brigadeHours, normHours:r.normHours, form:clone(state.form), extras:clone(r.selectedExtras), calculation:{recommendedPrice:r.recommendedPrice,marketPrice:r.marketPrice,payroll:r.payroll,normHours:r.normHours,brigadeHours:r.brigadeHours}, createdAt:new Date().toLocaleString('ru-RU')}); state.savedOrders=state.savedOrders.slice(0,50); state.ui=state.ui||{}; state.ui.ordersSinceBackup=Number(state.ui.ordersSinceBackup||0)+1; saveState(); renderSavedOrders(); updateBackupReminder(); toast('Заказ сохранён'); if(state.ui.autoBackup && state.ui.ordersSinceBackup>=AUTO_BACKUP_EVERY){ exportBackup(); toast('Авто-копия сохранена'); } };
   $('clearBtn').onclick=()=>{ state.form=clone(defaults.form); state.extras=state.extras.map(x=>({...x, qty:0})); fillForm(); renderExtras(); recalc(); toast('Форма очищена'); };
   $('resetStorageBtn').onclick=()=>requestEditAccess(()=>{ if(!confirm('Сбросить все сохранённые данные в этом браузере?')) return; localStorage.removeItem(STORAGE_KEY); state=mergeState(clone(defaults)); migrateV43(); migrateV46(); fillForm(); renderTariffs(); renderExtras(); recalc(); toast("Все данные сброшены"); });
@@ -1032,9 +1128,10 @@ function bind(){
   $('removeLogoBtn').onclick=()=>{ if(!state.brand.logoDataUrl){ toast('Логотип не загружен'); return; } state.brand.logoDataUrl=''; saveState(); renderBrandLogoPreview(); toast('Логотип удалён'); };
   if($('backupNowBtn')) $('backupNowBtn').onclick=exportBackup;
   if($('autoBackupToggle')) $('autoBackupToggle').onchange=e=>{ state.ui=state.ui||{}; state.ui.autoBackup=e.target.checked; saveState(); toast(e.target.checked?'Авто-копия включена':'Авто-копия выключена'); };
-  $('addExtraBtn').onclick=()=>requestEditAccess(()=>{ const name=$('newExtraName').value.trim(), unit=$('newExtraUnit').value.trim()||'шт', price=num($('newExtraPrice').value), time=num($('newExtraTime').value), category=$('newExtraCategory').value.trim()||'Другое'; if(!name||!price){ toast('Заполни название и цену'); return; } state.extras.push({id:Date.now(), name, unit, price, qty:0, time, category, builtIn:false}); $('newExtraName').value=''; $('newExtraPrice').value=''; $('newExtraTime').value=''; saveState(); renderExtras(); renderExtrasEditor(); recalc(); toast('Услуга добавлена'); });
+  if($('newExtraCategoryCustom')) $('newExtraCategoryCustom').onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); if(addExtraCategory(e.target.value)){ e.target.value=''; } } };
+  if($('addExtraBtn')) $('addExtraBtn').onclick=()=>requestEditAccess(()=>{ const name=$('newExtraName').value.trim(), unit=$('newExtraUnit').value.trim()||'шт', price=num($('newExtraPrice').value), time=num($('newExtraTime').value); let category=($('newExtraCategoryCustom')&&$('newExtraCategoryCustom').value.trim()) || ($('newExtraCategory')&&$('newExtraCategory').value) || 'Другое'; if($('newExtraCategoryCustom')&&$('newExtraCategoryCustom').value.trim()){ addExtraCategory(category); $('newExtraCategoryCustom').value=''; } if(!name||!price){ toast('Заполни название и цену'); return; } state.extras.push({id:Date.now(), name, unit, price, qty:0, time, category, builtIn:false}); ensureExtraCategories(); if(!state.extraCategories.includes(category)) state.extraCategories.push(category); $('newExtraName').value=''; $('newExtraPrice').value=''; $('newExtraTime').value=''; saveState(); renderCategoryOptions(category); renderCategoryManager(); renderExtras(); renderExtrasEditor(); recalc(); toast('Услуга добавлена'); });
 }
 function updateDiscountInputs(){ const mode=state.form.discountMode==='amount'?'amount':'percent'; const sel=$('discountMode'); if(sel) sel.value=mode; const pct=$('discount'), amt=$('discountAmount'); if(pct) pct.classList.toggle('hidden', mode!=='percent'); if(amt) amt.classList.toggle('hidden', mode!=='amount'); }
-function fillForm(){ if(!isEditUnlocked()){ state.ui.showTariffs=false; state.ui.showSettings=false; } $('clientName').value=state.form.clientName; $('objectType').value=state.form.objectType; $('area').value=state.form.area; $('discount').value=state.form.discount; if($('discountAmount')) $('discountAmount').value=state.form.discountAmount||0; updateDiscountInputs(); $('travelKm').value=state.form.travelKm; if($('ownerRole')) $('ownerRole').value=state.form.ownerRole||'none'; $('profitPercent').value=state.form.profitPercent; $('notes').value=state.form.notes; $('showOnlySelected').checked=!!state.form.showOnlySelected; $('settingsModal')?.classList.toggle('hidden', !state.ui.showSettings); populateMainSelects(); $('includedServices').value=getTypeIncluded(state.form.cleanType)||''; renderSettingsPanel(); setSettingsTab(state.ui.settingsTab); }
+function fillForm(){ if(!isEditUnlocked()){ state.ui.showTariffs=false; state.ui.showSettings=false; } $('clientName').value=state.form.clientName; $('objectType').value=state.form.objectType; $('area').value=state.form.area; $('discount').value=state.form.discount; if($('discountAmount')) $('discountAmount').value=state.form.discountAmount||0; updateDiscountInputs(); $('travelKm').value=state.form.travelKm; if($('ownerRole')) $('ownerRole').value=state.form.ownerRole||'none'; $('profitPercent').value=state.form.profitPercent; $('notes').value=state.form.notes; $('showOnlySelected').checked=!!state.form.showOnlySelected; $('settingsModal')?.classList.toggle('hidden', !state.ui.showSettings); populateMainSelects(); if($('includedServices')) $('includedServices').value=getTypeIncluded(state.form.cleanType)||''; renderSettingsPanel(); setSettingsTab(state.ui.settingsTab); }
 fillForm(); renderTariffs(); bind(); renderExtras(); renderSettingsPanel(); setSettingsTab(state.ui.settingsTab); enhanceAccessibility(); recalc(); updateBackupReminder(); attemptIdbRecovery(); if($('versionBadge')) $('versionBadge').textContent=APP_VERSION; setupAccess();
 if('serviceWorker' in navigator){ window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{})); }

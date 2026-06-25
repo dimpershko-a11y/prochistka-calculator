@@ -1,5 +1,5 @@
 const CACHE_PREFIX='prochistka-calc-';
-const CACHE=`${CACHE_PREFIX}v4-7-4`;
+const CACHE=`${CACHE_PREFIX}v4-7-6`;
 const ASSETS=['./','./index.html','./config.js','./assets/style.css','./assets/core.js','./assets/app.js','./manifest.json'];
 self.addEventListener('install',event=>{
   self.skipWaiting();
