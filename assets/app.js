@@ -374,7 +374,6 @@ function lockEditing(){
   document.body.classList.remove('edit-unlocked');
   state.ui.showTariffs=false;
   state.ui.showSettings=false;
-  $('tariffsCard').classList.add('hidden');
   closeSettingsModal();
   renderExtras();
   saveState();
@@ -440,7 +439,7 @@ function closeSettingsModal(){
   if(modal) modal.classList.add('hidden');
 }
 function setSettingsTab(tab){
-  const active = ['company','texts','services'].includes(tab) ? tab : 'company';
+  const active = ['company','tariffs','texts','services'].includes(tab) ? tab : 'company';
   state.ui = state.ui || {};
   state.ui.settingsTab = active;
   document.querySelectorAll('[data-settings-tab]').forEach(btn=>{
@@ -703,25 +702,17 @@ function renderExtras(){ const wrap=$('extrasWrap'); wrap.innerHTML=''; const gr
     const content=details.querySelector('div');
     details.addEventListener('toggle', ()=>setExtraGroupOpen(cat, details.open));
     groups[cat].forEach(item=>{
-      const div=document.createElement('div'); div.className='extra-card extra-item'; div.style.margin='0';
-      const edit = isEditUnlocked();
-      div.innerHTML=`<div class="extra-name-row">
-          <textarea class="service-name-field" rows="2" data-extra="${item.id}" data-field="name" ${edit?'':'readonly'}>${esc(item.name)}</textarea>
-          ${(!item.builtIn && edit)?`<button class="extra-del-btn danger" data-remove="${item.id}" type="button">Удалить</button>`:''}
+      const div=document.createElement('div'); div.className='extra-card extra-item extra-pick-card'; div.style.margin='0';
+      div.innerHTML=`<div class="extra-pick-head">
+          <div class="service-name-text">${esc(item.name)}</div>
+          <div class="muted extra-meta">${esc(item.unit)} · ${money(item.price)} · ~ ${hours(item.time)}</div>
         </div>
-        <div class="muted extra-meta">${esc(item.unit)} · ~ ${hours(item.time)}</div>
-        <div class="extra-controls">
-          <div><label>Кол-во</label><input type="number" min="0" value="${num(item.qty)}" data-extra="${item.id}" data-field="qty"></div>
-          <div><label>Цена</label><input type="number" min="0" value="${num(item.price)}" data-extra="${item.id}" data-field="price" ${edit?'':'disabled'}></div>
-          <div><label>Время, ч</label><input type="number" min="0" step="0.1" value="${num(item.time)}" data-extra="${item.id}" data-field="time" ${edit?'':'disabled'}></div>
-        </div>`;
+        <div class="extra-qty-control"><label>Кол-во</label><input type="number" min="0" value="${num(item.qty)}" data-extra="${item.id}" data-field="qty"></div>`;
       content.appendChild(div);
     });
     wrap.appendChild(details);
   });
-  document.querySelectorAll('[data-extra]').forEach(inp=>inp.oninput=(e)=>{ const id=Number(e.target.dataset.extra); const field=e.target.dataset.field; if(field!=='qty' && !isEditUnlocked()){ requestEditAccess(()=>renderExtras()); return; } const item=state.extras.find(x=>x.id===id); if(!item)return; item[field]=field==='name'?e.target.value:num(e.target.value); saveState(); recalc(); renderSelectedExtras(); if(field==='name'||state.form.showOnlySelected) renderExtras(); });
-  document.querySelectorAll('[data-remove]').forEach(btn=>btn.onclick=()=>requestEditAccess(()=>{ const id=Number(btn.dataset.remove); state.extras=state.extras.filter(x=>x.id!==id); saveState(); renderExtras(); recalc(); toast('Услуга удалена'); }));
-  document.querySelectorAll('.service-name-field').forEach(el=>{ el.style.height='auto'; el.style.height=(el.scrollHeight+2)+'px'; });
+  document.querySelectorAll('[data-extra]').forEach(inp=>inp.oninput=(e)=>{ const id=Number(e.target.dataset.extra); const field=e.target.dataset.field; if(field!=='qty') return; const item=state.extras.find(x=>x.id===id); if(!item)return; item.qty=num(e.target.value); saveState(); recalc(); renderSelectedExtras(); if(state.form.showOnlySelected) renderExtras(); });
 }
 function calc(){
   return CORE.calculateOrder(state);
@@ -889,7 +880,7 @@ function refreshPdfPreview(){ const c=$('pdfPreviewContent'); if(c) c.innerHTML=
 function openPdfPreview(){ if(validateCurrentOrder().length) return; refreshPdfPreview(); const m=$('pdfPreviewModal'); if(m) m.classList.remove('hidden'); }
 function closePdfPreview(){ const m=$('pdfPreviewModal'); if(m) m.classList.add('hidden'); }
 function bind(){
-  $('tariffsBtn').onclick=()=>requestEditAccess(()=>{ state.ui.showTariffs=!state.ui.showTariffs; $('tariffsCard').classList.toggle('hidden', !state.ui.showTariffs); if(state.ui.showTariffs) renderTariffs(); saveState(); });
+  $('tariffsBtn').onclick=()=>requestEditAccess(()=>{ state.ui.settingsTab='tariffs'; openSettingsModal(); renderTariffs(); });
   $('settingsBtn').onclick=()=>requestEditAccess(openSettingsModal);
   document.querySelectorAll('[data-settings-tab]').forEach(btn=>{
     btn.onclick=()=>{ setSettingsTab(btn.dataset.settingsTab); saveState(); };
@@ -944,6 +935,6 @@ function bind(){
   $('addExtraBtn').onclick=()=>requestEditAccess(()=>{ const name=$('newExtraName').value.trim(), unit=$('newExtraUnit').value.trim()||'шт', price=num($('newExtraPrice').value), time=num($('newExtraTime').value), category=$('newExtraCategory').value.trim()||'Другое'; if(!name||!price){ toast('Заполни название и цену'); return; } state.extras.push({id:Date.now(), name, unit, price, qty:0, time, category, builtIn:false}); $('newExtraName').value=''; $('newExtraPrice').value=''; $('newExtraTime').value=''; saveState(); renderExtras(); renderExtrasEditor(); recalc(); toast('Услуга добавлена'); });
 }
 function updateDiscountInputs(){ const mode=state.form.discountMode==='amount'?'amount':'percent'; const sel=$('discountMode'); if(sel) sel.value=mode; const pct=$('discount'), amt=$('discountAmount'); if(pct) pct.classList.toggle('hidden', mode!=='percent'); if(amt) amt.classList.toggle('hidden', mode!=='amount'); }
-function fillForm(){ if(!isEditUnlocked()){ state.ui.showTariffs=false; state.ui.showSettings=false; } $('clientName').value=state.form.clientName; $('objectType').value=state.form.objectType; $('area').value=state.form.area; $('discount').value=state.form.discount; if($('discountAmount')) $('discountAmount').value=state.form.discountAmount||0; updateDiscountInputs(); $('travelKm').value=state.form.travelKm; if($('ownerRole')) $('ownerRole').value=state.form.ownerRole||'none'; $('profitPercent').value=state.form.profitPercent; $('notes').value=state.form.notes; $('showOnlySelected').checked=!!state.form.showOnlySelected; $('tariffsCard').classList.toggle('hidden', !state.ui.showTariffs); $('settingsModal')?.classList.toggle('hidden', !state.ui.showSettings); populateMainSelects(); $('includedServices').value=getTypeIncluded(state.form.cleanType)||''; renderSettingsPanel(); setSettingsTab(state.ui.settingsTab); }
+function fillForm(){ if(!isEditUnlocked()){ state.ui.showTariffs=false; state.ui.showSettings=false; } $('clientName').value=state.form.clientName; $('objectType').value=state.form.objectType; $('area').value=state.form.area; $('discount').value=state.form.discount; if($('discountAmount')) $('discountAmount').value=state.form.discountAmount||0; updateDiscountInputs(); $('travelKm').value=state.form.travelKm; if($('ownerRole')) $('ownerRole').value=state.form.ownerRole||'none'; $('profitPercent').value=state.form.profitPercent; $('notes').value=state.form.notes; $('showOnlySelected').checked=!!state.form.showOnlySelected; $('settingsModal')?.classList.toggle('hidden', !state.ui.showSettings); populateMainSelects(); $('includedServices').value=getTypeIncluded(state.form.cleanType)||''; renderSettingsPanel(); setSettingsTab(state.ui.settingsTab); }
 fillForm(); renderTariffs(); bind(); renderExtras(); renderSettingsPanel(); setSettingsTab(state.ui.settingsTab); enhanceAccessibility(); recalc(); updateBackupReminder(); attemptIdbRecovery(); if($('versionBadge')) $('versionBadge').textContent=APP_VERSION; setupAccess();
 if('serviceWorker' in navigator){ window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{})); }

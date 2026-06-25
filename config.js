@@ -214,7 +214,7 @@ window.PROCHISTKA_CONFIG = {
         "unit": "шт",
         "price": 6000,
         "qty": 0,
-        "time": 4,5,
+        "time": 4.5,
         "category": "Химчистка",
         "builtIn": true
       },
@@ -224,7 +224,7 @@ window.PROCHISTKA_CONFIG = {
         "unit": "сторона",
         "price": 3800,
         "qty": 0,
-        "time": 2,7,
+        "time": 2.7,
         "category": "Химчистка",
         "builtIn": true
       },
@@ -304,7 +304,7 @@ window.PROCHISTKA_CONFIG = {
         "unit": "комплект",
         "price": 5000,
         "qty": 0,
-        "time": 3,5,
+        "time": 3.5,
         "category": "Окна",
         "builtIn": true
       },

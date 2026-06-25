@@ -1,0 +1,27 @@
+{
+  "name": "prochistka-calculator",
+  "version": "4.7.1",
+  "description": "Мини-приложение калькулятора стоимости уборки PRO-CHISTKA.",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "preview": "vite preview --host 0.0.0.0",
+    "test": "node --test tests/core.test.js",
+    "lint": "npm run lint:js && npm run lint:css && npm run lint:html",
+    "lint:js": "eslint assets tests sw.js config.example.js",
+    "lint:css": "stylelint \"assets/**/*.css\"",
+    "lint:html": "htmlhint index.html tilda_iframe_example.html",
+    "format": "prettier --write \"**/*.{html,css,js,json,md}\" --ignore-path .gitignore",
+    "format:check": "prettier --check \"**/*.{html,css,js,json,md}\" --ignore-path .gitignore"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.5.0",
+    "htmlhint": "^1.9.2",
+    "prettier": "^3.8.4",
+    "stylelint": "^17.14.0",
+    "stylelint-config-standard": "^40.0.0",
+    "vite": "^8.1.0"
+  }
+}

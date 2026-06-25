@@ -27,7 +27,7 @@
 <div class="top-actions">
 <button class="primary" id="saveOrderBtn">Сохранить заказ</button>
 <div class="menu-wrap">
-<button aria-controls="moreMenuPanel" aria-expanded="false" class="soft" id="moreMenuBtn" type="button">Доп. меню ▾</button>
+<button aria-controls="moreMenuPanel" aria-expanded="false" aria-label="Дополнительное меню" class="soft icon-menu-btn" id="moreMenuBtn" title="Дополнительное меню" type="button">☰</button>
 <div aria-label="Дополнительное меню" class="more-menu hidden" id="moreMenuPanel" role="menu">
 <button id="demoBtn" role="menuitem" type="button">Пример</button>
 <button id="tariffsBtn" role="menuitem" type="button">Тарифы</button>
@@ -59,7 +59,23 @@
 </div>
 <div class="backup-reminder hidden" id="backupReminder"></div>
 </div>
-<div class="card hidden" id="tariffsCard">
+<div aria-modal="true" class="settings-modal hidden" id="settingsModal" role="dialog">
+<div class="card settings-modal-card" id="settingsCard">
+<div class="topbar" style="margin-bottom:12px">
+<div>
+<div class="section-title">Настройки</div>
+<div class="muted">Здесь настраиваются тарифы, PDF, компания, тексты и редактор доп.услуг.</div>
+</div>
+<div class="btns"><button class="primary" id="saveSettingsBtn" type="button">Сохранить настройки</button><button id="closeSettingsBtn" type="button">Закрыть</button></div>
+</div>
+<div class="settings-tabs" aria-label="Разделы настроек" role="tablist">
+<button class="settings-tab" data-settings-tab="company" id="settingsTabCompany" role="tab" type="button">Компания / PDF</button>
+<button class="settings-tab" data-settings-tab="tariffs" id="settingsTabTariffs" role="tab" type="button">Тарифы</button>
+<button class="settings-tab" data-settings-tab="texts" id="settingsTabTexts" role="tab" type="button">Тексты</button>
+<button class="settings-tab" data-settings-tab="services" id="settingsTabServices" role="tab" type="button">Услуги</button>
+</div>
+<div class="grid" style="gap:18px">
+<div data-settings-panel="tariffs" id="tariffsCard" role="tabpanel" aria-labelledby="settingsTabTariffs">
 <div class="topbar" style="margin-bottom:12px">
 <div>
 <div class="section-title">Тарифы</div>
@@ -100,21 +116,6 @@
 </div>
 </div>
 </div>
-<div aria-modal="true" class="settings-modal hidden" id="settingsModal" role="dialog">
-<div class="card settings-modal-card" id="settingsCard">
-<div class="topbar" style="margin-bottom:12px">
-<div>
-<div class="section-title">Настройки</div>
-<div class="muted">Здесь настраиваются PDF, компания, дополнительная информация, описания и редактор доп.услуг.</div>
-</div>
-<div class="btns"><button class="primary" id="saveSettingsBtn" type="button">Сохранить настройки</button><button id="closeSettingsBtn" type="button">Закрыть</button></div>
-</div>
-<div class="settings-tabs" aria-label="Разделы настроек" role="tablist">
-<button class="settings-tab" data-settings-tab="company" id="settingsTabCompany" role="tab" type="button">Компания / PDF</button>
-<button class="settings-tab" data-settings-tab="texts" id="settingsTabTexts" role="tab" type="button">Тексты</button>
-<button class="settings-tab" data-settings-tab="services" id="settingsTabServices" role="tab" type="button">Услуги</button>
-</div>
-<div class="grid" style="gap:18px">
 <div data-settings-panel="company" role="tabpanel" aria-labelledby="settingsTabCompany">
 <div class="chip">Компания и PDF</div>
 <div class="grid g2">
@@ -271,6 +272,10 @@
 </div>
 </div>
 <div class="grid" style="gap:24px">
+<div class="card">
+<div class="section-title">Сохранённые заказы</div>
+<div class="grid" id="savedOrdersWrap"></div>
+</div>
 <div class="card sticky">
 <div class="section-title">Итог расчёта</div>
 <div class="summary-box">
@@ -332,10 +337,6 @@
 <div><strong>Заставленность:</strong> <span id="cardClutter">Минимальная</span></div>
 <div><strong>Загрязнённость:</strong> <span id="cardDirt">Обычная</span></div>
 </div>
-</div>
-<div class="card">
-<div class="section-title">Сохранённые заказы</div>
-<div class="grid" id="savedOrdersWrap"></div>
 </div>
 </div>
 </div>
