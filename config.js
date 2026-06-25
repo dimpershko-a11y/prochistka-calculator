@@ -1,8 +1,8 @@
 window.PROCHISTKA_CONFIG = {
-  "APP_VERSION": "v4.7.2",
+  "APP_VERSION": "v4.7.3",
   "APP_PASSWORD": "",
-  "CONFIG_REVISION": 5,
-  "SYNC_BRAND_PDF_ON_REVISION": false,
+  "CONFIG_REVISION": 7,
+  "SYNC_BRAND_PDF_ON_REVISION": true,
   "WINDOW_CATEGORIES": [
     "Окна"
   ],
