@@ -100,13 +100,14 @@
 </div>
 </div>
 </div>
-<div class="card hidden" id="settingsCard">
+<div aria-modal="true" class="settings-modal hidden" id="settingsModal" role="dialog">
+<div class="card settings-modal-card" id="settingsCard">
 <div class="topbar" style="margin-bottom:12px">
 <div>
 <div class="section-title">Настройки</div>
 <div class="muted">Здесь настраиваются PDF, компания, дополнительная информация, описания и редактор доп.услуг.</div>
 </div>
-<div class="btns"><button class="primary" id="saveSettingsBtn" type="button">Сохранить настройки</button></div>
+<div class="btns"><button class="primary" id="saveSettingsBtn" type="button">Сохранить настройки</button><button id="closeSettingsBtn" type="button">Закрыть</button></div>
 </div>
 <div class="settings-tabs" aria-label="Разделы настроек" role="tablist">
 <button class="settings-tab" data-settings-tab="company" id="settingsTabCompany" role="tab" type="button">Компания / PDF</button>
@@ -196,10 +197,22 @@
 </div>
 <div data-settings-panel="services" role="tabpanel" aria-labelledby="settingsTabServices">
 <div class="chip">Редактор доп.услуг</div>
-<div class="muted" style="font-size:13px;margin-bottom:10px">Здесь можно менять единицы измерения, категорию и порядок услуг.</div>
+<div class="muted" style="font-size:13px;margin-bottom:10px">Здесь можно добавлять услуги, менять единицы измерения, категорию, цену, время и порядок услуг.</div>
+<div class="extra-card" style="margin-bottom:14px">
+<div class="section-title" style="font-size:16px">Добавить новую услугу</div>
+<div class="grid g3">
+<div><label>Название новой услуги</label><input id="newExtraName"/></div>
+<div><label>Ед. изм.</label><input id="newExtraUnit" value="шт"/></div>
+<div><label>Цена</label><input id="newExtraPrice" min="0" type="number"/></div>
+<div><label>Время, ч</label><input id="newExtraTime" min="0" step="0.1" type="number"/></div>
+<div><label>Категория</label><input id="newExtraCategory" value="Другое"/></div>
+<div style="align-self:end"><button class="primary" id="addExtraBtn" style="width:100%">Добавить услугу</button></div>
+</div>
+</div>
 <div class="grid" id="extrasEditorWrap"></div>
 </div>
 
+</div>
 </div>
 </div>
 <div class="card">
@@ -250,20 +263,11 @@
 <div class="topbar" style="margin-bottom:12px">
 <div>
 <div class="section-title">Дополнительные услуги</div>
-<div class="muted">Можно менять цены, время и добавлять свои услуги.</div>
+<div class="muted">Выбери нужные услуги и укажи количество. Добавление и настройка услуг вынесены в «Настройки → Услуги».</div>
 </div>
 <label style="display:flex;align-items:center;gap:8px;font-size:14px"><input id="showOnlySelected" style="width:auto" type="checkbox"/> Показать только выбранные</label>
 </div>
 <div class="grid" id="extrasWrap"></div>
-<div class="divider" style="margin:16px 0"></div>
-<div class="grid g3">
-<div><label>Название новой услуги</label><input id="newExtraName"/></div>
-<div><label>Ед. изм.</label><input id="newExtraUnit" value="шт"/></div>
-<div><label>Цена</label><input id="newExtraPrice" min="0" type="number"/></div>
-<div><label>Время, ч</label><input id="newExtraTime" min="0" step="0.1" type="number"/></div>
-<div><label>Категория</label><input id="newExtraCategory" value="Другое"/></div>
-<div style="align-self:end"><button class="primary" id="addExtraBtn" style="width:100%">Добавить услугу</button></div>
-</div>
 </div>
 </div>
 <div class="grid" style="gap:24px">

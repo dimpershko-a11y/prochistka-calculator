@@ -375,7 +375,7 @@ function lockEditing(){
   state.ui.showTariffs=false;
   state.ui.showSettings=false;
   $('tariffsCard').classList.add('hidden');
-  $('settingsCard').classList.add('hidden');
+  closeSettingsModal();
   renderExtras();
   saveState();
   toast('Режим изменений закрыт');
@@ -423,6 +423,21 @@ function setupAccess(){
 function saveSettingsNow(){
   saveState();
   toast('Настройки сохранены');
+}
+function openSettingsModal(){
+  state.ui = state.ui || {};
+  state.ui.showSettings = true;
+  const modal = $('settingsModal');
+  if(modal) modal.classList.remove('hidden');
+  renderSettingsPanel();
+  setSettingsTab(state.ui.settingsTab);
+  saveState();
+}
+function closeSettingsModal(){
+  state.ui = state.ui || {};
+  state.ui.showSettings = false;
+  const modal = $('settingsModal');
+  if(modal) modal.classList.add('hidden');
 }
 function setSettingsTab(tab){
   const active = ['company','texts','services'].includes(tab) ? tab : 'company';
@@ -875,7 +890,7 @@ function openPdfPreview(){ if(validateCurrentOrder().length) return; refreshPdfP
 function closePdfPreview(){ const m=$('pdfPreviewModal'); if(m) m.classList.add('hidden'); }
 function bind(){
   $('tariffsBtn').onclick=()=>requestEditAccess(()=>{ state.ui.showTariffs=!state.ui.showTariffs; $('tariffsCard').classList.toggle('hidden', !state.ui.showTariffs); if(state.ui.showTariffs) renderTariffs(); saveState(); });
-  $('settingsBtn').onclick=()=>requestEditAccess(()=>{ state.ui.showSettings=!state.ui.showSettings; $('settingsCard').classList.toggle('hidden', !state.ui.showSettings); if(state.ui.showSettings){ renderSettingsPanel(); setSettingsTab(state.ui.settingsTab); } saveState(); });
+  $('settingsBtn').onclick=()=>requestEditAccess(openSettingsModal);
   document.querySelectorAll('[data-settings-tab]').forEach(btn=>{
     btn.onclick=()=>{ setSettingsTab(btn.dataset.settingsTab); saveState(); };
     btn.onkeydown=e=>{
@@ -889,6 +904,8 @@ function bind(){
     };
   });
   if($('saveSettingsBtn')) $('saveSettingsBtn').onclick=saveSettingsNow;
+  if($('closeSettingsBtn')) $('closeSettingsBtn').onclick=()=>{ closeSettingsModal(); saveState(); };
+  if($('settingsModal')) $('settingsModal').onclick=e=>{ if(e.target===$('settingsModal')){ closeSettingsModal(); saveState(); } };
   if($('saveTariffsSettingsBtn')) $('saveTariffsSettingsBtn').onclick=saveSettingsNow;
   if($('exportOrdersBtn')) $('exportOrdersBtn').onclick=exportOrders;
   if($('importOrdersBtn')) $('importOrdersBtn').onclick=()=>$('importOrdersFile').click();
@@ -900,6 +917,7 @@ function bind(){
   if($('moreMenuBtn')) $('moreMenuBtn').onclick=()=>{ const panel=$('moreMenuPanel'); if(!panel) return; panel.classList.toggle('hidden'); $('moreMenuBtn').setAttribute('aria-expanded', panel.classList.contains('hidden') ? 'false' : 'true'); };
   if($('lockEditBtn')) $('lockEditBtn').onclick=lockEditing;
   document.addEventListener('click', e=>{ const panel=$('moreMenuPanel'), btn=$('moreMenuBtn'); if(panel && btn && !panel.classList.contains('hidden') && !panel.contains(e.target) && e.target!==btn){ panel.classList.add('hidden'); btn.setAttribute('aria-expanded','false'); } });
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape' && $('settingsModal') && !$('settingsModal').classList.contains('hidden')){ closeSettingsModal(); saveState(); } });
   if($('previewPdfBtn')) $('previewPdfBtn').onclick=openPdfPreview;
   if($('closePdfPreviewBtn')) $('closePdfPreviewBtn').onclick=closePdfPreview;
   if($('refreshPdfPreviewBtn')) $('refreshPdfPreviewBtn').onclick=refreshPdfPreview;
@@ -923,9 +941,9 @@ function bind(){
   $('removeLogoBtn').onclick=()=>{ if(!state.brand.logoDataUrl){ toast('Логотип не загружен'); return; } state.brand.logoDataUrl=''; saveState(); renderBrandLogoPreview(); toast('Логотип удалён'); };
   if($('backupNowBtn')) $('backupNowBtn').onclick=exportBackup;
   if($('autoBackupToggle')) $('autoBackupToggle').onchange=e=>{ state.ui=state.ui||{}; state.ui.autoBackup=e.target.checked; saveState(); toast(e.target.checked?'Авто-копия включена':'Авто-копия выключена'); };
-  $('addExtraBtn').onclick=()=>requestEditAccess(()=>{ const name=$('newExtraName').value.trim(), unit=$('newExtraUnit').value.trim()||'шт', price=num($('newExtraPrice').value), time=num($('newExtraTime').value), category=$('newExtraCategory').value.trim()||'Другое'; if(!name||!price){ toast('Заполни название и цену'); return; } state.extras.push({id:Date.now(), name, unit, price, qty:0, time, category, builtIn:false}); $('newExtraName').value=''; $('newExtraPrice').value=''; $('newExtraTime').value=''; saveState(); renderExtras(); recalc(); toast('Услуга добавлена'); });
+  $('addExtraBtn').onclick=()=>requestEditAccess(()=>{ const name=$('newExtraName').value.trim(), unit=$('newExtraUnit').value.trim()||'шт', price=num($('newExtraPrice').value), time=num($('newExtraTime').value), category=$('newExtraCategory').value.trim()||'Другое'; if(!name||!price){ toast('Заполни название и цену'); return; } state.extras.push({id:Date.now(), name, unit, price, qty:0, time, category, builtIn:false}); $('newExtraName').value=''; $('newExtraPrice').value=''; $('newExtraTime').value=''; saveState(); renderExtras(); renderExtrasEditor(); recalc(); toast('Услуга добавлена'); });
 }
 function updateDiscountInputs(){ const mode=state.form.discountMode==='amount'?'amount':'percent'; const sel=$('discountMode'); if(sel) sel.value=mode; const pct=$('discount'), amt=$('discountAmount'); if(pct) pct.classList.toggle('hidden', mode!=='percent'); if(amt) amt.classList.toggle('hidden', mode!=='amount'); }
-function fillForm(){ if(!isEditUnlocked()){ state.ui.showTariffs=false; state.ui.showSettings=false; } $('clientName').value=state.form.clientName; $('objectType').value=state.form.objectType; $('area').value=state.form.area; $('discount').value=state.form.discount; if($('discountAmount')) $('discountAmount').value=state.form.discountAmount||0; updateDiscountInputs(); $('travelKm').value=state.form.travelKm; if($('ownerRole')) $('ownerRole').value=state.form.ownerRole||'none'; $('profitPercent').value=state.form.profitPercent; $('notes').value=state.form.notes; $('showOnlySelected').checked=!!state.form.showOnlySelected; $('tariffsCard').classList.toggle('hidden', !state.ui.showTariffs); $('settingsCard').classList.toggle('hidden', !state.ui.showSettings); populateMainSelects(); $('includedServices').value=getTypeIncluded(state.form.cleanType)||''; renderSettingsPanel(); setSettingsTab(state.ui.settingsTab); }
+function fillForm(){ if(!isEditUnlocked()){ state.ui.showTariffs=false; state.ui.showSettings=false; } $('clientName').value=state.form.clientName; $('objectType').value=state.form.objectType; $('area').value=state.form.area; $('discount').value=state.form.discount; if($('discountAmount')) $('discountAmount').value=state.form.discountAmount||0; updateDiscountInputs(); $('travelKm').value=state.form.travelKm; if($('ownerRole')) $('ownerRole').value=state.form.ownerRole||'none'; $('profitPercent').value=state.form.profitPercent; $('notes').value=state.form.notes; $('showOnlySelected').checked=!!state.form.showOnlySelected; $('tariffsCard').classList.toggle('hidden', !state.ui.showTariffs); $('settingsModal')?.classList.toggle('hidden', !state.ui.showSettings); populateMainSelects(); $('includedServices').value=getTypeIncluded(state.form.cleanType)||''; renderSettingsPanel(); setSettingsTab(state.ui.settingsTab); }
 fillForm(); renderTariffs(); bind(); renderExtras(); renderSettingsPanel(); setSettingsTab(state.ui.settingsTab); enhanceAccessibility(); recalc(); updateBackupReminder(); attemptIdbRecovery(); if($('versionBadge')) $('versionBadge').textContent=APP_VERSION; setupAccess();
 if('serviceWorker' in navigator){ window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{})); }
