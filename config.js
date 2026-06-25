@@ -1,6 +1,6 @@
 window.PROCHISTKA_CONFIG = {
-  "APP_VERSION": "v4.7.1",
-  "APP_PASSWORD": "7421",
+  "APP_VERSION": "v4.7.2",
+  "APP_PASSWORD": "",
   "CONFIG_REVISION": 5,
   "SYNC_BRAND_PDF_ON_REVISION": false,
   "WINDOW_CATEGORIES": [
@@ -45,12 +45,12 @@ window.PROCHISTKA_CONFIG = {
       "medium": {
         "label": "Средняя",
         "priceK": 1.2,
-        "timeK": 1.2
+        "timeK": 1.35
       },
       "high": {
         "label": "Высокая",
         "priceK": 1.6,
-        "timeK": 1.4
+        "timeK": 1.6
       }
     },
     "dirtiness": {
@@ -62,12 +62,12 @@ window.PROCHISTKA_CONFIG = {
       "medium": {
         "label": "Повышенная",
         "priceK": 1.4,
-        "timeK": 1.2
+        "timeK": 1.5
       },
       "high": {
         "label": "Сильная",
         "priceK": 1.8,
-        "timeK": 1.4
+        "timeK": 1.8
       }
     },
     "travel": {
@@ -78,13 +78,13 @@ window.PROCHISTKA_CONFIG = {
       },
       "km15": {
         "label": "До 15 км от КАД",
-        "base": 1500,
+        "base": 1700,
         "perKm": 0
       },
       "km20plus": {
-        "label": "20+ км",
-        "base": 1500,
-        "perKm": 15
+        "label": "15+ км",
+        "base": 1700,
+        "perKm": 40
       }
     },
     "includedByType": {
@@ -122,7 +122,7 @@ window.PROCHISTKA_CONFIG = {
         "id": 1,
         "name": "Холодильник",
         "unit": "шт",
-        "price": 800,
+        "price": 850,
         "qty": 0,
         "time": 0.8,
         "category": "Кухня",
@@ -132,9 +132,9 @@ window.PROCHISTKA_CONFIG = {
         "id": 2,
         "name": "Духовой шкаф",
         "unit": "шт",
-        "price": 750,
+        "price": 770,
         "qty": 0,
-        "time": 0.7,
+        "time": 0.8,
         "category": "Кухня",
         "builtIn": true
       },
@@ -144,7 +144,7 @@ window.PROCHISTKA_CONFIG = {
         "unit": "шт",
         "price": 350,
         "qty": 0,
-        "time": 0.4,
+        "time": 0.6,
         "category": "Кухня",
         "builtIn": true
       },
@@ -154,7 +154,7 @@ window.PROCHISTKA_CONFIG = {
         "unit": "шт",
         "price": 450,
         "qty": 0,
-        "time": 0.3,
+        "time": 0.5,
         "category": "Кухня",
         "builtIn": true
       },
@@ -162,9 +162,9 @@ window.PROCHISTKA_CONFIG = {
         "id": 5,
         "name": "Плита",
         "unit": "шт",
-        "price": 1200,
+        "price": 1500,
         "qty": 0,
-        "time": 0.8,
+        "time": 1.3,
         "category": "Кухня",
         "builtIn": true
       },
@@ -174,7 +174,7 @@ window.PROCHISTKA_CONFIG = {
         "unit": "шт",
         "price": 450,
         "qty": 0,
-        "time": 0.3,
+        "time": 0.5,
         "category": "Кухня",
         "builtIn": true
       },
@@ -182,7 +182,7 @@ window.PROCHISTKA_CONFIG = {
         "id": 7,
         "name": "Озонирование, час",
         "unit": "час",
-        "price": 1000,
+        "price": 1500,
         "qty": 0,
         "time": 1,
         "category": "Другое",
@@ -192,9 +192,9 @@ window.PROCHISTKA_CONFIG = {
         "id": 8,
         "name": "Стул",
         "unit": "шт",
-        "price": 700,
+        "price": 780,
         "qty": 0,
-        "time": 0.4,
+        "time": 0.9,
         "category": "Химчистка",
         "builtIn": true
       },
@@ -202,9 +202,9 @@ window.PROCHISTKA_CONFIG = {
         "id": 9,
         "name": "Диван стандарт 3 места",
         "unit": "шт",
-        "price": 4000,
+        "price": 5000,
         "qty": 0,
-        "time": 2.5,
+        "time": 3.5,
         "category": "Химчистка",
         "builtIn": true
       },
@@ -212,19 +212,19 @@ window.PROCHISTKA_CONFIG = {
         "id": 10,
         "name": "Диван угловой",
         "unit": "шт",
-        "price": 4500,
+        "price": 6000,
         "qty": 0,
-        "time": 3,
+        "time": 4,5,
         "category": "Химчистка",
         "builtIn": true
       },
       {
         "id": 11,
-        "name": "Матрас",
+        "name": "Матрас, сторона",
         "unit": "сторона",
-        "price": 3500,
+        "price": 3800,
         "qty": 0,
-        "time": 2,
+        "time": 2,7,
         "category": "Химчистка",
         "builtIn": true
       },
@@ -232,9 +232,9 @@ window.PROCHISTKA_CONFIG = {
         "id": 12,
         "name": "Окно одностороннее, открывающаяся секция",
         "unit": "секция",
-        "price": 350,
+        "price": 470,
         "qty": 0,
-        "time": 0.3,
+        "time": 0.5,
         "category": "Окна",
         "builtIn": true
       },
@@ -242,9 +242,9 @@ window.PROCHISTKA_CONFIG = {
         "id": 13,
         "name": "Окно одностороннее, глухая секция",
         "unit": "секция",
-        "price": 350,
+        "price": 470,
         "qty": 0,
-        "time": 0.3,
+        "time": 0.5,
         "category": "Окна",
         "builtIn": true
       },
@@ -252,9 +252,9 @@ window.PROCHISTKA_CONFIG = {
         "id": 14,
         "name": "Окно двухстороннее, открывающаяся секция",
         "unit": "секция",
-        "price": 450,
+        "price": 650,
         "qty": 0,
-        "time": 0.5,
+        "time": 0.8,
         "category": "Окна",
         "builtIn": true
       },
@@ -262,9 +262,9 @@ window.PROCHISTKA_CONFIG = {
         "id": 15,
         "name": "Окно двухстороннее, глухая секция",
         "unit": "секция",
-        "price": 500,
+        "price": 690,
         "qty": 0,
-        "time": 0.6,
+        "time": 0.9,
         "category": "Окна",
         "builtIn": true
       },
@@ -272,9 +272,9 @@ window.PROCHISTKA_CONFIG = {
         "id": 16,
         "name": "Окно после ремонта, с двух сторон, открывающаяся секция",
         "unit": "секция",
-        "price": 700,
+        "price": 890,
         "qty": 0,
-        "time": 0.9,
+        "time": 1.3,
         "category": "Окна",
         "builtIn": true
       },
@@ -282,9 +282,9 @@ window.PROCHISTKA_CONFIG = {
         "id": 17,
         "name": "Окно после ремонта, с двух сторон, глухая секция",
         "unit": "секция",
-        "price": 750,
+        "price": 950,
         "qty": 0,
-        "time": 0.9,
+        "time": 1.5,
         "category": "Окна",
         "builtIn": true
       },
@@ -292,7 +292,7 @@ window.PROCHISTKA_CONFIG = {
         "id": 18,
         "name": "Балконный блок",
         "unit": "шт",
-        "price": 2000,
+        "price": 2500,
         "qty": 0,
         "time": 1.5,
         "category": "Окна",
@@ -300,11 +300,11 @@ window.PROCHISTKA_CONFIG = {
       },
       {
         "id": 19,
-        "name": "Лоджия / остекление",
+        "name": "Лоджия / остекление, до 6 створок, с двух сторон",
         "unit": "комплект",
         "price": 5000,
         "qty": 0,
-        "time": 3,
+        "time": 3,5,
         "category": "Окна",
         "builtIn": true
       },
@@ -312,9 +312,9 @@ window.PROCHISTKA_CONFIG = {
         "id": 20,
         "name": "Панорамное остекление, м²",
         "unit": "м²",
-        "price": 550,
+        "price": 750,
         "qty": 0,
-        "time": 0.4,
+        "time": 0.8,
         "category": "Окна",
         "builtIn": true
       },
@@ -382,7 +382,7 @@ window.PROCHISTKA_CONFIG = {
         "id": 1776950856691,
         "name": "Снять\\Повесить шторы\\занавески\\тюль, штука",
         "unit": "шт",
-        "price": 200,
+        "price": 250,
         "qty": 0,
         "time": 0.4,
         "category": "Другое",
@@ -394,7 +394,7 @@ window.PROCHISTKA_CONFIG = {
         "unit": "шт",
         "price": 500,
         "qty": 0,
-        "time": 0.7,
+        "time": 0.9,
         "category": "Другое",
         "builtIn": false
       },
@@ -412,9 +412,9 @@ window.PROCHISTKA_CONFIG = {
         "id": 1778595687053,
         "name": "Остекление после ремонта с двух сторон, м²",
         "unit": "м²",
-        "price": 550,
+        "price": 850,
         "qty": 0,
-        "time": 0.8,
+        "time": 1,
         "category": "Окна",
         "builtIn": false
       },
@@ -422,7 +422,7 @@ window.PROCHISTKA_CONFIG = {
         "id": 1778597390543,
         "name": "Кресло",
         "unit": "шт",
-        "price": 1000,
+        "price": 1500,
         "qty": 0,
         "time": 2,
         "category": "Химчистка",
@@ -508,12 +508,12 @@ window.PROCHISTKA_CONFIG = {
           "medium": {
             "label": "Средняя",
             "priceK": 1.2,
-            "timeK": 1.2
+            "timeK": 1.35
           },
           "high": {
             "label": "Высокая",
             "priceK": 1.6,
-            "timeK": 1.4
+            "timeK": 1.5
           }
         },
         "dirtiness": {
