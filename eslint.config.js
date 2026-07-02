@@ -27,7 +27,8 @@ module.exports = [
         prompt: 'readonly',
         confirm: 'readonly',
         fetch: 'readonly',
-        Response: 'readonly'
+        Response: 'readonly',
+        CSS: 'readonly'
       }
     },
     rules: {

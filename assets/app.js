@@ -908,7 +908,8 @@ function calc(){
   return CORE.calculateOrder(state);
 }
 function renderIncludedPreview(){ const lines=getIncludedLines(); $('includedPreview').innerHTML=lines.length?lines.map(x=>`<div>• ${esc(x)}</div>`).join(''):'<div class="muted">Пока не заполнено.</div>'; }
-function renderBrandLogoPreview(){ const wrap=$('brandLogoPreview'); if(!wrap) return; const useLogo=!!(state.pdfHeader&&state.pdfHeader.useLogo); if(!useLogo){ wrap.innerHTML='Текстовая шапка активна. Логотип-картинка в PDF не используется.'; return; } if(state.brand.logoDataUrl){ wrap.innerHTML=`<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><img src="${state.brand.logoDataUrl}" alt="Логотип" style="max-height:70px;max-width:220px;object-fit:contain;border:1px solid #dbe3ef;border-radius:10px;background:#fff;padding:6px"><span class="muted">Логотип будет показан в печатной смете.</span></div>`; } else { wrap.innerHTML='Логотип пока не выбран.'; } }
+function safeLogoSrc(){ const url=String(state.brand.logoDataUrl||''); return /^data:image\//.test(url) ? esc(url) : ''; }
+function renderBrandLogoPreview(){ const wrap=$('brandLogoPreview'); if(!wrap) return; const useLogo=!!(state.pdfHeader&&state.pdfHeader.useLogo); if(!useLogo){ wrap.innerHTML='Текстовая шапка активна. Логотип-картинка в PDF не используется.'; return; } const logoSrc=safeLogoSrc(); if(logoSrc){ wrap.innerHTML=`<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><img src="${logoSrc}" alt="Логотип" style="max-height:70px;max-width:220px;object-fit:contain;border:1px solid #dbe3ef;border-radius:10px;background:#fff;padding:6px"><span class="muted">Логотип будет показан в печатной смете.</span></div>`; } else { wrap.innerHTML='Логотип пока не выбран.'; } }
 function setPdfHeaderInputs(){
   const h=state.pdfHeader||{};
   const set=(id,val)=>{ const el=$(id); if(el) el.value=val ?? ''; };
@@ -999,10 +1000,11 @@ function teamPdfRows(r){
 }
 function estimateText(){
   const r=calc(); const included=getIncludedText()||'Не заполнено'; const extras=r.selectedExtras.length?r.selectedExtras.map(x=>`• ${x.name} × ${num(x.qty)} — ${money(num(x.qty)*num(x.price))}`).join('\n'):'• Без доп. услуг';
-  const lines=[`Стоимость уборки: ${money(r.baseRaw)}`];
+  const lines=[`Стоимость уборки: ${money(r.baseRaw)}${r.minBaseApplied?' (применена минимальная стоимость)':''}`];
   if(num(r.extrasTotal)>0) lines.push(`Дополнительные услуги: ${money(r.extrasTotal)}`);
   if(num(r.travelTotal)>0) lines.push(`Выезд: ${money(r.travelTotal)}`);
   if(num(r.discountValue)>0) lines.push(`Скидка: − ${money(r.discountValue)}`);
+  if(num(r.economyTopup)>0) lines.push(`Корректировка стоимости заказа: + ${money(r.economyTopup)}`);
   lines.push(`\nИТОГО к оплате: ${money(r.recommendedPrice)}`);
   lines.push(`Сумма нормо-часов: ${hours(r.normHours)}`);
   lines.push(`Примерное время уборки: ${hours(r.brigadeHours)}`);
@@ -1018,7 +1020,8 @@ function buildPrintHtml(){
   const cleanCss=(v,fb)=>String(v||fb).replace(/[;<>]/g,'');
   const font=cleanCss(h.fontFamily,'Orbitron, Arial, sans-serif');
   const nameText=h.uppercaseName!==false ? String(state.brand.name||'PRO-CHISTKA').toUpperCase() : String(state.brand.name||'PRO-CHISTKA');
-  const logo=(h.useLogo && state.brand.logoDataUrl) ? `<img src="${state.brand.logoDataUrl}" alt="Логотип" style="max-height:70px;max-width:160px;object-fit:contain">` : '';
+  const logoSrc=safeLogoSrc();
+  const logo=(h.useLogo && logoSrc) ? `<img src="${logoSrc}" alt="Логотип" style="max-height:70px;max-width:160px;object-fit:contain">` : '';
   const brandBlock=`<div style="display:flex;align-items:center;gap:14px">${logo}<div><div style="font-family:${font};font-size:${num(h.nameFontSize)||30}px;font-weight:${num(h.nameWeight)||800};letter-spacing:${Number(h.nameLetterSpacing)||0}px;line-height:${Number(h.nameLineHeight)||1.05};color:${cleanCss(h.nameColor,'#0f172a')}">${esc(nameText)}</div><div style="font-family:${font};font-size:${num(h.taglineFontSize)||13}px;letter-spacing:${Number(h.taglineLetterSpacing)||0}px;line-height:${Number(h.taglineLineHeight)||1.25};color:${cleanCss(h.taglineColor,'#475569')};margin-top:6px">${esc(state.brand.tagline||'')}</div></div></div>`;
   const contactFont=cleanCss(h.contactFontFamily || font, font);
   const contactAlign=['left','center','right'].includes(String(h.contactAlign)) ? h.contactAlign : 'right';
@@ -1042,9 +1045,11 @@ function buildPrintHtml(){
       rows.push(`<tr><td style="padding:6px 0">Стоимость уборки</td><td style="padding:6px 0;text-align:right">${money(r.baseNoK)}</td></tr>`);
       rows.push(`<tr><td style="padding:6px 0">Стоимость с коэффициентом заставленности</td><td style="padding:6px 0;text-align:right">${money(r.baseAfterClutter)}</td></tr>`);
       rows.push(`<tr><td style="padding:6px 0">Стоимость с коэффициентом загрязнённости</td><td style="padding:6px 0;text-align:right">${money(r.baseWithK)}</td></tr>`);
+      if(r.minBaseApplied) rows.push(`<tr><td style="padding:6px 0">Применена минимальная стоимость уборки</td><td style="padding:6px 0;text-align:right">${money(r.baseRaw)}</td></tr>`);
       if(num(r.extrasTotal)>0) rows.push(`<tr><td style="padding:6px 0">Дополнительные услуги</td><td style="padding:6px 0;text-align:right">${money(r.extrasTotal)}</td></tr>`);
       if(num(r.travelTotal)>0) rows.push(`<tr><td style="padding:6px 0">Выезд</td><td style="padding:6px 0;text-align:right">${money(r.travelTotal)}</td></tr>`);
       if(num(r.discountValue)>0) rows.push(`<tr><td style="padding:6px 0">Скидка</td><td style="padding:6px 0;text-align:right">− ${money(r.discountValue)}</td></tr>`);
+      if(num(r.economyTopup)>0) rows.push(`<tr><td style="padding:6px 0">Корректировка стоимости заказа</td><td style="padding:6px 0;text-align:right">+ ${money(r.economyTopup)}</td></tr>`);
       rows.push(`<tr><td style="padding:12px 0;border-top:2px solid #0f172a;font-weight:800;font-size:17px">Итого к оплате</td><td style="padding:12px 0;border-top:2px solid #0f172a;text-align:right;font-weight:800;font-size:17px">${money(r.recommendedPrice)}</td></tr>`);
       rows.push(`<tr><td style="padding:6px 0">Сумма нормо-часов</td><td style="padding:6px 0;text-align:right">${hours(r.normHours)}</td></tr>`);
       rows.push(`<tr><td style="padding:6px 0">Примерное время уборки</td><td style="padding:6px 0;text-align:right">${hours(r.brigadeHours)}</td></tr>`);
@@ -1103,9 +1108,12 @@ function bind(){
   if($('importBackupBtn')) $('importBackupBtn').onclick=()=>requestEditAccess(()=>$('importBackupFile').click());
   if($('importBackupFile')) $('importBackupFile').onchange=e=>importBackupFile(e.target.files?.[0]);
   $('closeShareBtn').onclick=()=>$('shareModal').classList.add('hidden');
+  const closeMoreMenu=()=>{ $('moreMenuPanel')?.classList.add('hidden'); $('moreMenuBtn')?.setAttribute('aria-expanded','false'); };
   if($('moreMenuBtn')) $('moreMenuBtn').onclick=()=>{ const panel=$('moreMenuPanel'); if(!panel) return; panel.classList.toggle('hidden'); $('moreMenuBtn').setAttribute('aria-expanded', panel.classList.contains('hidden') ? 'false' : 'true'); };
-  document.addEventListener('click', e=>{ const panel=$('moreMenuPanel'), btn=$('moreMenuBtn'); if(panel && btn && !panel.classList.contains('hidden') && !panel.contains(e.target) && e.target!==btn){ panel.classList.add('hidden'); btn.setAttribute('aria-expanded','false'); } });
-  document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ if($('settingsModal') && !$('settingsModal').classList.contains('hidden')){ closeSettingsModal(); saveState(); } $('dataModal')?.classList.add('hidden'); $('backupModal')?.classList.add('hidden'); } });
+  if($('moreMenuPanel')) $('moreMenuPanel').querySelectorAll('button').forEach(item=>item.addEventListener('click', closeMoreMenu));
+  document.addEventListener('click', e=>{ const panel=$('moreMenuPanel'), btn=$('moreMenuBtn'); if(panel && btn && !panel.classList.contains('hidden') && !panel.contains(e.target) && e.target!==btn) closeMoreMenu(); });
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ if($('settingsModal') && !$('settingsModal').classList.contains('hidden')){ closeSettingsModal(); saveState(); } ['dataModal','backupModal','shareModal','pdfPreviewModal'].forEach(id=>$(id)?.classList.add('hidden')); closeMoreMenu(); } });
+  if($('lockEditBtn') && (APP_CONFIG.APP_PASSWORD || APP_CONFIG.appPassword)){ $('lockEditBtn').classList.remove('hidden'); $('lockEditBtn').onclick=lockEditing; }
   if($('previewPdfBtn')) $('previewPdfBtn').onclick=openPdfPreview;
   if($('closePdfPreviewBtn')) $('closePdfPreviewBtn').onclick=closePdfPreview;
   if($('refreshPdfPreviewBtn')) $('refreshPdfPreviewBtn').onclick=refreshPdfPreview;
@@ -1124,7 +1132,7 @@ function bind(){
   ['cleanType','clutter','dirtiness','travelType','ownerRole','discountMode'].forEach(id=>$(id).onchange=e=>{ state.form[id]=e.target.value; if(id==='cleanType'){ ensureFormCleanTypeAndCoefs(true); populateMainSelects(); } if(id==='discountMode'){ updateDiscountInputs(); } recalc(); });
   ['brandName','brandTagline'].forEach(id=>{ const el=$(id); if(!el) return; el.oninput=e=>{ const map={brandName:'name',brandTagline:'tagline'}; state.brand[map[id]]=e.target.value; saveState(); renderBrandLogoPreview(); }; });
   if($('brandContactText')) $('brandContactText').oninput=e=>{ state.brand.contactText=e.target.value; const lines=String(e.target.value||'').split(/\n+/).map(x=>x.trim()).filter(Boolean); state.brand.phone=lines[0]||''; state.brand.site=lines[1]||''; saveState(); };
-  $('brandLogo').onchange=e=>{ const file=e.target.files&&e.target.files[0]; if(!file) return; if(file.size>2*1024*1024){ toast('Логотип слишком большой. Лучше до 2 МБ'); e.target.value=''; return; } const reader=new FileReader(); reader.onload=()=>{ state.brand.logoDataUrl=String(reader.result||''); saveState(); renderBrandLogoPreview(); toast('Логотип сохранён'); $('brandLogo').value=''; }; reader.readAsDataURL(file); };
+  $('brandLogo').onchange=e=>{ const file=e.target.files&&e.target.files[0]; if(!file) return; if(file.size>2*1024*1024){ toast('Логотип слишком большой. Лучше до 2 МБ'); e.target.value=''; return; } const reader=new FileReader(); reader.onload=()=>{ const dataUrl=String(reader.result||''); if(!dataUrl.startsWith('data:image/')){ toast('Файл не похож на изображение'); $('brandLogo').value=''; return; } state.brand.logoDataUrl=dataUrl; saveState(); renderBrandLogoPreview(); toast('Логотип сохранён'); $('brandLogo').value=''; }; reader.readAsDataURL(file); };
   $('removeLogoBtn').onclick=()=>{ if(!state.brand.logoDataUrl){ toast('Логотип не загружен'); return; } state.brand.logoDataUrl=''; saveState(); renderBrandLogoPreview(); toast('Логотип удалён'); };
   if($('backupNowBtn')) $('backupNowBtn').onclick=exportBackup;
   if($('autoBackupToggle')) $('autoBackupToggle').onchange=e=>{ state.ui=state.ui||{}; state.ui.autoBackup=e.target.checked; saveState(); toast(e.target.checked?'Авто-копия включена':'Авто-копия выключена'); };

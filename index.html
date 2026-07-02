@@ -35,6 +35,7 @@
 <div class="menu-sep"></div>
 <button id="demoBtn" role="menuitem" type="button">Пример</button>
 <button id="clearBtn" role="menuitem" type="button">Очистить форму</button>
+<button class="hidden" id="lockEditBtn" role="menuitem" type="button">Закрыть изменения</button>
 </div>
 </div>
 <input accept="application/json,.json" class="hidden" id="importOrdersFile" type="file"/>
@@ -317,8 +318,8 @@
 </div>
 </div>
 </div>
-<div class="hidden" id="shareModal" style="position:fixed;inset:0;background:rgba(15,23,42,.55);padding:16px;z-index:60">
-<div style="max-width:900px;margin:40px auto;background:#fff;border-radius:22px;padding:18px">
+<div class="modal-overlay hidden" id="shareModal">
+<div class="modal-card wide">
 <div class="topbar" style="margin-bottom:12px">
 <div>
 <div class="section-title" style="margin-bottom:4px">Смета</div>
@@ -329,8 +330,8 @@
 <textarea id="shareText" style="min-height:360px"></textarea>
 </div>
 </div>
-<div class="hidden" id="pdfPreviewModal" style="position:fixed;inset:0;background:rgba(15,23,42,.62);padding:16px;z-index:65;overflow:auto">
-  <div style="max-width:980px;margin:24px auto;background:#fff;border-radius:22px;padding:14px;border:1px solid #dbe3ef;box-shadow:0 20px 60px rgba(0,0,0,.25)">
+<div class="modal-overlay hidden" id="pdfPreviewModal">
+  <div class="modal-card wide">
     <div class="topbar" style="margin-bottom:12px">
       <div>
         <div class="section-title" style="margin-bottom:4px">Превью PDF-сметы</div>
@@ -345,8 +346,8 @@
   </div>
 </div>
 
-<div class="hidden" id="dataModal" style="position:fixed;inset:0;background:rgba(15,23,42,.55);padding:16px;z-index:66;overflow:auto">
-  <div style="max-width:720px;margin:40px auto;background:#fff;border-radius:22px;padding:18px;border:1px solid #dbe3ef;box-shadow:0 20px 60px rgba(0,0,0,.25)">
+<div class="modal-overlay hidden" id="dataModal">
+  <div class="modal-card">
     <div class="topbar" style="margin-bottom:12px">
       <div>
         <div class="section-title" style="margin-bottom:4px">Данные</div>
@@ -368,8 +369,8 @@
     </div>
   </div>
 </div>
-<div class="hidden" id="backupModal" style="position:fixed;inset:0;background:rgba(15,23,42,.55);padding:16px;z-index:66;overflow:auto">
-  <div style="max-width:760px;margin:40px auto;background:#fff;border-radius:22px;padding:18px;border:1px solid #dbe3ef;box-shadow:0 20px 60px rgba(0,0,0,.25)">
+<div class="modal-overlay hidden" id="backupModal">
+  <div class="modal-card">
     <div class="topbar" style="margin-bottom:12px">
       <div>
         <div class="section-title" style="margin-bottom:4px">Резервные копии</div>
