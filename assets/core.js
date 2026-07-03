@@ -45,14 +45,17 @@
     const dirtTimeK = Number(dirt.timeK) || 1;
     const priceK = clutterPriceK * dirtPriceK;
     const timeK = clutterTimeK * dirtTimeK;
-    const baseNoK = area * num(rate.rate);
-    const baseAfterClutter = baseNoK * clutterPriceK;
-    const baseWithK = baseAfterClutter * dirtPriceK;
-    const minBase = num(rate.min);
+    // Все денежные величины округляются до рубля сразу в расчёте,
+    // чтобы строки сметы всегда сходились с итогом копейка в копейку.
+    const rub = value => Math.round(value);
+    const baseNoK = rub(area * num(rate.rate));
+    const baseAfterClutter = rub(baseNoK * clutterPriceK);
+    const baseWithK = rub(baseAfterClutter * dirtPriceK);
+    const minBase = rub(num(rate.min));
     const minBaseApplied = area > 0 && baseWithK < minBase;
     const baseRaw = area > 0 ? Math.max(baseWithK, minBase) : 0;
     const extras = Array.isArray(state.extras) ? state.extras : [];
-    const extrasTotal = extras.reduce((sum, item) => sum + num(item.qty) * num(item.price), 0);
+    const extrasTotal = rub(extras.reduce((sum, item) => sum + num(item.qty) * num(item.price), 0));
     // Стоимость выезда берётся из настроек (state.travel), с запасным значением для старых копий.
     const DEFAULT_TRAVEL = {
       kad: {base: 0, perKm: 0},
@@ -62,12 +65,12 @@
     const travelConf = (state.travel && state.travel[form.travelType]) || DEFAULT_TRAVEL[form.travelType] || {base: 0, perKm: 0};
     const travelBase = num(travelConf.base);
     const travelPerKm = num(travelConf.perKm);
-    const travelTotal = travelBase + (travelPerKm > 0 ? num(form.travelKm) * travelPerKm : 0);
+    const travelTotal = rub(travelBase + (travelPerKm > 0 ? num(form.travelKm) * travelPerKm : 0));
     // Скидка считается от базовой стоимости уборки и доп. услуг. Выезд НЕ дисконтируется.
     const discountBase = baseRaw + extrasTotal;
-    const discountValue = form.discountMode === 'amount'
+    const discountValue = rub(form.discountMode === 'amount'
       ? Math.min(num(form.discountAmount), discountBase)
-      : discountBase * (discountPercent / 100);
+      : discountBase * (discountPercent / 100));
     const subtotal = baseRaw + extrasTotal + travelTotal;
     const marketPrice = Math.max(0, subtotal - discountValue);
 
@@ -101,32 +104,39 @@
       ownerCost = 0;
       peopleOnSite = crewNeeded;
     }
-    const laborCost = hiredCleaners * cleanerDay + ownerCost;
+    const laborCost = rub(hiredCleaners * cleanerDay + ownerCost);
 
     // --- Материалы (расходники на м²) ---
     const materialPerM2 = num(state.materialPerM2 != null ? state.materialPerM2 : 15);
-    const materialsCost = area * materialPerM2;
+    const materialsCost = rub(area * materialPerM2);
 
     // --- Накладные на заказ (постоянные расходы в месяц / число заказов) ---
     const overhead = state.overhead || {};
     const overheadMonthly = num(overhead.monthly);
     const jobsPerMonth = num(overhead.jobsPerMonth);
-    const overheadPerJob = jobsPerMonth > 0 ? overheadMonthly / jobsPerMonth : 0;
+    const overheadPerJob = jobsPerMonth > 0 ? rub(overheadMonthly / jobsPerMonth) : 0;
 
     // --- Серия уборок (абонемент): накладные одного заказа делятся на все уборки серии ---
     const seriesCount = Math.max(1, Math.round(num(form.seriesCount)) || 1);
     const seriesMonths = Math.max(1, Math.round(num(form.seriesMonths)) || 1);
-    const overheadPerCleaning = overheadPerJob / seriesCount;
+    const overheadPerCleaning = rub(overheadPerJob / seriesCount);
 
     // --- Себестоимость и цены (за одну уборку) ---
     const directCost = laborCost + materialsCost;              // жёсткий пол: ниже = прямой убыток
     const fullCost = directCost + overheadPerCleaning;         // полная себестоимость одной уборки в серии
-    const targetPrice = fullCost * (1 + profitPercent / 100);  // целевая цена (наценка на полную себестоимость)
-    const recommendedPrice = Math.max(marketPrice, targetPrice, directCost);
+    const targetPrice = rub(fullCost * (1 + profitPercent / 100)); // целевая цена (наценка на полную себестоимость)
+    const priceBeforeSeriesDiscount = Math.max(marketPrice, targetPrice, directCost);
+
+    // --- Скидка за серию (абонемент): применяется к цене одной уборки, но не ниже прямых затрат ---
+    const seriesDiscountPercent = seriesCount > 1 ? Math.min(100, num(form.seriesDiscount)) : 0;
+    const seriesDiscountValue = seriesDiscountPercent > 0
+      ? Math.min(rub(priceBeforeSeriesDiscount * seriesDiscountPercent / 100), Math.max(0, priceBeforeSeriesDiscount - directCost))
+      : 0;
+    const recommendedPrice = priceBeforeSeriesDiscount - seriesDiscountValue;
 
     // --- Разовый заказ для сравнения (все накладные ложатся на одну уборку) ---
     const singleFullCost = directCost + overheadPerJob;
-    const singleTargetPrice = singleFullCost * (1 + profitPercent / 100);
+    const singleTargetPrice = rub(singleFullCost * (1 + profitPercent / 100));
     const singleRecommendedPrice = Math.max(marketPrice, singleTargetPrice, directCost);
     const seriesTotal = recommendedPrice * seriesCount;
     const seriesSavingPerCleaning = Math.max(0, singleRecommendedPrice - recommendedPrice);
@@ -152,6 +162,7 @@
       cleanerDay, ownerManagerDay, ownerCleanerManagerDay,
       laborCost, materialPerM2, materialsCost, overheadMonthly, jobsPerMonth, overheadPerJob,
       seriesCount, seriesMonths, overheadPerCleaning,
+      seriesDiscountPercent, seriesDiscountValue, priceBeforeSeriesDiscount,
       singleFullCost, singleTargetPrice, singleRecommendedPrice,
       seriesTotal, seriesSavingPerCleaning, seriesSavingTotal,
       directCost, fullCost, profitPercent, targetPrice, recommendedPrice,
@@ -163,7 +174,8 @@
       directCostFloor: directCost,
       breakEvenNoProfit: directCost,
       targetProfitValue: targetPrice - fullCost,
-      economyTopup: Math.max(0, recommendedPrice - marketPrice),
+      // Корректировка в смете считается до скидки за серию: рынок + корректировка − скидка за серию = итог.
+      economyTopup: Math.max(0, priceBeforeSeriesDiscount - marketPrice),
       priceBeforeDiscount: Math.max(subtotal, targetPrice),
       maxAllowedDiscount: subtotal > 0 ? Math.max(0, Math.min(100, (1 - fullCost / subtotal) * 100)) : 0
     };

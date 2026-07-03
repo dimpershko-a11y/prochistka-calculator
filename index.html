@@ -4,8 +4,8 @@
 <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
 <title>Калькулятор стоимости уборки</title>
 
-<link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="anonymous" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Orbitron:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/><link href="assets/style.css" rel="stylesheet"/><link href="manifest.json" rel="manifest"/><meta content="#0f172a" name="theme-color"/><script defer="defer" src="config.js"></script><script defer="defer" src="assets/core.js"></script><script defer="defer" src="assets/app.js"></script></head>
-<body><div class="version-badge" id="versionBadge">v4.7.6</div>
+<link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="anonymous" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Orbitron:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/><link href="assets/style.css" rel="stylesheet"/><link href="manifest.json" rel="manifest"/><meta content="#0f172a" name="theme-color"/><script defer="defer" src="config.js"></script><script defer="defer" src="assets/vendor/html2pdf.bundle.min.js"></script><script defer="defer" src="assets/core.js"></script><script defer="defer" src="assets/app.js"></script></head>
+<body><div class="version-badge" id="versionBadge">v4.8.0</div>
 <div class="login-overlay hidden" id="loginOverlay">
 <div class="login-card">
 <div class="login-title">PRO-CHISTKA</div>
@@ -241,10 +241,12 @@
 <div class="card">
 <div class="section-title">Серия уборок (абонемент)</div>
 <div class="muted" style="margin-bottom:10px">Для регулярной (например, поддерживающей) уборки: накладные расходы делятся на все уборки серии, поэтому одна уборка выходит дешевле разовой. Цена за уборку, итог за серию и выгода клиента попадут в смету.</div>
-<div class="grid g2">
+<div class="grid g3">
 <div><label>Уборок в серии</label><input id="seriesCount" min="1" step="1" type="number"/></div>
 <div><label>Период обслуживания, мес.</label><input id="seriesMonths" min="1" step="1" type="number"/></div>
+<div><label>Скидка за серию, %</label><input id="seriesDiscount" min="0" max="100" type="number"/></div>
 </div>
+<div style="margin-top:10px"><label>График уборок (попадёт в смету)</label><input id="seriesSchedule" placeholder="Например: каждую пятницу с 10:00"/></div>
 <div class="notice hidden" id="seriesHint" style="margin-top:10px"></div>
 </div>
 <div class="card">
@@ -297,6 +299,7 @@
 <div class="divider"></div>
 <div class="row"><span class="muted">Цена разовой уборки (для сравнения)</span><span id="sumSinglePrice">0 ₽</span></div>
 <div class="row"><span class="muted">Серия</span><span id="sumSeriesCount">—</span></div>
+<div class="row hidden" id="seriesDiscountRow"><span class="muted">Скидка за серию</span><span id="sumSeriesDiscount">− 0 ₽</span></div>
 <div class="row"><span class="muted">Выгода клиента за серию</span><span id="sumSeriesSaving">0 ₽</span></div>
 <div class="row"><strong>Итого за серию</strong><strong id="sumSeriesTotal">0 ₽</strong></div>
 </div>
@@ -307,9 +310,10 @@
 <div class="row"><strong id="brigadeLabel">Время уборки бригадой (0 чел.)</strong><strong id="timeBrigade">0.0 ч</strong></div>
 </div>
 <div class="btns" style="margin-top:16px">
-<button class="primary" id="copyEstimateBtn">Копировать смету</button>
+<button class="primary" id="sharePdfBtn">Поделиться PDF</button>
 <button id="previewPdfBtn">Превью PDF</button>
-        <button id="printPdfBtn">Скачать PDF</button>
+<button id="printPdfBtn">Скачать PDF</button>
+<button id="copyEstimateBtn">Копировать смету</button>
 </div>
 <div style="margin-top:18px">
 <div class="section-title" style="font-size:16px">Что входит в уборку</div>

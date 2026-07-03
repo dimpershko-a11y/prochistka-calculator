@@ -1,7 +1,7 @@
 const STORAGE_KEY = 'prochistka_calc_app_v4';
 const APP_CONFIG = window.PROCHISTKA_CONFIG || {};
 const CORE = window.PROCHISTKA_CORE;
-const APP_VERSION = APP_CONFIG.APP_VERSION || 'v4.7.6';
+const APP_VERSION = APP_CONFIG.APP_VERSION || 'v4.8.0';
 const defaults = APP_CONFIG.defaults || {};
 defaults.brand = defaults.brand || {name:'PRO-CHISTKA', phone:'', tagline:'Клининговые услуги', site:'', contactText:'', logoDataUrl:''};
 if(!defaults.brand.contactText){ defaults.brand.contactText = [defaults.brand.phone, defaults.brand.site].filter(Boolean).join('\n'); }
@@ -22,6 +22,8 @@ defaults.extraCategories = defaults.extraCategories || [];
 defaults.form = defaults.form || {clientName:'',objectType:'Квартира',area:0,cleanType:'general',discount:0,discountMode:'percent',discountAmount:0,clutter:'low',dirtiness:'low',travelType:'kad',travelKm:20,ownerRole:'cleaner_manager',profitPercent:25,notes:'',showOnlySelected:false};
 if(defaults.form.seriesCount == null) defaults.form.seriesCount = 1;
 if(defaults.form.seriesMonths == null) defaults.form.seriesMonths = 1;
+if(defaults.form.seriesDiscount == null) defaults.form.seriesDiscount = 0;
+if(defaults.form.seriesSchedule == null) defaults.form.seriesSchedule = '';
 defaults.savedOrders = [];
 defaults.ui = defaults.ui || {showTariffs:false, showSettings:false, extraGroupsCollapsed:{}};
 function clone(x){return JSON.parse(JSON.stringify(x));}
@@ -368,17 +370,16 @@ function getIncludedLines(){
   return hasSelectedWindowExtras() ? base.concat(win) : base;
 }
 function getIncludedText(){ return getIncludedLines().join('\n'); }
-function downloadJson(data, filename){
-  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json;charset=utf-8'});
+function downloadBlob(blob, filename){
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a'); a.href=url; a.download=filename; document.body.appendChild(a); a.click(); a.remove();
   setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
+function downloadJson(data, filename){
+  downloadBlob(new Blob([JSON.stringify(data, null, 2)], {type:'application/json;charset=utf-8'}), filename);
+}
 function downloadText(text, filename, mimeType='text/plain;charset=utf-8'){
-  const blob = new Blob([text], {type:mimeType});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href=url; a.download=filename; document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  downloadBlob(new Blob([text], {type:mimeType}), filename);
 }
 function buildConfigDefaultsFromState(){
   syncLegacyFromCleaningTypes(state);
@@ -797,6 +798,8 @@ function renderTariffs(){
     <div class="btns tariff-type-actions" style="align-items:end">
       <button type="button" class="primary" id="addCleanTypeBtn">Добавить вид уборки</button>
       <button type="button" id="duplicateCleanTypeBtn">Дублировать</button>
+      <button type="button" aria-label="Выше в списке" title="Выше в списке" data-move-type="-1">↑</button>
+      <button type="button" aria-label="Ниже в списке" title="Ниже в списке" data-move-type="1">↓</button>
       <button type="button" class="danger" id="deleteCleanTypeBtn">Удалить</button>
     </div>
   </div>
@@ -845,6 +848,10 @@ function renderTariffs(){
     state.ui.tariffCleanType=key;
     syncLegacyFromCleaningTypes(state); saveState(); populateMainSelects(); renderTariffs(); toast('Вид уборки скопирован');
   };
+  rates.querySelectorAll('[data-move-type]').forEach(btn=>btn.onclick=()=>{
+    state.cleaningTypes=moveObjectKey(getCleaningTypes(), typeKey, Number(btn.dataset.moveType)||0);
+    syncLegacyFromCleaningTypes(state); saveState(); populateMainSelects(); renderTariffs();
+  });
   const delBtn=$('deleteCleanTypeBtn'); if(delBtn) delBtn.onclick=()=>{
     if(Object.keys(types).length<=1){ toast('Должен остаться хотя бы один вид уборки'); return; }
     if(!confirm(`Удалить вид уборки «${type.label}»?`)) return;
@@ -967,7 +974,27 @@ function bindPdfHeaderInputs(){
   Object.entries(fields).forEach(([id,[key,type]])=>{ const el=$(id); if(!el || el.dataset.boundPdfHeader) return; el.dataset.boundPdfHeader='1'; const handler=e=>{ state.pdfHeader=state.pdfHeader||{}; let v=e.target.value; if(type==='number') v=Number(v)||0; if(type==='bool') v=String(v)==='true'; state.pdfHeader[key]=v; if(key==='useLogo') renderBrandLogoPreview(); saveState(); }; el.oninput=handler; el.onchange=handler; });
 }
 function renderSelectedExtras(){ const {selectedExtras}=calc(); const wrap=$('selectedExtrasWrap'); wrap.innerHTML=''; if(!selectedExtras.length){ wrap.innerHTML='<div class="notice">Пока ничего не выбрано.</div>'; return; } selectedExtras.forEach(x=>{ const div=document.createElement('div'); div.className='selected-item'; div.innerHTML=`<div style="display:flex;justify-content:space-between;gap:8px"><span>${esc(x.name)} × ${num(x.qty)}</span><span>${money(num(x.qty)*num(x.price))}</span></div>`; wrap.appendChild(div); }); }
-function renderSavedOrders(){ const wrap=$('savedOrdersWrap'); wrap.innerHTML=''; if(!state.savedOrders.length){ wrap.innerHTML='<div class="notice">Пока нет сохранённых заказов.</div>'; return; } state.savedOrders.forEach(o=>{ const div=document.createElement('div'); div.className='saved-item'; div.innerHTML=`<div style="font-weight:700">${esc(o.clientName)} · ${esc(o.objectType)}</div><div class="muted" style="margin:4px 0">${esc(o.cleanType)} · ${o.area} м²</div><div style="display:flex;justify-content:space-between;gap:8px"><span>${money(o.recommendedPrice)}</span><span class="muted">${hours(o.brigadeHours)}</span></div><div class="muted" style="font-size:12px;margin-top:4px">Нормо-часы: ${hours(o.normHours)}</div><div class="muted" style="font-size:12px;margin-top:2px">${esc(o.createdAt)}</div>`; wrap.appendChild(div); }); }
+function renderSavedOrders(){ const wrap=$('savedOrdersWrap'); wrap.innerHTML=''; if(!state.savedOrders.length){ wrap.innerHTML='<div class="notice">Пока нет сохранённых заказов.</div>'; return; }
+  state.savedOrders.forEach(o=>{
+    const isSeries=Number(o.seriesCount)>1;
+    const seriesLine=isSeries?`<div class="muted" style="font-size:12px;margin-top:2px">Серия: ${Number(o.seriesCount)} × ${money(o.recommendedPrice)} = ${money(o.seriesTotal)}${o.seriesMonths?` · ${Number(o.seriesMonths)} мес.`:''}</div>`:'';
+    const div=document.createElement('div'); div.className='saved-item';
+    div.innerHTML=`<div style="font-weight:700">${esc(o.clientName)} · ${esc(o.objectType)}</div><div class="muted" style="margin:4px 0">${esc(o.cleanType)} · ${num(o.area)} м²${isSeries?' · серия × '+Number(o.seriesCount):''}</div><div style="display:flex;justify-content:space-between;gap:8px"><span>${money(isSeries?o.seriesTotal:o.recommendedPrice)}</span><span class="muted">${hours(o.brigadeHours)}</span></div>${seriesLine}<div class="muted" style="font-size:12px;margin-top:4px">Нормо-часы: ${hours(o.normHours)}</div><div class="muted" style="font-size:12px;margin-top:2px">${esc(o.createdAt)}</div><div class="btns" style="margin-top:8px"><button type="button" data-order-repeat="${o.id}">Повторить</button><button type="button" class="danger" data-order-delete="${o.id}">Удалить</button></div>`;
+    wrap.appendChild(div);
+  });
+  wrap.querySelectorAll('[data-order-repeat]').forEach(btn=>btn.onclick=()=>repeatSavedOrder(btn.dataset.orderRepeat));
+  wrap.querySelectorAll('[data-order-delete]').forEach(btn=>btn.onclick=()=>{ const o=state.savedOrders.find(x=>String(x.id)===String(btn.dataset.orderDelete)); if(!o) return; if(!confirm(`Удалить заказ «${o.clientName}» от ${o.createdAt}?`)) return; state.savedOrders=state.savedOrders.filter(x=>String(x.id)!==String(btn.dataset.orderDelete)); saveState(); renderSavedOrders(); toast('Заказ удалён'); });
+}
+function repeatSavedOrder(orderId){
+  const o=state.savedOrders.find(x=>String(x.id)===String(orderId));
+  if(!o) return;
+  state.form={...clone(defaults.form), ...clone(o.form||{})};
+  state.extras=state.extras.map(x=>({...x, qty:0}));
+  (o.extras||[]).forEach(saved=>{ const item=state.extras.find(x=>String(x.id)===String(saved.id)); if(item) item.qty=num(saved.qty); });
+  ensureFormCleanTypeAndCoefs(false);
+  fillForm(); renderExtras(); recalc();
+  toast('Заказ загружен в форму');
+}
 function renderEconomyWarning(r){
   const el=$('economyWarning'); if(!el) return;
   if(r.belowDirect){
@@ -1001,6 +1028,9 @@ function recalc(){
     if(showSeries){
       $('sumSinglePrice').textContent=money(r.singleRecommendedPrice);
       $('sumSeriesCount').textContent=`${r.seriesCount} × ${money(r.recommendedPrice)} · ${r.seriesMonths} мес.`;
+      const discountRow=$('seriesDiscountRow');
+      if(discountRow) discountRow.classList.toggle('hidden', !(r.seriesDiscountValue>0));
+      if($('sumSeriesDiscount')) $('sumSeriesDiscount').textContent=`− ${money(r.seriesDiscountValue)} (${num(r.seriesDiscountPercent)}% с уборки)`;
       $('sumSeriesSaving').textContent='− '+money(r.seriesSavingTotal);
       $('sumSeriesTotal').textContent=money(r.seriesTotal);
     }
@@ -1049,9 +1079,11 @@ function estimateText(){
   if(num(r.travelTotal)>0) lines.push(`Выезд: ${money(r.travelTotal)}`);
   if(num(r.discountValue)>0) lines.push(`Скидка: − ${money(r.discountValue)}`);
   if(num(r.economyTopup)>0) lines.push(`Корректировка стоимости заказа *: + ${money(r.economyTopup)}`);
+  if(num(r.seriesDiscountValue)>0) lines.push(`Скидка за серию (${num(r.seriesDiscountPercent)}%): − ${money(r.seriesDiscountValue)}`);
   lines.push(`\nИТОГО к оплате${r.seriesCount>1?' (за 1 уборку)':''}: ${money(r.recommendedPrice)}`);
   if(r.seriesCount>1){
     lines.push(`Серия уборок: ${r.seriesCount} (обслуживание ${r.seriesMonths} мес.)`);
+    if(String(state.form.seriesSchedule||'').trim()) lines.push(`График уборок: ${String(state.form.seriesSchedule).trim()}`);
     lines.push(`ИТОГО за серию: ${money(r.seriesTotal)}`);
     if(r.seriesSavingTotal>0) lines.push(`Ваша выгода за серию по сравнению с разовыми уборками: ${money(r.seriesSavingTotal)}`);
   }
@@ -1100,10 +1132,13 @@ function buildPrintHtml(){
       if(num(r.travelTotal)>0) rows.push(`<tr><td style="padding:6px 0">Выезд</td><td style="padding:6px 0;text-align:right">${money(r.travelTotal)}</td></tr>`);
       if(num(r.discountValue)>0) rows.push(`<tr><td style="padding:6px 0">Скидка</td><td style="padding:6px 0;text-align:right">− ${money(r.discountValue)}</td></tr>`);
       if(num(r.economyTopup)>0) rows.push(`<tr><td style="padding:6px 0">Корректировка стоимости заказа *</td><td style="padding:6px 0;text-align:right">+ ${money(r.economyTopup)}</td></tr>`);
+      if(num(r.seriesDiscountValue)>0) rows.push(`<tr><td style="padding:6px 0">Скидка за серию (${num(r.seriesDiscountPercent)}%)</td><td style="padding:6px 0;text-align:right">− ${money(r.seriesDiscountValue)}</td></tr>`);
       const isSeries=r.seriesCount>1;
+      const seriesSchedule=String(state.form.seriesSchedule||'').trim();
       rows.push(`<tr><td style="padding:12px 0;border-top:2px solid #0f172a;font-weight:800;font-size:17px">${isSeries?'Итого за одну уборку':'Итого к оплате'}</td><td style="padding:12px 0;border-top:2px solid #0f172a;text-align:right;font-weight:800;font-size:17px">${money(r.recommendedPrice)}</td></tr>`);
       if(isSeries){
         rows.push(`<tr><td style="padding:6px 0">Уборок в серии</td><td style="padding:6px 0;text-align:right">${r.seriesCount} (обслуживание ${r.seriesMonths} мес.)</td></tr>`);
+        if(seriesSchedule) rows.push(`<tr><td style="padding:6px 0">График уборок</td><td style="padding:6px 0;text-align:right">${esc(seriesSchedule)}</td></tr>`);
         rows.push(`<tr><td style="padding:12px 0;border-top:2px solid #0f172a;font-weight:800;font-size:17px">Итого за серию к оплате</td><td style="padding:12px 0;border-top:2px solid #0f172a;text-align:right;font-weight:800;font-size:17px">${money(r.seriesTotal)}</td></tr>`);
       }
       rows.push(`<tr><td style="padding:6px 0">Сумма нормо-часов</td><td style="padding:6px 0;text-align:right">${hours(r.normHours)}</td></tr>`);
@@ -1128,6 +1163,55 @@ function buildPrintHtml(){
     ${content}
   </div>`; }
 function printEstimate(){ if(validateCurrentOrder().length) return; $('printArea').innerHTML=buildPrintHtml(); window.print(); }
+function buildPdfFileName(){
+  const client=String(state.form.clientName||'').trim().replace(/[^\wа-яёА-ЯЁ. -]/g,'').slice(0,40);
+  const date=new Date().toISOString().slice(0,10);
+  return `Смета${client?'_'+client:''}_${date}.pdf`;
+}
+// Генерирует PDF-файл из той же вёрстки, что печать и превью. Требует локальную библиотеку html2pdf.
+async function generatePdfBlob(){
+  if(typeof html2pdf==='undefined') throw new Error('html2pdf не загружен');
+  const host=document.createElement('div');
+  host.style.cssText='position:fixed;left:-10000px;top:0;width:794px;background:#fff';
+  host.innerHTML=buildPrintHtml();
+  document.body.appendChild(host);
+  try{
+    return await html2pdf().set({
+      margin:[10,0,12,0],
+      image:{type:'jpeg', quality:.95},
+      html2canvas:{scale:2, backgroundColor:'#ffffff', windowWidth:794},
+      jsPDF:{unit:'mm', format:'a4', orientation:'portrait'},
+      pagebreak:{mode:['css','legacy']}
+    }).from(host.firstElementChild).output('blob');
+  } finally {
+    host.remove();
+  }
+}
+async function sharePdfEstimate(){
+  if(validateCurrentOrder().length) return;
+  const btn=$('sharePdfBtn');
+  if(btn) btn.disabled=true;
+  toast('Готовлю PDF…');
+  try{
+    const blob=await generatePdfBlob();
+    const file=new File([blob], buildPdfFileName(), {type:'application/pdf'});
+    if(navigator.share && navigator.canShare && navigator.canShare({files:[file]})){
+      try{
+        await navigator.share({files:[file], title:'Смета на уборку'});
+        toast('Смета отправлена');
+      }catch(e){
+        if(e && e.name!=='AbortError'){ downloadBlob(blob, file.name); toast('Поделиться не получилось — PDF скачан'); }
+      }
+    } else {
+      downloadBlob(blob, file.name);
+      toast('«Поделиться» здесь не поддерживается — PDF скачан файлом');
+    }
+  }catch(e){
+    toast('Не удалось создать PDF');
+  } finally {
+    if(btn) btn.disabled=false;
+  }
+}
 function refreshPdfPreview(){ const c=$('pdfPreviewContent'); if(c) c.innerHTML=buildPrintHtml(); }
 function openPdfPreview(){ if(validateCurrentOrder().length) return; refreshPdfPreview(); const m=$('pdfPreviewModal'); if(m) m.classList.remove('hidden'); }
 function closePdfPreview(){ const m=$('pdfPreviewModal'); if(m) m.classList.add('hidden'); }
@@ -1175,17 +1259,18 @@ function bind(){
   if($('closePdfPreviewBtn')) $('closePdfPreviewBtn').onclick=closePdfPreview;
   if($('refreshPdfPreviewBtn')) $('refreshPdfPreviewBtn').onclick=refreshPdfPreview;
   $('copyEstimateBtn').onclick=copyEstimate; $('printPdfBtn').onclick=printEstimate;
+  if($('sharePdfBtn')) $('sharePdfBtn').onclick=sharePdfEstimate;
   $('equipmentText').oninput=e=>{ state.mainInfo.equipmentText=e.target.value; saveState(); };
   $('chemistryText').oninput=e=>{ state.mainInfo.chemistryText=e.target.value; saveState(); };
   if($('usefulInfoText')) $('usefulInfoText').oninput=e=>{ state.mainInfo.usefulInfo=e.target.value; saveState(); };
   if($('saveIncludedBtn')) $('saveIncludedBtn').onclick=()=>{ setTypeIncluded(state.form.cleanType, $('includedServices').value); saveState(); renderIncludedPreview(); renderTariffs(); toast('Шаблон сохранён'); };
   if($('includedServices')) $('includedServices').oninput=(e)=>{ setTypeIncluded(state.form.cleanType, e.target.value); saveState(); renderIncludedPreview(); };
-  $('saveOrderBtn').onclick=()=>{ if(validateCurrentOrder().length) return; const r=calc(); state.savedOrders.unshift({id:Date.now(), version:APP_VERSION, clientName:state.form.clientName||'Без имени', objectType:state.form.objectType, area:num(state.form.area), cleanType:r.rate.label, recommendedPrice:r.recommendedPrice, brigadeHours:r.brigadeHours, normHours:r.normHours, form:clone(state.form), extras:clone(r.selectedExtras), calculation:{recommendedPrice:r.recommendedPrice,marketPrice:r.marketPrice,payroll:r.payroll,normHours:r.normHours,brigadeHours:r.brigadeHours}, createdAt:new Date().toLocaleString('ru-RU')}); state.savedOrders=state.savedOrders.slice(0,50); state.ui=state.ui||{}; state.ui.ordersSinceBackup=Number(state.ui.ordersSinceBackup||0)+1; saveState(); renderSavedOrders(); updateBackupReminder(); toast('Заказ сохранён'); if(state.ui.autoBackup && state.ui.ordersSinceBackup>=AUTO_BACKUP_EVERY){ exportBackup(); toast('Авто-копия сохранена'); } };
+  $('saveOrderBtn').onclick=()=>{ if(validateCurrentOrder().length) return; const r=calc(); state.savedOrders.unshift({id:Date.now(), version:APP_VERSION, clientName:state.form.clientName||'Без имени', objectType:state.form.objectType, area:num(state.form.area), cleanType:r.rate.label, recommendedPrice:r.recommendedPrice, seriesCount:r.seriesCount, seriesMonths:r.seriesMonths, seriesTotal:r.seriesTotal, brigadeHours:r.brigadeHours, normHours:r.normHours, form:clone(state.form), extras:clone(r.selectedExtras), calculation:{recommendedPrice:r.recommendedPrice,marketPrice:r.marketPrice,payroll:r.payroll,normHours:r.normHours,brigadeHours:r.brigadeHours,seriesCount:r.seriesCount,seriesTotal:r.seriesTotal,seriesDiscountPercent:r.seriesDiscountPercent}, createdAt:new Date().toLocaleString('ru-RU')}); state.savedOrders=state.savedOrders.slice(0,50); state.ui=state.ui||{}; state.ui.ordersSinceBackup=Number(state.ui.ordersSinceBackup||0)+1; saveState(); renderSavedOrders(); updateBackupReminder(); toast('Заказ сохранён'); if(state.ui.autoBackup && state.ui.ordersSinceBackup>=AUTO_BACKUP_EVERY){ exportBackup(); toast('Авто-копия сохранена'); } };
   $('clearBtn').onclick=()=>{ state.form=clone(defaults.form); state.extras=state.extras.map(x=>({...x, qty:0})); fillForm(); renderExtras(); recalc(); toast('Форма очищена'); };
   $('resetStorageBtn').onclick=()=>requestEditAccess(()=>{ if(!confirm('Сбросить все сохранённые данные в этом браузере?')) return; localStorage.removeItem(STORAGE_KEY); state=mergeState(clone(defaults)); migrateV43(); migrateV46(); fillForm(); renderTariffs(); renderExtras(); recalc(); toast("Все данные сброшены"); });
   $('demoBtn').onclick=()=>{ state.form={...state.form, clientName:'Ирина', objectType:'Квартира', area:68, cleanType:'general', discount:5, clutter:'medium', dirtiness:'medium', travelType:'km15', travelKm:20, ownerRole:'cleaner_manager', profitPercent:25, notes:'Есть кот. Уборка нужна в пятницу после 11:00.'}; state.extras=state.extras.map(x=>({...x, qty:({1:1,9:1,14:4,18:1}[x.id]||0)})); fillForm(); renderExtras(); recalc(); toast('Подставлен пример'); };
   $('showOnlySelected').onchange=e=>{ state.form.showOnlySelected=e.target.checked; saveState(); renderExtras(); };
-  ['clientName','objectType','area','discount','discountAmount','travelKm','profitPercent','seriesCount','seriesMonths','notes'].forEach(id=>{ const el=$(id); if(!el) return; el.oninput=e=>{ state.form[id]=['area','discount','discountAmount','travelKm','profitPercent','seriesCount','seriesMonths'].includes(id)?num(e.target.value):e.target.value; recalc(); }; });
+  ['clientName','objectType','area','discount','discountAmount','travelKm','profitPercent','seriesCount','seriesMonths','seriesDiscount','seriesSchedule','notes'].forEach(id=>{ const el=$(id); if(!el) return; el.oninput=e=>{ state.form[id]=['area','discount','discountAmount','travelKm','profitPercent','seriesCount','seriesMonths','seriesDiscount'].includes(id)?num(e.target.value):e.target.value; recalc(); }; });
   ['cleanType','clutter','dirtiness','travelType','ownerRole','discountMode'].forEach(id=>$(id).onchange=e=>{ state.form[id]=e.target.value; if(id==='cleanType'){ ensureFormCleanTypeAndCoefs(true); populateMainSelects(); } if(id==='discountMode'){ updateDiscountInputs(); } recalc(); });
   ['brandName','brandTagline'].forEach(id=>{ const el=$(id); if(!el) return; el.oninput=e=>{ const map={brandName:'name',brandTagline:'tagline'}; state.brand[map[id]]=e.target.value; saveState(); renderBrandLogoPreview(); }; });
   if($('brandContactText')) $('brandContactText').oninput=e=>{ state.brand.contactText=e.target.value; const lines=String(e.target.value||'').split(/\n+/).map(x=>x.trim()).filter(Boolean); state.brand.phone=lines[0]||''; state.brand.site=lines[1]||''; saveState(); };
@@ -1197,6 +1282,6 @@ function bind(){
   if($('addExtraBtn')) $('addExtraBtn').onclick=()=>requestEditAccess(()=>{ const name=$('newExtraName').value.trim(), unit=$('newExtraUnit').value.trim()||'шт', price=num($('newExtraPrice').value), time=num($('newExtraTime').value); let category=($('newExtraCategoryCustom')&&$('newExtraCategoryCustom').value.trim()) || ($('newExtraCategory')&&$('newExtraCategory').value) || 'Другое'; if($('newExtraCategoryCustom')&&$('newExtraCategoryCustom').value.trim()){ addExtraCategory(category); $('newExtraCategoryCustom').value=''; } if(!name||!price){ toast('Заполни название и цену'); return; } state.extras.push({id:Date.now(), name, unit, price, qty:0, time, category, builtIn:false}); ensureExtraCategories(); if(!state.extraCategories.includes(category)) state.extraCategories.push(category); $('newExtraName').value=''; $('newExtraPrice').value=''; $('newExtraTime').value=''; saveState(); renderCategoryOptions(category); renderCategoryManager(); renderExtras(); renderExtrasEditor(); recalc(); toast('Услуга добавлена'); });
 }
 function updateDiscountInputs(){ const mode=state.form.discountMode==='amount'?'amount':'percent'; const sel=$('discountMode'); if(sel) sel.value=mode; const pct=$('discount'), amt=$('discountAmount'); if(pct) pct.classList.toggle('hidden', mode!=='percent'); if(amt) amt.classList.toggle('hidden', mode!=='amount'); }
-function fillForm(){ if(!isEditUnlocked()){ state.ui.showTariffs=false; state.ui.showSettings=false; } $('clientName').value=state.form.clientName; $('objectType').value=state.form.objectType; $('area').value=state.form.area; $('discount').value=state.form.discount; if($('discountAmount')) $('discountAmount').value=state.form.discountAmount||0; updateDiscountInputs(); $('travelKm').value=state.form.travelKm; if($('ownerRole')) $('ownerRole').value=state.form.ownerRole||'none'; $('profitPercent').value=state.form.profitPercent; if($('seriesCount')) $('seriesCount').value=state.form.seriesCount||1; if($('seriesMonths')) $('seriesMonths').value=state.form.seriesMonths||1; $('notes').value=state.form.notes; $('showOnlySelected').checked=!!state.form.showOnlySelected; $('settingsModal')?.classList.toggle('hidden', !state.ui.showSettings); populateMainSelects(); if($('includedServices')) $('includedServices').value=getTypeIncluded(state.form.cleanType)||''; renderSettingsPanel(); setSettingsTab(state.ui.settingsTab); }
+function fillForm(){ if(!isEditUnlocked()){ state.ui.showTariffs=false; state.ui.showSettings=false; } $('clientName').value=state.form.clientName; $('objectType').value=state.form.objectType; $('area').value=state.form.area; $('discount').value=state.form.discount; if($('discountAmount')) $('discountAmount').value=state.form.discountAmount||0; updateDiscountInputs(); $('travelKm').value=state.form.travelKm; if($('ownerRole')) $('ownerRole').value=state.form.ownerRole||'none'; $('profitPercent').value=state.form.profitPercent; if($('seriesCount')) $('seriesCount').value=state.form.seriesCount||1; if($('seriesMonths')) $('seriesMonths').value=state.form.seriesMonths||1; if($('seriesDiscount')) $('seriesDiscount').value=state.form.seriesDiscount||0; if($('seriesSchedule')) $('seriesSchedule').value=state.form.seriesSchedule||''; $('notes').value=state.form.notes; $('showOnlySelected').checked=!!state.form.showOnlySelected; $('settingsModal')?.classList.toggle('hidden', !state.ui.showSettings); populateMainSelects(); if($('includedServices')) $('includedServices').value=getTypeIncluded(state.form.cleanType)||''; renderSettingsPanel(); setSettingsTab(state.ui.settingsTab); }
 fillForm(); renderTariffs(); bind(); renderExtras(); renderSettingsPanel(); setSettingsTab(state.ui.settingsTab); enhanceAccessibility(); recalc(); updateBackupReminder(); attemptIdbRecovery(); if($('versionBadge')) $('versionBadge').textContent=APP_VERSION; setupAccess();
 if('serviceWorker' in navigator){ window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{})); }

@@ -1,6 +1,7 @@
 const js = require('@eslint/js');
 
 module.exports = [
+  {ignores: ['assets/vendor/**']},
   js.configs.recommended,
   {
     languageOptions: {
@@ -28,7 +29,9 @@ module.exports = [
         confirm: 'readonly',
         fetch: 'readonly',
         Response: 'readonly',
-        CSS: 'readonly'
+        CSS: 'readonly',
+        File: 'readonly',
+        html2pdf: 'readonly'
       }
     },
     rules: {
