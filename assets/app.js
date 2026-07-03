@@ -998,17 +998,20 @@ function teamPdfRows(r){
   if(!rows.length && num(r.peopleOnSite)>0) rows.push(row('Клинеры', `${num(r.peopleOnSite)} чел.`));
   return rows;
 }
+// Пояснение для клиента к строке «Корректировка стоимости заказа» (показывается только когда корректировка есть).
+const TOPUP_NOTE='* Корректировка — доведение итога до минимальной стоимости выполнения заказа. Она покрывает работу бригады, выезд, профессиональную химию и расходные материалы для вашего объекта.';
 function estimateText(){
   const r=calc(); const included=getIncludedText()||'Не заполнено'; const extras=r.selectedExtras.length?r.selectedExtras.map(x=>`• ${x.name} × ${num(x.qty)} — ${money(num(x.qty)*num(x.price))}`).join('\n'):'• Без доп. услуг';
   const lines=[`Стоимость уборки: ${money(r.baseRaw)}${r.minBaseApplied?' (применена минимальная стоимость)':''}`];
   if(num(r.extrasTotal)>0) lines.push(`Дополнительные услуги: ${money(r.extrasTotal)}`);
   if(num(r.travelTotal)>0) lines.push(`Выезд: ${money(r.travelTotal)}`);
   if(num(r.discountValue)>0) lines.push(`Скидка: − ${money(r.discountValue)}`);
-  if(num(r.economyTopup)>0) lines.push(`Корректировка стоимости заказа: + ${money(r.economyTopup)}`);
+  if(num(r.economyTopup)>0) lines.push(`Корректировка стоимости заказа *: + ${money(r.economyTopup)}`);
   lines.push(`\nИТОГО к оплате: ${money(r.recommendedPrice)}`);
   lines.push(`Сумма нормо-часов: ${hours(r.normHours)}`);
   lines.push(`Примерное время уборки: ${hours(r.brigadeHours)}`);
   teamTextLines(r).forEach(line=>lines.push(line));
+  if(num(r.economyTopup)>0) lines.push(`\n${TOPUP_NOTE}`);
   return `Смета на уборку\n\nКлиент: ${state.form.clientName||'—'}\nОбъект: ${state.form.objectType}\nПлощадь: ${num(state.form.area)} м²\nТип уборки: ${r.rate.label}\nЗаставленность: ${r.clutter.label} (коэф. × ${r.clutterPriceK.toFixed(2)})\nЗагрязнённость: ${r.dirt.label} (коэф. × ${r.dirtPriceK.toFixed(2)})\n\nВ услуги входят:\n${included}\n\nДоп. услуги:\n${extras}\n\n${lines.join('\n')}\n\nДополнительная информация:\n${state.mainInfo.usefulInfo||'—'}\n\nЗаметки: ${state.form.notes||'—'}`;
 }
 async function copyEstimate(){ if(validateCurrentOrder().length) return; const text=estimateText(); try{ await navigator.clipboard.writeText(text); toast('Смета скопирована'); }catch(e){ $('shareText').value=text; $('shareModal').classList.remove('hidden'); toast('Открыл смету для ручного копирования'); } }
@@ -1049,12 +1052,13 @@ function buildPrintHtml(){
       if(num(r.extrasTotal)>0) rows.push(`<tr><td style="padding:6px 0">Дополнительные услуги</td><td style="padding:6px 0;text-align:right">${money(r.extrasTotal)}</td></tr>`);
       if(num(r.travelTotal)>0) rows.push(`<tr><td style="padding:6px 0">Выезд</td><td style="padding:6px 0;text-align:right">${money(r.travelTotal)}</td></tr>`);
       if(num(r.discountValue)>0) rows.push(`<tr><td style="padding:6px 0">Скидка</td><td style="padding:6px 0;text-align:right">− ${money(r.discountValue)}</td></tr>`);
-      if(num(r.economyTopup)>0) rows.push(`<tr><td style="padding:6px 0">Корректировка стоимости заказа</td><td style="padding:6px 0;text-align:right">+ ${money(r.economyTopup)}</td></tr>`);
+      if(num(r.economyTopup)>0) rows.push(`<tr><td style="padding:6px 0">Корректировка стоимости заказа *</td><td style="padding:6px 0;text-align:right">+ ${money(r.economyTopup)}</td></tr>`);
       rows.push(`<tr><td style="padding:12px 0;border-top:2px solid #0f172a;font-weight:800;font-size:17px">Итого к оплате</td><td style="padding:12px 0;border-top:2px solid #0f172a;text-align:right;font-weight:800;font-size:17px">${money(r.recommendedPrice)}</td></tr>`);
       rows.push(`<tr><td style="padding:6px 0">Сумма нормо-часов</td><td style="padding:6px 0;text-align:right">${hours(r.normHours)}</td></tr>`);
       rows.push(`<tr><td style="padding:6px 0">Примерное время уборки</td><td style="padding:6px 0;text-align:right">${hours(r.brigadeHours)}</td></tr>`);
       teamPdfRows(r).forEach(row=>rows.push(row));
-      return `<div style="font-size:18px;font-weight:800;margin:18px 0 8px">Стоимость</div><table style="width:100%;border-collapse:collapse;font-size:14px">${rows.join('')}</table>`;
+      const topupNote=num(r.economyTopup)>0 ? `<div style="font-size:11.5px;color:#475569;line-height:1.45;margin-top:8px">${esc(TOPUP_NOTE)}</div>` : '';
+      return `<div style="font-size:18px;font-weight:800;margin:18px 0 8px">Стоимость</div><table style="width:100%;border-collapse:collapse;font-size:14px">${rows.join('')}</table>${topupNote}`;
     })(),
     useful_info: `<div style="font-size:18px;font-weight:800;margin:18px 0 8px">Дополнительная информация</div><div style="border:1px solid #cbd5e1;border-radius:14px;padding:14px;margin-bottom:18px">${state.mainInfo.usefulInfo?esc(state.mainInfo.usefulInfo).replace(/\n/g,'<br>'):'—'}</div>`,
     main_info: `<div style="font-size:18px;font-weight:800;margin:18px 0 8px">Основная информация</div><div style="border:1px solid #cbd5e1;border-radius:14px;padding:14px;margin-bottom:18px">${state.mainInfo.equipmentText?`<div><strong>Техника:</strong><br>${esc(state.mainInfo.equipmentText).replace(/\n/g,'<br>')}</div>`:''}${state.mainInfo.chemistryText?`<div style="margin-top:10px"><strong>Химия / сертификаты:</strong><br>${esc(state.mainInfo.chemistryText).replace(/\n/g,'<br>')}</div>`:''}${!state.mainInfo.equipmentText && !state.mainInfo.chemistryText ? '<div>—</div>' : ''}</div>`,
