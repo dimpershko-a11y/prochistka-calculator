@@ -20,6 +20,8 @@ defaults.mainInfo = defaults.mainInfo || {equipmentText:'', chemistryText:'', us
 defaults.extras = defaults.extras || [];
 defaults.extraCategories = defaults.extraCategories || [];
 defaults.form = defaults.form || {clientName:'',objectType:'Квартира',area:0,cleanType:'general',discount:0,discountMode:'percent',discountAmount:0,clutter:'low',dirtiness:'low',travelType:'kad',travelKm:20,ownerRole:'cleaner_manager',profitPercent:25,notes:'',showOnlySelected:false};
+if(defaults.form.seriesCount == null) defaults.form.seriesCount = 1;
+if(defaults.form.seriesMonths == null) defaults.form.seriesMonths = 1;
 defaults.savedOrders = [];
 defaults.ui = defaults.ui || {showTariffs:false, showSettings:false, extraGroupsCollapsed:{}};
 function clone(x){return JSON.parse(JSON.stringify(x));}
@@ -596,6 +598,17 @@ function moveItem(arr, from, to){
   copy.splice(to,0,item);
   return copy;
 }
+// Переставляет ключ объекта на delta позиций: порядок ключей задаёт порядок отображения в списках.
+function moveObjectKey(obj, key, delta){
+  const keys=Object.keys(obj||{});
+  const from=keys.indexOf(key);
+  const to=from+delta;
+  if(from<0 || to<0 || to>=keys.length) return obj;
+  const reordered=moveItem(keys, from, to);
+  const out={};
+  reordered.forEach(k=>{ out[k]=obj[k]; });
+  return out;
+}
 
 function ensureExtraCategories(){
   state.extraCategories = Array.isArray(state.extraCategories) ? state.extraCategories : [];
@@ -730,7 +743,11 @@ function renderCoefficientEditor(wrapId, typeKey, groupName, fieldName){
     </div>
     <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap">
       <span class="muted" style="font-size:12px">ID: ${esc(key)}</span>
-      <button type="button" class="danger" data-delete-coef="${fieldName}" data-key="${key}">Удалить тип</button>
+      <div class="btns" style="align-items:center">
+        <button type="button" aria-label="Поднять выше" title="Поднять выше" data-move-coef="${fieldName}" data-key="${key}" data-dir="-1">↑</button>
+        <button type="button" aria-label="Опустить ниже" title="Опустить ниже" data-move-coef="${fieldName}" data-key="${key}" data-dir="1">↓</button>
+        <button type="button" class="danger" data-delete-coef="${fieldName}" data-key="${key}">Удалить тип</button>
+      </div>
     </div>`;
     wrap.appendChild(div);
   });
@@ -751,6 +768,11 @@ function renderCoefficientEditor(wrapId, typeKey, groupName, fieldName){
     col[key]=col[key]||{};
     col[key][field]=field==='label'?e.target.value:num(e.target.value);
     syncLegacyFromCleaningTypes(state); saveState(); populateMainSelects(); recalc();
+  });
+  wrap.querySelectorAll('[data-move-coef]').forEach(btn=>btn.onclick=()=>{
+    const field=btn.dataset.moveCoef, key=btn.dataset.key, dir=Number(btn.dataset.dir)||0;
+    type[field]=moveObjectKey(type[field]||{}, key, dir);
+    syncLegacyFromCleaningTypes(state); saveState(); renderTariffs(); populateMainSelects(); recalc();
   });
   wrap.querySelectorAll('[data-delete-coef]').forEach(btn=>btn.onclick=()=>{
     const field=btn.dataset.deleteCoef, key=btn.dataset.key;
@@ -971,7 +993,27 @@ function recalc(){
   if($('sumDirtK')) $('sumDirtK').textContent='× '+r.dirtPriceK.toFixed(2);
   if($('sumBaseMin')) $('sumBaseMin').textContent=money(r.minBase)+(r.minBaseApplied?' применена':'');
   $('sumBase').textContent=money(r.baseRaw); $('sumExtras').textContent=money(r.extrasTotal); $('sumTravel').textContent=money(r.travelTotal); $('sumDiscount').textContent='− '+money(r.discountValue); $('sumMarket').textContent=money(r.marketPrice);
-  $('sumLabor').textContent=money(r.laborCost); $('sumMaterials').textContent=money(r.materialsCost); $('sumDirect').textContent=money(r.directCost); $('sumOverhead').textContent=money(r.overheadPerJob); $('sumFull').textContent=money(r.fullCost); $('targetLabel').textContent=`Целевая цена (+${num(r.profitPercent)}%)`; $('sumTarget').textContent=money(r.targetPrice); $('sumNetProfit').textContent=money(r.netProfit); $('sumMargin').textContent=`${r.marginPct.toFixed(0)} %`;
+  $('sumLabor').textContent=money(r.laborCost); $('sumMaterials').textContent=money(r.materialsCost); $('sumDirect').textContent=money(r.directCost); $('sumOverhead').textContent=money(r.overheadPerCleaning)+(r.seriesCount>1?` (${money(r.overheadPerJob)} / ${r.seriesCount})`:''); $('sumFull').textContent=money(r.fullCost); $('targetLabel').textContent=`Целевая цена (+${num(r.profitPercent)}%)`; $('sumTarget').textContent=money(r.targetPrice); $('sumNetProfit').textContent=money(r.netProfit); $('sumMargin').textContent=`${r.marginPct.toFixed(0)} %`;
+  const seriesRows=$('seriesRows');
+  if(seriesRows){
+    const showSeries=r.seriesCount>1;
+    seriesRows.classList.toggle('hidden', !showSeries);
+    if(showSeries){
+      $('sumSinglePrice').textContent=money(r.singleRecommendedPrice);
+      $('sumSeriesCount').textContent=`${r.seriesCount} × ${money(r.recommendedPrice)} · ${r.seriesMonths} мес.`;
+      $('sumSeriesSaving').textContent='− '+money(r.seriesSavingTotal);
+      $('sumSeriesTotal').textContent=money(r.seriesTotal);
+    }
+  }
+  const seriesHint=$('seriesHint');
+  if(seriesHint){
+    if(r.seriesCount>1){
+      seriesHint.classList.remove('hidden');
+      seriesHint.textContent=`Серия: ${r.seriesCount} уборок за ${r.seriesMonths} мес. Одна уборка: ${money(r.recommendedPrice)} вместо ${money(r.singleRecommendedPrice)} разовой${r.seriesSavingPerCleaning>0?` (выгода ${money(r.seriesSavingPerCleaning)} за уборку)`:''}. Итого за серию: ${money(r.seriesTotal)}.`;
+    } else {
+      seriesHint.classList.add('hidden'); seriesHint.textContent='';
+    }
+  }
   $('timeBase').textContent=hours(r.baseHours); $('timeExtras').textContent=hours(r.extrasHours); $('timeNorm').textContent=hours(r.normHours); $('timeBrigade').textContent=hours(r.brigadeHours); $('brigadeLabel').textContent=`Время уборки бригадой (${r.peopleOnSite} чел.)`;
   $('cardClient').textContent=state.form.clientName||'—'; $('cardObject').textContent=state.form.objectType||'—'; $('cardArea').textContent=`${num(state.form.area)} м²`; $('cardCleanType').textContent=r.rate.label; $('cardClutter').textContent=r.clutter.label; $('cardDirt').textContent=r.dirt.label;
   const tconf=(state.travel&&state.travel[state.form.travelType])||{}; const tBase=num(tconf.base), tPerKm=num(tconf.perKm);
@@ -1007,7 +1049,12 @@ function estimateText(){
   if(num(r.travelTotal)>0) lines.push(`Выезд: ${money(r.travelTotal)}`);
   if(num(r.discountValue)>0) lines.push(`Скидка: − ${money(r.discountValue)}`);
   if(num(r.economyTopup)>0) lines.push(`Корректировка стоимости заказа *: + ${money(r.economyTopup)}`);
-  lines.push(`\nИТОГО к оплате: ${money(r.recommendedPrice)}`);
+  lines.push(`\nИТОГО к оплате${r.seriesCount>1?' (за 1 уборку)':''}: ${money(r.recommendedPrice)}`);
+  if(r.seriesCount>1){
+    lines.push(`Серия уборок: ${r.seriesCount} (обслуживание ${r.seriesMonths} мес.)`);
+    lines.push(`ИТОГО за серию: ${money(r.seriesTotal)}`);
+    if(r.seriesSavingTotal>0) lines.push(`Ваша выгода за серию по сравнению с разовыми уборками: ${money(r.seriesSavingTotal)}`);
+  }
   lines.push(`Сумма нормо-часов: ${hours(r.normHours)}`);
   lines.push(`Примерное время уборки: ${hours(r.brigadeHours)}`);
   teamTextLines(r).forEach(line=>lines.push(line));
@@ -1053,12 +1100,18 @@ function buildPrintHtml(){
       if(num(r.travelTotal)>0) rows.push(`<tr><td style="padding:6px 0">Выезд</td><td style="padding:6px 0;text-align:right">${money(r.travelTotal)}</td></tr>`);
       if(num(r.discountValue)>0) rows.push(`<tr><td style="padding:6px 0">Скидка</td><td style="padding:6px 0;text-align:right">− ${money(r.discountValue)}</td></tr>`);
       if(num(r.economyTopup)>0) rows.push(`<tr><td style="padding:6px 0">Корректировка стоимости заказа *</td><td style="padding:6px 0;text-align:right">+ ${money(r.economyTopup)}</td></tr>`);
-      rows.push(`<tr><td style="padding:12px 0;border-top:2px solid #0f172a;font-weight:800;font-size:17px">Итого к оплате</td><td style="padding:12px 0;border-top:2px solid #0f172a;text-align:right;font-weight:800;font-size:17px">${money(r.recommendedPrice)}</td></tr>`);
+      const isSeries=r.seriesCount>1;
+      rows.push(`<tr><td style="padding:12px 0;border-top:2px solid #0f172a;font-weight:800;font-size:17px">${isSeries?'Итого за одну уборку':'Итого к оплате'}</td><td style="padding:12px 0;border-top:2px solid #0f172a;text-align:right;font-weight:800;font-size:17px">${money(r.recommendedPrice)}</td></tr>`);
+      if(isSeries){
+        rows.push(`<tr><td style="padding:6px 0">Уборок в серии</td><td style="padding:6px 0;text-align:right">${r.seriesCount} (обслуживание ${r.seriesMonths} мес.)</td></tr>`);
+        rows.push(`<tr><td style="padding:12px 0;border-top:2px solid #0f172a;font-weight:800;font-size:17px">Итого за серию к оплате</td><td style="padding:12px 0;border-top:2px solid #0f172a;text-align:right;font-weight:800;font-size:17px">${money(r.seriesTotal)}</td></tr>`);
+      }
       rows.push(`<tr><td style="padding:6px 0">Сумма нормо-часов</td><td style="padding:6px 0;text-align:right">${hours(r.normHours)}</td></tr>`);
       rows.push(`<tr><td style="padding:6px 0">Примерное время уборки</td><td style="padding:6px 0;text-align:right">${hours(r.brigadeHours)}</td></tr>`);
       teamPdfRows(r).forEach(row=>rows.push(row));
+      const seriesNote=(isSeries && r.seriesSavingTotal>0) ? `<div style="font-size:12.5px;color:#166534;font-weight:700;line-height:1.45;margin-top:8px">Ваша выгода за серию по сравнению с ${r.seriesCount} разовыми уборками: ${money(r.seriesSavingTotal)} (разовая уборка — ${money(r.singleRecommendedPrice)}).</div>` : '';
       const topupNote=num(r.economyTopup)>0 ? `<div style="font-size:11.5px;color:#475569;line-height:1.45;margin-top:8px">${esc(TOPUP_NOTE)}</div>` : '';
-      return `<div style="font-size:18px;font-weight:800;margin:18px 0 8px">Стоимость</div><table style="width:100%;border-collapse:collapse;font-size:14px">${rows.join('')}</table>${topupNote}`;
+      return `<div style="font-size:18px;font-weight:800;margin:18px 0 8px">Стоимость</div><table style="width:100%;border-collapse:collapse;font-size:14px">${rows.join('')}</table>${seriesNote}${topupNote}`;
     })(),
     useful_info: `<div style="font-size:18px;font-weight:800;margin:18px 0 8px">Дополнительная информация</div><div style="border:1px solid #cbd5e1;border-radius:14px;padding:14px;margin-bottom:18px">${state.mainInfo.usefulInfo?esc(state.mainInfo.usefulInfo).replace(/\n/g,'<br>'):'—'}</div>`,
     main_info: `<div style="font-size:18px;font-weight:800;margin:18px 0 8px">Основная информация</div><div style="border:1px solid #cbd5e1;border-radius:14px;padding:14px;margin-bottom:18px">${state.mainInfo.equipmentText?`<div><strong>Техника:</strong><br>${esc(state.mainInfo.equipmentText).replace(/\n/g,'<br>')}</div>`:''}${state.mainInfo.chemistryText?`<div style="margin-top:10px"><strong>Химия / сертификаты:</strong><br>${esc(state.mainInfo.chemistryText).replace(/\n/g,'<br>')}</div>`:''}${!state.mainInfo.equipmentText && !state.mainInfo.chemistryText ? '<div>—</div>' : ''}</div>`,
@@ -1132,7 +1185,7 @@ function bind(){
   $('resetStorageBtn').onclick=()=>requestEditAccess(()=>{ if(!confirm('Сбросить все сохранённые данные в этом браузере?')) return; localStorage.removeItem(STORAGE_KEY); state=mergeState(clone(defaults)); migrateV43(); migrateV46(); fillForm(); renderTariffs(); renderExtras(); recalc(); toast("Все данные сброшены"); });
   $('demoBtn').onclick=()=>{ state.form={...state.form, clientName:'Ирина', objectType:'Квартира', area:68, cleanType:'general', discount:5, clutter:'medium', dirtiness:'medium', travelType:'km15', travelKm:20, ownerRole:'cleaner_manager', profitPercent:25, notes:'Есть кот. Уборка нужна в пятницу после 11:00.'}; state.extras=state.extras.map(x=>({...x, qty:({1:1,9:1,14:4,18:1}[x.id]||0)})); fillForm(); renderExtras(); recalc(); toast('Подставлен пример'); };
   $('showOnlySelected').onchange=e=>{ state.form.showOnlySelected=e.target.checked; saveState(); renderExtras(); };
-  ['clientName','objectType','area','discount','discountAmount','travelKm','profitPercent','notes'].forEach(id=>$(id).oninput=e=>{ state.form[id]=['area','discount','discountAmount','travelKm','profitPercent'].includes(id)?num(e.target.value):e.target.value; recalc(); });
+  ['clientName','objectType','area','discount','discountAmount','travelKm','profitPercent','seriesCount','seriesMonths','notes'].forEach(id=>{ const el=$(id); if(!el) return; el.oninput=e=>{ state.form[id]=['area','discount','discountAmount','travelKm','profitPercent','seriesCount','seriesMonths'].includes(id)?num(e.target.value):e.target.value; recalc(); }; });
   ['cleanType','clutter','dirtiness','travelType','ownerRole','discountMode'].forEach(id=>$(id).onchange=e=>{ state.form[id]=e.target.value; if(id==='cleanType'){ ensureFormCleanTypeAndCoefs(true); populateMainSelects(); } if(id==='discountMode'){ updateDiscountInputs(); } recalc(); });
   ['brandName','brandTagline'].forEach(id=>{ const el=$(id); if(!el) return; el.oninput=e=>{ const map={brandName:'name',brandTagline:'tagline'}; state.brand[map[id]]=e.target.value; saveState(); renderBrandLogoPreview(); }; });
   if($('brandContactText')) $('brandContactText').oninput=e=>{ state.brand.contactText=e.target.value; const lines=String(e.target.value||'').split(/\n+/).map(x=>x.trim()).filter(Boolean); state.brand.phone=lines[0]||''; state.brand.site=lines[1]||''; saveState(); };
@@ -1144,6 +1197,6 @@ function bind(){
   if($('addExtraBtn')) $('addExtraBtn').onclick=()=>requestEditAccess(()=>{ const name=$('newExtraName').value.trim(), unit=$('newExtraUnit').value.trim()||'шт', price=num($('newExtraPrice').value), time=num($('newExtraTime').value); let category=($('newExtraCategoryCustom')&&$('newExtraCategoryCustom').value.trim()) || ($('newExtraCategory')&&$('newExtraCategory').value) || 'Другое'; if($('newExtraCategoryCustom')&&$('newExtraCategoryCustom').value.trim()){ addExtraCategory(category); $('newExtraCategoryCustom').value=''; } if(!name||!price){ toast('Заполни название и цену'); return; } state.extras.push({id:Date.now(), name, unit, price, qty:0, time, category, builtIn:false}); ensureExtraCategories(); if(!state.extraCategories.includes(category)) state.extraCategories.push(category); $('newExtraName').value=''; $('newExtraPrice').value=''; $('newExtraTime').value=''; saveState(); renderCategoryOptions(category); renderCategoryManager(); renderExtras(); renderExtrasEditor(); recalc(); toast('Услуга добавлена'); });
 }
 function updateDiscountInputs(){ const mode=state.form.discountMode==='amount'?'amount':'percent'; const sel=$('discountMode'); if(sel) sel.value=mode; const pct=$('discount'), amt=$('discountAmount'); if(pct) pct.classList.toggle('hidden', mode!=='percent'); if(amt) amt.classList.toggle('hidden', mode!=='amount'); }
-function fillForm(){ if(!isEditUnlocked()){ state.ui.showTariffs=false; state.ui.showSettings=false; } $('clientName').value=state.form.clientName; $('objectType').value=state.form.objectType; $('area').value=state.form.area; $('discount').value=state.form.discount; if($('discountAmount')) $('discountAmount').value=state.form.discountAmount||0; updateDiscountInputs(); $('travelKm').value=state.form.travelKm; if($('ownerRole')) $('ownerRole').value=state.form.ownerRole||'none'; $('profitPercent').value=state.form.profitPercent; $('notes').value=state.form.notes; $('showOnlySelected').checked=!!state.form.showOnlySelected; $('settingsModal')?.classList.toggle('hidden', !state.ui.showSettings); populateMainSelects(); if($('includedServices')) $('includedServices').value=getTypeIncluded(state.form.cleanType)||''; renderSettingsPanel(); setSettingsTab(state.ui.settingsTab); }
+function fillForm(){ if(!isEditUnlocked()){ state.ui.showTariffs=false; state.ui.showSettings=false; } $('clientName').value=state.form.clientName; $('objectType').value=state.form.objectType; $('area').value=state.form.area; $('discount').value=state.form.discount; if($('discountAmount')) $('discountAmount').value=state.form.discountAmount||0; updateDiscountInputs(); $('travelKm').value=state.form.travelKm; if($('ownerRole')) $('ownerRole').value=state.form.ownerRole||'none'; $('profitPercent').value=state.form.profitPercent; if($('seriesCount')) $('seriesCount').value=state.form.seriesCount||1; if($('seriesMonths')) $('seriesMonths').value=state.form.seriesMonths||1; $('notes').value=state.form.notes; $('showOnlySelected').checked=!!state.form.showOnlySelected; $('settingsModal')?.classList.toggle('hidden', !state.ui.showSettings); populateMainSelects(); if($('includedServices')) $('includedServices').value=getTypeIncluded(state.form.cleanType)||''; renderSettingsPanel(); setSettingsTab(state.ui.settingsTab); }
 fillForm(); renderTariffs(); bind(); renderExtras(); renderSettingsPanel(); setSettingsTab(state.ui.settingsTab); enhanceAccessibility(); recalc(); updateBackupReminder(); attemptIdbRecovery(); if($('versionBadge')) $('versionBadge').textContent=APP_VERSION; setupAccess();
 if('serviceWorker' in navigator){ window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{})); }

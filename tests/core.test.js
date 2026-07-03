@@ -177,6 +177,29 @@ test('строки сметы сходятся с итогом через econom
   assert.equal(result.economyTopup,result.recommendedPrice-result.marketPrice);
 });
 
+test('серия уборок делит накладные и показывает выгоду', () => {
+  const state=makeState();
+  state.form.seriesCount=4;
+  state.form.seriesMonths=1;
+  const r=calculateOrder(state);
+  assert.equal(r.overheadPerCleaning,1875);            // 7500 / 4
+  assert.equal(r.fullCost,5750+1875);                  // прямые + доля накладных
+  assert.equal(r.singleFullCost,5750+7500);            // разовый заказ несёт все накладные
+  assert.ok(r.recommendedPrice<r.singleRecommendedPrice);
+  assert.equal(r.seriesTotal,r.recommendedPrice*4);
+  assert.equal(r.seriesSavingPerCleaning,r.singleRecommendedPrice-r.recommendedPrice);
+  assert.equal(r.seriesSavingTotal,r.seriesSavingPerCleaning*4);
+});
+
+test('seriesCount=1 (или отсутствует) не меняет расчёт', () => {
+  const r=calculateOrder(makeState());
+  assert.equal(r.seriesCount,1);
+  assert.equal(r.overheadPerCleaning,r.overheadPerJob);
+  assert.equal(r.fullCost,13250);
+  assert.equal(r.recommendedPrice,r.singleRecommendedPrice);
+  assert.equal(r.seriesSavingTotal,0);
+});
+
 test('стоимость выезда берётся из настроек travel', () => {
   const state=makeState({
     travel:{km15:{label:'До 15 км',base:2000,perKm:0},kad:{label:'КАД',base:0,perKm:0}}

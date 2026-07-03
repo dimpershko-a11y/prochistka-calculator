@@ -113,11 +113,24 @@
     const jobsPerMonth = num(overhead.jobsPerMonth);
     const overheadPerJob = jobsPerMonth > 0 ? overheadMonthly / jobsPerMonth : 0;
 
-    // --- Себестоимость и цены ---
+    // --- Серия уборок (абонемент): накладные одного заказа делятся на все уборки серии ---
+    const seriesCount = Math.max(1, Math.round(num(form.seriesCount)) || 1);
+    const seriesMonths = Math.max(1, Math.round(num(form.seriesMonths)) || 1);
+    const overheadPerCleaning = overheadPerJob / seriesCount;
+
+    // --- Себестоимость и цены (за одну уборку) ---
     const directCost = laborCost + materialsCost;              // жёсткий пол: ниже = прямой убыток
-    const fullCost = directCost + overheadPerJob;              // полная себестоимость
+    const fullCost = directCost + overheadPerCleaning;         // полная себестоимость одной уборки в серии
     const targetPrice = fullCost * (1 + profitPercent / 100);  // целевая цена (наценка на полную себестоимость)
     const recommendedPrice = Math.max(marketPrice, targetPrice, directCost);
+
+    // --- Разовый заказ для сравнения (все накладные ложатся на одну уборку) ---
+    const singleFullCost = directCost + overheadPerJob;
+    const singleTargetPrice = singleFullCost * (1 + profitPercent / 100);
+    const singleRecommendedPrice = Math.max(marketPrice, singleTargetPrice, directCost);
+    const seriesTotal = recommendedPrice * seriesCount;
+    const seriesSavingPerCleaning = Math.max(0, singleRecommendedPrice - recommendedPrice);
+    const seriesSavingTotal = seriesSavingPerCleaning * seriesCount;
 
     const netProfit = recommendedPrice - fullCost;             // факт. прибыль при рекомендованной цене
     const marginPct = recommendedPrice > 0 ? (netProfit / recommendedPrice) * 100 : 0;
@@ -138,6 +151,9 @@
       crewNeeded, hiredCleaners, peopleOnSite, ownerRole, ownerCost,
       cleanerDay, ownerManagerDay, ownerCleanerManagerDay,
       laborCost, materialPerM2, materialsCost, overheadMonthly, jobsPerMonth, overheadPerJob,
+      seriesCount, seriesMonths, overheadPerCleaning,
+      singleFullCost, singleTargetPrice, singleRecommendedPrice,
+      seriesTotal, seriesSavingPerCleaning, seriesSavingTotal,
       directCost, fullCost, profitPercent, targetPrice, recommendedPrice,
       netProfit, marginPct, contribution, marketNetProfit, belowDirect, belowFull, economyGap,
       selectedExtras,
