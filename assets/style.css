@@ -224,6 +224,15 @@ button{white-space:normal;line-height:1.25}
   .wrap > .grid{gap:16px!important}
 }
 
+/* v4.8.1: сворачиваемая карточка серии уборок */
+.series-card-summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.series-card-summary::-webkit-details-marker{display:none}
+.series-card-summary::after{content:'▾';color:var(--muted);font-size:14px;transition:transform .15s}
+.series-card[open] .series-card-summary::after{transform:rotate(180deg)}
+.series-badge{display:inline-flex;align-items:center;margin-left:auto;background:var(--soft);color:#334155;border:1px solid var(--line);border-radius:999px;padding:5px 11px;font-size:12.5px;font-weight:700;line-height:1.2}
+.series-badge.active{background:#ecfdf5;border-color:#a7f3d0;color:#065f46}
+.series-card-body{margin-top:12px}
+
 /* v4.7.7: единые модальные окна (смета, превью PDF, данные, резервные копии) */
 .modal-overlay{position:fixed;inset:0;z-index:65;background:rgba(15,23,42,.6);padding:16px;overflow:auto}
 .modal-card{max-width:760px;margin:40px auto;background:#fff;border:1px solid var(--line);border-radius:var(--radius-lg);padding:18px;box-shadow:0 20px 60px rgba(0,0,0,.25)}

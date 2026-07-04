@@ -1,7 +1,7 @@
 const STORAGE_KEY = 'prochistka_calc_app_v4';
 const APP_CONFIG = window.PROCHISTKA_CONFIG || {};
 const CORE = window.PROCHISTKA_CORE;
-const APP_VERSION = APP_CONFIG.APP_VERSION || 'v4.8.0';
+const APP_VERSION = APP_CONFIG.APP_VERSION || 'v4.8.1';
 const defaults = APP_CONFIG.defaults || {};
 defaults.brand = defaults.brand || {name:'PRO-CHISTKA', phone:'', tagline:'Клининговые услуги', site:'', contactText:'', logoDataUrl:''};
 if(!defaults.brand.contactText){ defaults.brand.contactText = [defaults.brand.phone, defaults.brand.site].filter(Boolean).join('\n'); }
@@ -294,6 +294,8 @@ const $=id=>document.getElementById(id);
 const money=n=>new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(Math.round(Number(n)||0))+' ₽';
 const num=n=>Math.max(0, Number(n)||0);
 const hours=n=>(Math.round((Number(n)||0)*10)/10).toFixed(1)+' ч';
+function pluralRu(n, one, few, many){ const m10=n%10, m100=n%100; if(m10===1&&m100!==11) return one; if(m10>=2&&m10<=4&&(m100<12||m100>14)) return few; return many; }
+const cleaningsWord=n=>pluralRu(n,'уборка','уборки','уборок');
 
 function getCleaningTypes(){
   syncLegacyFromCleaningTypes(state);
@@ -1039,9 +1041,19 @@ function recalc(){
   if(seriesHint){
     if(r.seriesCount>1){
       seriesHint.classList.remove('hidden');
-      seriesHint.textContent=`Серия: ${r.seriesCount} уборок за ${r.seriesMonths} мес. Одна уборка: ${money(r.recommendedPrice)} вместо ${money(r.singleRecommendedPrice)} разовой${r.seriesSavingPerCleaning>0?` (выгода ${money(r.seriesSavingPerCleaning)} за уборку)`:''}. Итого за серию: ${money(r.seriesTotal)}.`;
+      seriesHint.textContent=`Серия: ${r.seriesCount} ${cleaningsWord(r.seriesCount)} за ${r.seriesMonths} мес. Одна уборка: ${money(r.recommendedPrice)} вместо ${money(r.singleRecommendedPrice)} разовой${r.seriesSavingPerCleaning>0?` (выгода ${money(r.seriesSavingPerCleaning)} за уборку)`:''}. Итого за серию: ${money(r.seriesTotal)}.`;
     } else {
       seriesHint.classList.add('hidden'); seriesHint.textContent='';
+    }
+  }
+  const seriesBadge=$('seriesBadge');
+  if(seriesBadge){
+    if(r.seriesCount>1){
+      seriesBadge.textContent=`${r.seriesCount} ${cleaningsWord(r.seriesCount)} · ${r.seriesMonths} мес.${r.seriesDiscountPercent>0?` · скидка ${num(r.seriesDiscountPercent)}%`:''}`;
+      seriesBadge.classList.add('active');
+    } else {
+      seriesBadge.textContent='разовая уборка';
+      seriesBadge.classList.remove('active');
     }
   }
   $('timeBase').textContent=hours(r.baseHours); $('timeExtras').textContent=hours(r.extrasHours); $('timeNorm').textContent=hours(r.normHours); $('timeBrigade').textContent=hours(r.brigadeHours); $('brigadeLabel').textContent=`Время уборки бригадой (${r.peopleOnSite} чел.)`;
@@ -1255,6 +1267,11 @@ function bind(){
   document.addEventListener('click', e=>{ const panel=$('moreMenuPanel'), btn=$('moreMenuBtn'); if(panel && btn && !panel.classList.contains('hidden') && !panel.contains(e.target) && e.target!==btn) closeMoreMenu(); });
   document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ if($('settingsModal') && !$('settingsModal').classList.contains('hidden')){ closeSettingsModal(); saveState(); } ['dataModal','backupModal','shareModal','pdfPreviewModal'].forEach(id=>$(id)?.classList.add('hidden')); closeMoreMenu(); } });
   if($('lockEditBtn') && (APP_CONFIG.APP_PASSWORD || APP_CONFIG.appPassword)){ $('lockEditBtn').classList.remove('hidden'); $('lockEditBtn').onclick=lockEditing; }
+  const seriesCard=$('seriesCard');
+  if(seriesCard){
+    seriesCard.open = !!state.ui.seriesOpen || num(state.form.seriesCount)>1;
+    seriesCard.addEventListener('toggle', ()=>{ state.ui=state.ui||{}; state.ui.seriesOpen=seriesCard.open; saveState(); });
+  }
   if($('previewPdfBtn')) $('previewPdfBtn').onclick=openPdfPreview;
   if($('closePdfPreviewBtn')) $('closePdfPreviewBtn').onclick=closePdfPreview;
   if($('refreshPdfPreviewBtn')) $('refreshPdfPreviewBtn').onclick=refreshPdfPreview;
@@ -1282,6 +1299,6 @@ function bind(){
   if($('addExtraBtn')) $('addExtraBtn').onclick=()=>requestEditAccess(()=>{ const name=$('newExtraName').value.trim(), unit=$('newExtraUnit').value.trim()||'шт', price=num($('newExtraPrice').value), time=num($('newExtraTime').value); let category=($('newExtraCategoryCustom')&&$('newExtraCategoryCustom').value.trim()) || ($('newExtraCategory')&&$('newExtraCategory').value) || 'Другое'; if($('newExtraCategoryCustom')&&$('newExtraCategoryCustom').value.trim()){ addExtraCategory(category); $('newExtraCategoryCustom').value=''; } if(!name||!price){ toast('Заполни название и цену'); return; } state.extras.push({id:Date.now(), name, unit, price, qty:0, time, category, builtIn:false}); ensureExtraCategories(); if(!state.extraCategories.includes(category)) state.extraCategories.push(category); $('newExtraName').value=''; $('newExtraPrice').value=''; $('newExtraTime').value=''; saveState(); renderCategoryOptions(category); renderCategoryManager(); renderExtras(); renderExtrasEditor(); recalc(); toast('Услуга добавлена'); });
 }
 function updateDiscountInputs(){ const mode=state.form.discountMode==='amount'?'amount':'percent'; const sel=$('discountMode'); if(sel) sel.value=mode; const pct=$('discount'), amt=$('discountAmount'); if(pct) pct.classList.toggle('hidden', mode!=='percent'); if(amt) amt.classList.toggle('hidden', mode!=='amount'); }
-function fillForm(){ if(!isEditUnlocked()){ state.ui.showTariffs=false; state.ui.showSettings=false; } $('clientName').value=state.form.clientName; $('objectType').value=state.form.objectType; $('area').value=state.form.area; $('discount').value=state.form.discount; if($('discountAmount')) $('discountAmount').value=state.form.discountAmount||0; updateDiscountInputs(); $('travelKm').value=state.form.travelKm; if($('ownerRole')) $('ownerRole').value=state.form.ownerRole||'none'; $('profitPercent').value=state.form.profitPercent; if($('seriesCount')) $('seriesCount').value=state.form.seriesCount||1; if($('seriesMonths')) $('seriesMonths').value=state.form.seriesMonths||1; if($('seriesDiscount')) $('seriesDiscount').value=state.form.seriesDiscount||0; if($('seriesSchedule')) $('seriesSchedule').value=state.form.seriesSchedule||''; $('notes').value=state.form.notes; $('showOnlySelected').checked=!!state.form.showOnlySelected; $('settingsModal')?.classList.toggle('hidden', !state.ui.showSettings); populateMainSelects(); if($('includedServices')) $('includedServices').value=getTypeIncluded(state.form.cleanType)||''; renderSettingsPanel(); setSettingsTab(state.ui.settingsTab); }
+function fillForm(){ if(!isEditUnlocked()){ state.ui.showTariffs=false; state.ui.showSettings=false; } $('clientName').value=state.form.clientName; $('objectType').value=state.form.objectType; $('area').value=state.form.area; $('discount').value=state.form.discount; if($('discountAmount')) $('discountAmount').value=state.form.discountAmount||0; updateDiscountInputs(); $('travelKm').value=state.form.travelKm; if($('ownerRole')) $('ownerRole').value=state.form.ownerRole||'none'; $('profitPercent').value=state.form.profitPercent; if($('seriesCount')) $('seriesCount').value=state.form.seriesCount||1; if($('seriesMonths')) $('seriesMonths').value=state.form.seriesMonths||1; if($('seriesDiscount')) $('seriesDiscount').value=state.form.seriesDiscount||0; if($('seriesSchedule')) $('seriesSchedule').value=state.form.seriesSchedule||''; if($('seriesCard') && num(state.form.seriesCount)>1) $('seriesCard').open=true; $('notes').value=state.form.notes; $('showOnlySelected').checked=!!state.form.showOnlySelected; $('settingsModal')?.classList.toggle('hidden', !state.ui.showSettings); populateMainSelects(); if($('includedServices')) $('includedServices').value=getTypeIncluded(state.form.cleanType)||''; renderSettingsPanel(); setSettingsTab(state.ui.settingsTab); }
 fillForm(); renderTariffs(); bind(); renderExtras(); renderSettingsPanel(); setSettingsTab(state.ui.settingsTab); enhanceAccessibility(); recalc(); updateBackupReminder(); attemptIdbRecovery(); if($('versionBadge')) $('versionBadge').textContent=APP_VERSION; setupAccess();
 if('serviceWorker' in navigator){ window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{})); }

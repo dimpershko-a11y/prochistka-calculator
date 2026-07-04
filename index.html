@@ -5,7 +5,7 @@
 <title>Калькулятор стоимости уборки</title>
 
 <link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="anonymous" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Orbitron:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/><link href="assets/style.css" rel="stylesheet"/><link href="manifest.json" rel="manifest"/><meta content="#0f172a" name="theme-color"/><script defer="defer" src="config.js"></script><script defer="defer" src="assets/vendor/html2pdf.bundle.min.js"></script><script defer="defer" src="assets/core.js"></script><script defer="defer" src="assets/app.js"></script></head>
-<body><div class="version-badge" id="versionBadge">v4.8.0</div>
+<body><div class="version-badge" id="versionBadge">v4.8.1</div>
 <div class="login-overlay hidden" id="loginOverlay">
 <div class="login-card">
 <div class="login-title">PRO-CHISTKA</div>
@@ -238,8 +238,12 @@
 </div>
 </div>
 </div>
-<div class="card">
-<div class="section-title">Серия уборок (абонемент)</div>
+<details class="card series-card" id="seriesCard">
+<summary class="series-card-summary">
+<span class="section-title" style="margin:0">Серия уборок (абонемент)</span>
+<span class="series-badge" id="seriesBadge">разовая уборка</span>
+</summary>
+<div class="series-card-body">
 <div class="muted" style="margin-bottom:10px">Для регулярной (например, поддерживающей) уборки: накладные расходы делятся на все уборки серии, поэтому одна уборка выходит дешевле разовой. Цена за уборку, итог за серию и выгода клиента попадут в смету.</div>
 <div class="grid g3">
 <div><label>Уборок в серии</label><input id="seriesCount" min="1" step="1" type="number"/></div>
@@ -249,6 +253,7 @@
 <div style="margin-top:10px"><label>График уборок (попадёт в смету)</label><input id="seriesSchedule" placeholder="Например: каждую пятницу с 10:00"/></div>
 <div class="notice hidden" id="seriesHint" style="margin-top:10px"></div>
 </div>
+</details>
 <div class="card">
 <div class="topbar" style="margin-bottom:12px">
 <div>
