@@ -329,6 +329,9 @@ function buildPdfFileName(){
   return `Смета${no}${client?'_'+client:''}_${date}.pdf`;
 }
 // Генерирует PDF-файл из той же вёрстки, что печать и превью. Требует локальную библиотеку html2pdf.
+// Файл для «Поделиться» делается одной длинной страницей по высоте содержимого:
+// на телефоне клиент просто прокручивает смету, и никакие строки не рвутся между страницами.
+// Для печати на A4 остаётся «Скачать PDF» (window.print с постраничной разбивкой браузера).
 async function generatePdfBlob(){
   if(typeof html2pdf==='undefined') throw new Error('html2pdf не загружен');
   const host=document.createElement('div');
@@ -336,13 +339,15 @@ async function generatePdfBlob(){
   host.innerHTML=buildPrintHtml();
   document.body.appendChild(host);
   try{
+    const el=host.firstElementChild;
+    const heightPx=Math.max(el.scrollHeight, el.offsetHeight, 1123);
+    const pageHeightMm=Math.ceil(heightPx * 210 / 794) + 2; // 794px = 210мм при ширине A4
     return await html2pdf().set({
-      margin:[10,0,12,0],
+      margin:0,
       image:{type:'jpeg', quality:.95},
       html2canvas:{scale:2, backgroundColor:'#ffffff', windowWidth:794},
-      jsPDF:{unit:'mm', format:'a4', orientation:'portrait'},
-      pagebreak:{mode:['css','legacy']}
-    }).from(host.firstElementChild).output('blob');
+      jsPDF:{unit:'mm', format:[210, pageHeightMm], orientation:'portrait'}
+    }).from(el).output('blob');
   } finally {
     host.remove();
   }
