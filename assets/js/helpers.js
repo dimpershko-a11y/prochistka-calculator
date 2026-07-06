@@ -109,6 +109,7 @@ function buildConfigDefaultsFromState(){
     discount:0,
     discountMode:'percent',
     discountAmount:0,
+    forceDiscount:false,
     clutter:firstClutter,
     dirtiness:firstDirtiness,
     travelType: state.form.travelType || (defaults.form && defaults.form.travelType) || 'kad',

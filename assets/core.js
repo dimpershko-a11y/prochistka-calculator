@@ -129,12 +129,18 @@
     const directCost = laborCost + materialsCost;              // жёсткий пол: ниже = прямой убыток
     const fullCost = directCost + overheadPerCleaning;         // полная себестоимость одной уборки в серии
     const targetPrice = rub(fullCost * (1 + profitPercent / 100) / taxK); // целевая цена (наценка на полную себестоимость + налог)
-    const priceBeforeSeriesDiscount = Math.max(marketPrice, targetPrice, directCost);
 
-    // --- Скидка за серию (абонемент): применяется к цене одной уборки, но не ниже прямых затрат ---
+    // --- Принудительная скидка: продаём строго по рыночной цене, без автоподъёма до себестоимости.
+    // Оператор берёт риск убытка на себя; интерфейс показывает предупреждение.
+    const forceDiscount = form.forceDiscount === true;
+    const priceBeforeSeriesDiscount = forceDiscount ? marketPrice : Math.max(marketPrice, targetPrice, directCost);
+
+    // --- Скидка за серию (абонемент): применяется к цене одной уборки, обычно не ниже прямых затрат ---
     const seriesDiscountPercent = seriesCount > 1 ? Math.min(100, num(form.seriesDiscount)) : 0;
     const seriesDiscountValue = seriesDiscountPercent > 0
-      ? Math.min(rub(priceBeforeSeriesDiscount * seriesDiscountPercent / 100), Math.max(0, priceBeforeSeriesDiscount - directCost))
+      ? (forceDiscount
+        ? rub(priceBeforeSeriesDiscount * seriesDiscountPercent / 100)
+        : Math.min(rub(priceBeforeSeriesDiscount * seriesDiscountPercent / 100), Math.max(0, priceBeforeSeriesDiscount - directCost)))
       : 0;
     const recommendedPrice = priceBeforeSeriesDiscount - seriesDiscountValue;
 
@@ -155,6 +161,12 @@
     const belowFull = area > 0 && marketPrice < fullCost;
     const economyGap = Math.max(0, fullCost - marketPrice);
 
+    // --- Предупреждения для принудительной скидки: тут в убыток может уйти именно итоговая цена ---
+    const forcedBelowDirect = forceDiscount && area > 0 && recommendedPrice < directCost;
+    const forcedBelowFull = forceDiscount && area > 0 && !forcedBelowDirect && recommendedPrice < fullCost;
+    const forcedLossValue = forcedBelowDirect ? rub(directCost - recommendedPrice) : 0;
+    const forcedGapValue = forcedBelowFull ? rub(fullCost - recommendedPrice) : 0;
+
     const selectedExtras = extras.filter(item => num(item.qty) > 0);
 
     return {
@@ -173,6 +185,7 @@
       seriesTotal, seriesSavingPerCleaning, seriesSavingTotal,
       directCost, fullCost, profitPercent, targetPrice, recommendedPrice,
       netProfit, marginPct, contribution, marketNetProfit, belowDirect, belowFull, economyGap,
+      forceDiscount, forcedBelowDirect, forcedBelowFull, forcedLossValue, forcedGapValue,
       selectedExtras,
       // алиасы для обратной совместимости со старым кодом отображения
       payroll: laborCost,

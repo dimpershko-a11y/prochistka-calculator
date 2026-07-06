@@ -129,6 +129,25 @@ function check(name, ok, detail) {
   });
   check('перестановка коэффициентов меняет порядок', orderChanged);
 
+  // Принудительная скидка
+  await page.click('[data-tariff-inner-tab="main"]').catch(() => {});
+  await page.click('#closeSettingsBtn');
+  await page.waitForTimeout(150);
+  await page.fill('#discount', '80');
+  await page.dispatchEvent('#discount', 'input');
+  await page.waitForTimeout(150);
+  const beforeForce = await page.evaluate(() => calc());
+  check('без принудительной скидки цена поднимается выше рынка', beforeForce.recommendedPrice > beforeForce.marketPrice, JSON.stringify(beforeForce.recommendedPrice));
+  await page.check('#forceDiscount');
+  await page.waitForTimeout(150);
+  const afterForce = await page.evaluate(() => calc());
+  check('принудительная скидка держит цену на уровне рынка', afterForce.recommendedPrice === afterForce.marketPrice, JSON.stringify(afterForce));
+  const warningShown = await page.$eval('#economyWarning', el => !el.classList.contains('hidden'));
+  check('предупреждение об убытке показывается при принудительной скидке', warningShown || afterForce.recommendedPrice >= afterForce.fullCost);
+  await page.uncheck('#forceDiscount');
+  await page.fill('#discount', '0');
+  await page.dispatchEvent('#discount', 'input');
+
   check('нет ошибок JS на странице', pageErrors.length === 0, pageErrors.join('; '));
 
   await browser.close();

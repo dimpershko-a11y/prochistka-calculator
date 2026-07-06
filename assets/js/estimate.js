@@ -97,6 +97,20 @@ function repeatSavedOrder(orderId){
 }
 function renderEconomyWarning(r){
   const el=$('economyWarning'); if(!el) return;
+  if(r.forceDiscount){
+    if(r.forcedBelowDirect){
+      el.classList.remove('hidden');
+      el.innerHTML = `<strong>Принудительная скидка: убыток ${money(r.forcedLossValue)}.</strong><br>
+        Итоговая цена (${money(r.recommendedPrice)}) ниже прямых затрат (${money(r.directCost)}) — заказ в минус даже без накладных и прибыли. Автоподъём цены отключён флажком «Принудительная скидка».`;
+    } else if(r.forcedBelowFull){
+      el.classList.remove('hidden');
+      el.innerHTML = `<strong>Принудительная скидка: прибыли нет, не хватает ${money(r.forcedGapValue)} до полной себестоимости.</strong><br>
+        Итоговая цена (${money(r.recommendedPrice)}) покрывает прямые затраты (${money(r.directCost)}), но не полную себестоимость (${money(r.fullCost)}). Автоподъём цены отключён флажком «Принудительная скидка».`;
+    } else {
+      el.classList.add('hidden'); el.innerHTML='';
+    }
+    return;
+  }
   if(r.belowDirect){
     el.classList.remove('hidden');
     el.innerHTML = `<strong>Убыток: рынок (${money(r.marketPrice)}) ниже прямых затрат (${money(r.directCost)}).</strong><br>

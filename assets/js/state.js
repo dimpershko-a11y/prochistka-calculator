@@ -3,7 +3,7 @@
 const STORAGE_KEY = 'prochistka_calc_app_v4';
 const APP_CONFIG = window.PROCHISTKA_CONFIG || {};
 const CORE = window.PROCHISTKA_CORE;
-const APP_VERSION = APP_CONFIG.APP_VERSION || 'v4.9.3';
+const APP_VERSION = APP_CONFIG.APP_VERSION || 'v4.10.0';
 const defaults = APP_CONFIG.defaults || {};
 defaults.brand = defaults.brand || {name:'PRO-CHISTKA', phone:'', tagline:'Клининговые услуги', site:'', contactText:'', logoDataUrl:''};
 if(!defaults.brand.contactText){ defaults.brand.contactText = [defaults.brand.phone, defaults.brand.site].filter(Boolean).join('\n'); }
@@ -30,6 +30,7 @@ if(defaults.form.clientPhone == null) defaults.form.clientPhone = '';
 if(defaults.form.cleanDate == null) defaults.form.cleanDate = '';
 if(defaults.form.estimateNo == null) defaults.form.estimateNo = '';
 if(defaults.form.estimateDate == null) defaults.form.estimateDate = 0;
+if(defaults.form.forceDiscount == null) defaults.form.forceDiscount = false;
 if(defaults.overhead.taxPercent == null) defaults.overhead.taxPercent = 0;
 defaults.estimateValidityDays = defaults.estimateValidityDays != null ? defaults.estimateValidityDays : 14;
 defaults.savedOrders = [];
