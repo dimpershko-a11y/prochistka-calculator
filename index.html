@@ -5,7 +5,7 @@
 <title>Калькулятор стоимости уборки</title>
 
 <link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="anonymous" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Orbitron:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/><link href="assets/style.css" rel="stylesheet"/><link href="manifest.json" rel="manifest"/><meta content="#0f172a" name="theme-color"/><script defer="defer" src="config.js"></script><script defer="defer" src="assets/vendor/html2pdf.bundle.min.js"></script><script defer="defer" src="assets/core.js"></script><script defer="defer" src="assets/app.js"></script></head>
-<body><div class="version-badge" id="versionBadge">v4.8.1</div>
+<body><div class="version-badge" id="versionBadge">v4.9.0</div>
 <div class="login-overlay hidden" id="loginOverlay">
 <div class="login-card">
 <div class="login-title">PRO-CHISTKA</div>
@@ -109,6 +109,8 @@
 <div class="grid g2">
 <div><label>Название компании</label><input id="brandName"/></div>
 <div><label>Подзаголовок</label><input id="brandTagline"/></div>
+<div><label>Срок действия сметы, дней</label><input id="estimateValidityDays" min="0" type="number"/></div>
+<div><label> </label><div class="muted" style="font-size:13px">0 — не показывать срок действия. Номер сметы присваивается автоматически при создании PDF.</div></div>
 </div>
 <div style="margin-top:12px">
 <label>Контакты в шапке PDF</label>
@@ -198,7 +200,9 @@
 <div class="section-title">Основные параметры</div>
 <div class="grid g2">
 <div><label>Имя клиента</label><input id="clientName"/></div>
+<div><label>Телефон клиента</label><input id="clientPhone" inputmode="tel" placeholder="+7 (___) ___-__-__" type="tel"/></div>
 <div><label>Объект</label><input id="objectType"/></div>
+<div><label>Дата уборки</label><input id="cleanDate" type="date"/></div>
 <div><label>Площадь, м²</label><input id="area" min="0" type="number"/></div>
 <div><label>Тип уборки</label><select id="cleanType"><option value="maintenance">Поддерживающая</option><option value="general">Генеральная</option><option value="postreno">После ремонта</option></select></div>
 <div><label>Скидка клиенту</label>
@@ -262,6 +266,7 @@
 </div>
 <label style="display:flex;align-items:center;gap:8px;font-size:14px"><input id="showOnlySelected" style="width:auto" type="checkbox"/> Показать только выбранные</label>
 </div>
+<input id="extrasSearch" placeholder="Поиск услуги: например, окно, диван, холодильник…" style="margin-bottom:12px" type="search"/>
 <div class="grid" id="extrasWrap"></div>
 </div>
 </div>
@@ -296,6 +301,7 @@
 <div class="row"><strong>Жёсткий пол (ниже = убыток)</strong><strong id="sumDirect">0 ₽</strong></div>
 <div class="row"><span class="muted">Накладные на заказ</span><span id="sumOverhead">0 ₽</span></div>
 <div class="row"><strong>Полная себестоимость</strong><strong id="sumFull">0 ₽</strong></div>
+<div class="row hidden" id="taxRow"><span class="muted" id="taxLabel">Налог с выручки</span><span id="sumTax">− 0 ₽</span></div>
 <div class="row"><strong id="targetLabel">Целевая цена (+25%)</strong><strong id="sumTarget">0 ₽</strong></div>
 <div class="divider"></div>
 <div class="row"><span class="muted">Факт. прибыль при рекоменд. цене</span><span id="sumNetProfit">0 ₽</span></div>
@@ -411,6 +417,13 @@
     </div>
     <div class="backup-reminder hidden" id="backupReminder"></div>
   </div>
+</div>
+<div class="mobile-summary-bar" id="mobileSummaryBar">
+  <div class="mobile-summary-info" id="mobileSummaryInfo" role="button" tabindex="0" title="К деталям расчёта">
+    <div class="mobile-summary-price" id="mobileSummaryPrice">0 ₽</div>
+    <div class="mobile-summary-sub" id="mobileSummarySub">рекомендованная цена</div>
+  </div>
+  <button class="primary" id="mobileShareBtn" type="button">Поделиться PDF</button>
 </div>
 <div class="print-area" id="printArea"></div>
 <div class="toast hidden" id="toast">Логотип удалён</div>

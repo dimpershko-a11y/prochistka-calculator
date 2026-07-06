@@ -121,10 +121,14 @@
     const seriesMonths = Math.max(1, Math.round(num(form.seriesMonths)) || 1);
     const overheadPerCleaning = rub(overheadPerJob / seriesCount);
 
+    // --- Налог с выручки (УСН/НПД). Целевая цена закладывает налог, чтобы заданная прибыль оставалась чистой ---
+    const taxPercent = Math.min(99, num(overhead.taxPercent));
+    const taxK = 1 - taxPercent / 100;
+
     // --- Себестоимость и цены (за одну уборку) ---
     const directCost = laborCost + materialsCost;              // жёсткий пол: ниже = прямой убыток
     const fullCost = directCost + overheadPerCleaning;         // полная себестоимость одной уборки в серии
-    const targetPrice = rub(fullCost * (1 + profitPercent / 100)); // целевая цена (наценка на полную себестоимость)
+    const targetPrice = rub(fullCost * (1 + profitPercent / 100) / taxK); // целевая цена (наценка на полную себестоимость + налог)
     const priceBeforeSeriesDiscount = Math.max(marketPrice, targetPrice, directCost);
 
     // --- Скидка за серию (абонемент): применяется к цене одной уборки, но не ниже прямых затрат ---
@@ -136,13 +140,14 @@
 
     // --- Разовый заказ для сравнения (все накладные ложатся на одну уборку) ---
     const singleFullCost = directCost + overheadPerJob;
-    const singleTargetPrice = rub(singleFullCost * (1 + profitPercent / 100));
+    const singleTargetPrice = rub(singleFullCost * (1 + profitPercent / 100) / taxK);
     const singleRecommendedPrice = Math.max(marketPrice, singleTargetPrice, directCost);
     const seriesTotal = recommendedPrice * seriesCount;
     const seriesSavingPerCleaning = Math.max(0, singleRecommendedPrice - recommendedPrice);
     const seriesSavingTotal = seriesSavingPerCleaning * seriesCount;
 
-    const netProfit = recommendedPrice - fullCost;             // факт. прибыль при рекомендованной цене
+    const taxValue = rub(recommendedPrice * taxPercent / 100); // налог при рекомендованной цене
+    const netProfit = recommendedPrice - fullCost - taxValue;  // факт. прибыль при рекомендованной цене (после налога)
     const marginPct = recommendedPrice > 0 ? (netProfit / recommendedPrice) * 100 : 0;
     const contribution = recommendedPrice - directCost;        // вклад в накладные + прибыль
     const marketNetProfit = marketPrice - fullCost;            // прибыль, если продать строго по рынку
@@ -161,6 +166,7 @@
       crewNeeded, hiredCleaners, peopleOnSite, ownerRole, ownerCost,
       cleanerDay, ownerManagerDay, ownerCleanerManagerDay,
       laborCost, materialPerM2, materialsCost, overheadMonthly, jobsPerMonth, overheadPerJob,
+      taxPercent, taxValue,
       seriesCount, seriesMonths, overheadPerCleaning,
       seriesDiscountPercent, seriesDiscountValue, priceBeforeSeriesDiscount,
       singleFullCost, singleTargetPrice, singleRecommendedPrice,
