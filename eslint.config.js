@@ -50,5 +50,21 @@ module.exports = [
         process: 'readonly'
       }
     }
+  },
+  {
+    // Файлы приложения загружаются последовательно и разделяют глобальную область:
+    // пофайловый no-undef здесь даёт только ложные срабатывания (реальные опечатки ловит tests/e2e.js).
+    files: ['assets/js/**/*.js'],
+    rules: {
+      'no-undef': 'off',
+      'no-unused-vars': 'off'
+    }
+  },
+  {
+    // e2e-скрипт исполняет код и в Node, и внутри страницы (page.evaluate) — глобалы страницы не видны ESLint.
+    files: ['tests/e2e.js'],
+    rules: {
+      'no-undef': 'off'
+    }
   }
 ];
