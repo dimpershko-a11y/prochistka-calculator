@@ -1,5 +1,5 @@
 window.PROCHISTKA_CONFIG = {
-  "APP_VERSION": "v4.9.1",
+  "APP_VERSION": "v4.9.2",
   "APP_PASSWORD": "",
   "CONFIG_REVISION": 9,
   "SYNC_BRAND_PDF_ON_REVISION": true,

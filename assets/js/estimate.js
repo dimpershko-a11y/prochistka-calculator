@@ -182,7 +182,7 @@ function teamPdfRows(r){
   const rows=[];
   const cleaners=num(r.hiredCleaners);
   const ownerOnSite=['manager','cleaner_manager'].includes(String(r.ownerRole||''));
-  const row=(label,value)=>`<tr><td style="padding:6px 0">${label}</td><td style="padding:6px 0;text-align:right">${value}</td></tr>`;
+  const row=(label,value)=>`<tr style="break-inside:avoid;page-break-inside:avoid"><td style="padding:6px 0">${label}</td><td style="padding:6px 0;text-align:right">${value}</td></tr>`;
   if(cleaners>0) rows.push(row('Клинеры', `${cleaners} чел.`));
   if(ownerOnSite) rows.push(row('Бригадир-менеджер', '1 чел.'));
   if(!rows.length && num(r.peopleOnSite)>0) rows.push(row('Клинеры', `${num(r.peopleOnSite)} чел.`));
@@ -262,48 +262,53 @@ function buildPrintHtml(){
   const headerStyle=`display:flex;justify-content:space-between;gap:24px;border-bottom:${num(h.borderWidth)}px solid ${cleanCss(h.borderColor,'#0f172a')};padding-bottom:${num(h.paddingBottom)||16}px;margin-bottom:${num(h.marginBottom)||22}px`;
   const clientPhone=String(state.form.clientPhone||'').trim();
   const cleanDateText=formatCleanDate();
+  // Запрет разрыва страницы внутри строки: html2pdf режет лист по высоте,
+  // поэтому каждая строка текста должна быть отдельным элементом с break-inside:avoid.
+  const AVOID='break-inside:avoid;page-break-inside:avoid';
+  const multiline=(text,gap=4)=>String(text||'').split(/\n/).map(l=>`<div style="${AVOID};margin:0 0 ${gap}px">${esc(l)||'&nbsp;'}</div>`).join('');
+  const sectionTitle=t=>`<div style="${AVOID};page-break-after:avoid;font-size:18px;font-weight:800;margin:18px 0 8px">${t}</div>`;
   const blocks = {
     client: `<table style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:14px">
-      <tr><td style="padding:6px 0;font-weight:700">Клиент</td><td style="padding:6px 0">${esc(state.form.clientName||'—')}</td></tr>
-      ${clientPhone?`<tr><td style="padding:6px 0;font-weight:700">Телефон</td><td style="padding:6px 0">${esc(clientPhone)}</td></tr>`:''}
-      <tr><td style="padding:6px 0;font-weight:700">Объект</td><td style="padding:6px 0">${esc(state.form.objectType)}</td></tr>
-      ${cleanDateText?`<tr><td style="padding:6px 0;font-weight:700">Дата уборки</td><td style="padding:6px 0">${esc(cleanDateText)}</td></tr>`:''}
-      <tr><td style="padding:6px 0;font-weight:700">Площадь</td><td style="padding:6px 0">${num(state.form.area)} м²</td></tr>
-      <tr><td style="padding:6px 0;font-weight:700">Тип уборки</td><td style="padding:6px 0">${esc(r.rate.label)}</td></tr>
-      <tr><td style="padding:6px 0;font-weight:700">Заставленность</td><td style="padding:6px 0">${esc(r.clutter.label)} (коэф. × ${r.clutterPriceK.toFixed(2)})</td></tr>
-      <tr><td style="padding:6px 0;font-weight:700">Загрязнённость</td><td style="padding:6px 0">${esc(r.dirt.label)} (коэф. × ${r.dirtPriceK.toFixed(2)})</td></tr>
+      <tr style="break-inside:avoid;page-break-inside:avoid"><td style="padding:6px 0;font-weight:700">Клиент</td><td style="padding:6px 0">${esc(state.form.clientName||'—')}</td></tr>
+      ${clientPhone?`<tr style="break-inside:avoid;page-break-inside:avoid"><td style="padding:6px 0;font-weight:700">Телефон</td><td style="padding:6px 0">${esc(clientPhone)}</td></tr>`:''}
+      <tr style="break-inside:avoid;page-break-inside:avoid"><td style="padding:6px 0;font-weight:700">Объект</td><td style="padding:6px 0">${esc(state.form.objectType)}</td></tr>
+      ${cleanDateText?`<tr style="break-inside:avoid;page-break-inside:avoid"><td style="padding:6px 0;font-weight:700">Дата уборки</td><td style="padding:6px 0">${esc(cleanDateText)}</td></tr>`:''}
+      <tr style="break-inside:avoid;page-break-inside:avoid"><td style="padding:6px 0;font-weight:700">Площадь</td><td style="padding:6px 0">${num(state.form.area)} м²</td></tr>
+      <tr style="break-inside:avoid;page-break-inside:avoid"><td style="padding:6px 0;font-weight:700">Тип уборки</td><td style="padding:6px 0">${esc(r.rate.label)}</td></tr>
+      <tr style="break-inside:avoid;page-break-inside:avoid"><td style="padding:6px 0;font-weight:700">Заставленность</td><td style="padding:6px 0">${esc(r.clutter.label)} (коэф. × ${r.clutterPriceK.toFixed(2)})</td></tr>
+      <tr style="break-inside:avoid;page-break-inside:avoid"><td style="padding:6px 0;font-weight:700">Загрязнённость</td><td style="padding:6px 0">${esc(r.dirt.label)} (коэф. × ${r.dirtPriceK.toFixed(2)})</td></tr>
     </table>`,
-    included: `<div style="font-size:18px;font-weight:800;margin:18px 0 8px">В услуги входят</div><div style="border:1px solid #cbd5e1;border-radius:14px;padding:14px;margin-bottom:18px">${included.length?included.map(x=>`<div style="margin:0 0 6px">• ${esc(x)}</div>`).join(''):'<div>—</div>'}</div>`,
-    extras: `<div style="font-size:18px;font-weight:800;margin:18px 0 8px">Дополнительные услуги</div><div style="border:1px solid #cbd5e1;border-radius:14px;padding:14px;margin-bottom:18px">${extras.length?extras.map(x=>`<div style="display:flex;justify-content:space-between;gap:12px;margin:0 0 7px;align-items:flex-start"><span><span style="display:inline-block;font-size:10px;line-height:1;padding:4px 7px;border-radius:999px;background:#eef2f7;color:#475569;font-weight:700;margin-right:7px;vertical-align:middle;text-transform:uppercase;letter-spacing:.2px">${esc(x.category||'Другое')}</span>${esc(x.name)} × ${num(x.qty)}</span><span style="white-space:nowrap">${money(num(x.qty)*num(x.price))}</span></div>`).join(''):'<div>Без доп. услуг</div>'}</div>`,
+    included: `${sectionTitle('В услуги входят')}<div style="border:1px solid #cbd5e1;border-radius:14px;padding:14px;margin-bottom:18px">${included.length?included.map(x=>`<div style="${AVOID};margin:0 0 6px">• ${esc(x)}</div>`).join(''):'<div>—</div>'}</div>`,
+    extras: `${sectionTitle('Дополнительные услуги')}<div style="border:1px solid #cbd5e1;border-radius:14px;padding:14px;margin-bottom:18px">${extras.length?extras.map(x=>`<div style="${AVOID};display:flex;justify-content:space-between;gap:12px;margin:0 0 7px;align-items:flex-start"><span><span style="display:inline-block;font-size:10px;line-height:1;padding:4px 7px;border-radius:999px;background:#eef2f7;color:#475569;font-weight:700;margin-right:7px;vertical-align:middle;text-transform:uppercase;letter-spacing:.2px">${esc(x.category||'Другое')}</span>${esc(x.name)} × ${num(x.qty)}</span><span style="white-space:nowrap">${money(num(x.qty)*num(x.price))}</span></div>`).join(''):'<div>Без доп. услуг</div>'}</div>`,
     pricing: (()=>{
       const rows=[];
-      rows.push(`<tr><td style="padding:6px 0">Стоимость уборки</td><td style="padding:6px 0;text-align:right">${money(r.baseNoK)}</td></tr>`);
-      rows.push(`<tr><td style="padding:6px 0">Стоимость с коэффициентом заставленности</td><td style="padding:6px 0;text-align:right">${money(r.baseAfterClutter)}</td></tr>`);
-      rows.push(`<tr><td style="padding:6px 0">Стоимость с коэффициентом загрязнённости</td><td style="padding:6px 0;text-align:right">${money(r.baseWithK)}</td></tr>`);
-      if(r.minBaseApplied) rows.push(`<tr><td style="padding:6px 0">Применена минимальная стоимость уборки</td><td style="padding:6px 0;text-align:right">${money(r.baseRaw)}</td></tr>`);
-      if(num(r.extrasTotal)>0) rows.push(`<tr><td style="padding:6px 0">Дополнительные услуги</td><td style="padding:6px 0;text-align:right">${money(r.extrasTotal)}</td></tr>`);
-      if(num(r.travelTotal)>0) rows.push(`<tr><td style="padding:6px 0">Выезд</td><td style="padding:6px 0;text-align:right">${money(r.travelTotal)}</td></tr>`);
-      if(num(r.discountValue)>0) rows.push(`<tr><td style="padding:6px 0">Скидка</td><td style="padding:6px 0;text-align:right">− ${money(r.discountValue)}</td></tr>`);
-      if(num(r.economyTopup)>0) rows.push(`<tr><td style="padding:6px 0">Корректировка стоимости заказа *</td><td style="padding:6px 0;text-align:right">+ ${money(r.economyTopup)}</td></tr>`);
-      if(num(r.seriesDiscountValue)>0) rows.push(`<tr><td style="padding:6px 0">Скидка за серию (${num(r.seriesDiscountPercent)}%)</td><td style="padding:6px 0;text-align:right">− ${money(r.seriesDiscountValue)}</td></tr>`);
+      rows.push(`<tr style="break-inside:avoid;page-break-inside:avoid"><td style="padding:6px 0">Стоимость уборки</td><td style="padding:6px 0;text-align:right">${money(r.baseNoK)}</td></tr>`);
+      rows.push(`<tr style="break-inside:avoid;page-break-inside:avoid"><td style="padding:6px 0">Стоимость с коэффициентом заставленности</td><td style="padding:6px 0;text-align:right">${money(r.baseAfterClutter)}</td></tr>`);
+      rows.push(`<tr style="break-inside:avoid;page-break-inside:avoid"><td style="padding:6px 0">Стоимость с коэффициентом загрязнённости</td><td style="padding:6px 0;text-align:right">${money(r.baseWithK)}</td></tr>`);
+      if(r.minBaseApplied) rows.push(`<tr style="break-inside:avoid;page-break-inside:avoid"><td style="padding:6px 0">Применена минимальная стоимость уборки</td><td style="padding:6px 0;text-align:right">${money(r.baseRaw)}</td></tr>`);
+      if(num(r.extrasTotal)>0) rows.push(`<tr style="break-inside:avoid;page-break-inside:avoid"><td style="padding:6px 0">Дополнительные услуги</td><td style="padding:6px 0;text-align:right">${money(r.extrasTotal)}</td></tr>`);
+      if(num(r.travelTotal)>0) rows.push(`<tr style="break-inside:avoid;page-break-inside:avoid"><td style="padding:6px 0">Выезд</td><td style="padding:6px 0;text-align:right">${money(r.travelTotal)}</td></tr>`);
+      if(num(r.discountValue)>0) rows.push(`<tr style="break-inside:avoid;page-break-inside:avoid"><td style="padding:6px 0">Скидка</td><td style="padding:6px 0;text-align:right">− ${money(r.discountValue)}</td></tr>`);
+      if(num(r.economyTopup)>0) rows.push(`<tr style="break-inside:avoid;page-break-inside:avoid"><td style="padding:6px 0">Корректировка стоимости заказа *</td><td style="padding:6px 0;text-align:right">+ ${money(r.economyTopup)}</td></tr>`);
+      if(num(r.seriesDiscountValue)>0) rows.push(`<tr style="break-inside:avoid;page-break-inside:avoid"><td style="padding:6px 0">Скидка за серию (${num(r.seriesDiscountPercent)}%)</td><td style="padding:6px 0;text-align:right">− ${money(r.seriesDiscountValue)}</td></tr>`);
       const isSeries=r.seriesCount>1;
       const seriesSchedule=String(state.form.seriesSchedule||'').trim();
-      rows.push(`<tr><td style="padding:12px 0;border-top:2px solid #0f172a;font-weight:800;font-size:17px">${isSeries?'Итого за одну уборку':'Итого к оплате'}</td><td style="padding:12px 0;border-top:2px solid #0f172a;text-align:right;font-weight:800;font-size:17px">${money(r.recommendedPrice)}</td></tr>`);
+      rows.push(`<tr style="break-inside:avoid;page-break-inside:avoid"><td style="padding:12px 0;border-top:2px solid #0f172a;font-weight:800;font-size:17px">${isSeries?'Итого за одну уборку':'Итого к оплате'}</td><td style="padding:12px 0;border-top:2px solid #0f172a;text-align:right;font-weight:800;font-size:17px">${money(r.recommendedPrice)}</td></tr>`);
       if(isSeries){
-        rows.push(`<tr><td style="padding:6px 0">Уборок в серии</td><td style="padding:6px 0;text-align:right">${r.seriesCount} (обслуживание ${r.seriesMonths} мес.)</td></tr>`);
-        if(seriesSchedule) rows.push(`<tr><td style="padding:6px 0">График уборок</td><td style="padding:6px 0;text-align:right">${esc(seriesSchedule)}</td></tr>`);
-        rows.push(`<tr><td style="padding:12px 0;border-top:2px solid #0f172a;font-weight:800;font-size:17px">Итого за серию к оплате</td><td style="padding:12px 0;border-top:2px solid #0f172a;text-align:right;font-weight:800;font-size:17px">${money(r.seriesTotal)}</td></tr>`);
+        rows.push(`<tr style="break-inside:avoid;page-break-inside:avoid"><td style="padding:6px 0">Уборок в серии</td><td style="padding:6px 0;text-align:right">${r.seriesCount} (обслуживание ${r.seriesMonths} мес.)</td></tr>`);
+        if(seriesSchedule) rows.push(`<tr style="break-inside:avoid;page-break-inside:avoid"><td style="padding:6px 0">График уборок</td><td style="padding:6px 0;text-align:right">${esc(seriesSchedule)}</td></tr>`);
+        rows.push(`<tr style="break-inside:avoid;page-break-inside:avoid"><td style="padding:12px 0;border-top:2px solid #0f172a;font-weight:800;font-size:17px">Итого за серию к оплате</td><td style="padding:12px 0;border-top:2px solid #0f172a;text-align:right;font-weight:800;font-size:17px">${money(r.seriesTotal)}</td></tr>`);
       }
-      rows.push(`<tr><td style="padding:6px 0">Сумма нормо-часов</td><td style="padding:6px 0;text-align:right">${hours(r.normHours)}</td></tr>`);
-      rows.push(`<tr><td style="padding:6px 0">Примерное время уборки</td><td style="padding:6px 0;text-align:right">${hours(r.brigadeHours)}</td></tr>`);
+      rows.push(`<tr style="break-inside:avoid;page-break-inside:avoid"><td style="padding:6px 0">Сумма нормо-часов</td><td style="padding:6px 0;text-align:right">${hours(r.normHours)}</td></tr>`);
+      rows.push(`<tr style="break-inside:avoid;page-break-inside:avoid"><td style="padding:6px 0">Примерное время уборки</td><td style="padding:6px 0;text-align:right">${hours(r.brigadeHours)}</td></tr>`);
       teamPdfRows(r).forEach(row=>rows.push(row));
-      const seriesNote=(isSeries && r.seriesSavingTotal>0) ? `<div style="font-size:12.5px;color:#166534;font-weight:700;line-height:1.45;margin-top:8px">Ваша выгода за серию по сравнению с ${r.seriesCount} разовыми уборками: ${money(r.seriesSavingTotal)} (разовая уборка — ${money(r.singleRecommendedPrice)}).</div>` : '';
-      const topupNote=num(r.economyTopup)>0 ? `<div style="font-size:11.5px;color:#475569;line-height:1.45;margin-top:8px">${esc(TOPUP_NOTE)}</div>` : '';
-      return `<div style="font-size:18px;font-weight:800;margin:18px 0 8px">Стоимость</div><table style="width:100%;border-collapse:collapse;font-size:14px">${rows.join('')}</table>${seriesNote}${topupNote}`;
+      const seriesNote=(isSeries && r.seriesSavingTotal>0) ? `<div style="${AVOID};font-size:12.5px;color:#166534;font-weight:700;line-height:1.45;margin-top:8px">Ваша выгода за серию по сравнению с ${r.seriesCount} разовыми уборками: ${money(r.seriesSavingTotal)} (разовая уборка — ${money(r.singleRecommendedPrice)}).</div>` : '';
+      const topupNote=num(r.economyTopup)>0 ? `<div style="${AVOID};font-size:11.5px;color:#475569;line-height:1.45;margin-top:8px">${esc(TOPUP_NOTE)}</div>` : '';
+      return `${sectionTitle('Стоимость')}<table style="width:100%;border-collapse:collapse;font-size:14px">${rows.join('')}</table>${seriesNote}${topupNote}`;
     })(),
-    useful_info: `<div style="font-size:18px;font-weight:800;margin:18px 0 8px">Дополнительная информация</div><div style="border:1px solid #cbd5e1;border-radius:14px;padding:14px;margin-bottom:18px">${state.mainInfo.usefulInfo?esc(state.mainInfo.usefulInfo).replace(/\n/g,'<br>'):'—'}</div>`,
-    main_info: `<div style="font-size:18px;font-weight:800;margin:18px 0 8px">Основная информация</div><div style="border:1px solid #cbd5e1;border-radius:14px;padding:14px;margin-bottom:18px">${state.mainInfo.equipmentText?`<div><strong>Техника:</strong><br>${esc(state.mainInfo.equipmentText).replace(/\n/g,'<br>')}</div>`:''}${state.mainInfo.chemistryText?`<div style="margin-top:10px"><strong>Химия / сертификаты:</strong><br>${esc(state.mainInfo.chemistryText).replace(/\n/g,'<br>')}</div>`:''}${!state.mainInfo.equipmentText && !state.mainInfo.chemistryText ? '<div>—</div>' : ''}</div>`,
-    notes: `<div style="font-size:18px;font-weight:800;margin:18px 0 8px">Заметки</div><div style="border:1px solid #cbd5e1;border-radius:14px;padding:14px;min-height:60px">${esc(state.form.notes||'—')}</div>`
+    useful_info: `${sectionTitle('Дополнительная информация')}<div style="border:1px solid #cbd5e1;border-radius:14px;padding:14px;margin-bottom:18px">${state.mainInfo.usefulInfo?multiline(state.mainInfo.usefulInfo):'—'}</div>`,
+    main_info: `${sectionTitle('Основная информация')}<div style="border:1px solid #cbd5e1;border-radius:14px;padding:14px;margin-bottom:18px">${state.mainInfo.equipmentText?`<div><strong style="${AVOID};display:block;margin-bottom:4px">Техника:</strong>${multiline(state.mainInfo.equipmentText)}</div>`:''}${state.mainInfo.chemistryText?`<div style="margin-top:10px"><strong style="${AVOID};display:block;margin-bottom:4px">Химия / сертификаты:</strong>${multiline(state.mainInfo.chemistryText)}</div>`:''}${!state.mainInfo.equipmentText && !state.mainInfo.chemistryText ? '<div>—</div>' : ''}</div>`,
+    notes: `${sectionTitle('Заметки')}<div style="border:1px solid #cbd5e1;border-radius:14px;padding:14px;min-height:60px">${multiline(state.form.notes||'—')}</div>`
   };
   const content = state.pdfSettings.order.filter(k=>state.pdfSettings.visible[k]).map(k=>blocks[k]||'').join('');
   return `
