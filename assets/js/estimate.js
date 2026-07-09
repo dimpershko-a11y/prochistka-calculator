@@ -17,12 +17,13 @@ function renderExtras(){ const wrap=$('extrasWrap'); wrap.innerHTML=''; const gr
     const content=details.querySelector('div');
     if(!searching) details.addEventListener('toggle', ()=>setExtraGroupOpen(cat, details.open));
     groups[cat].forEach(item=>{
+      const itemId=esc(item.id);
       const div=document.createElement('div'); div.className='extra-card extra-item extra-pick-card'; div.style.margin='0';
       div.innerHTML=`<div class="extra-pick-head">
           <div class="service-name-text">${esc(item.name)}</div>
           <div class="muted extra-meta">${esc(item.unit)} · ${money(item.price)} · ~ ${hours(item.time)}</div>
         </div>
-        <div class="extra-qty-control"><label>Кол-во</label><div class="qty-stepper"><button type="button" aria-label="Убавить" data-qty-step="-1" data-id="${item.id}">−</button><input type="number" min="0" value="${num(item.qty)}" data-extra="${item.id}" data-field="qty"><button type="button" aria-label="Прибавить" data-qty-step="1" data-id="${item.id}">+</button></div></div>`;
+        <div class="extra-qty-control"><label>Кол-во</label><div class="qty-stepper"><button type="button" aria-label="Убавить" data-qty-step="-1" data-id="${itemId}">−</button><input type="number" min="0" value="${num(item.qty)}" data-extra="${itemId}" data-field="qty"><button type="button" aria-label="Прибавить" data-qty-step="1" data-id="${itemId}">+</button></div></div>`;
       content.appendChild(div);
     });
     wrap.appendChild(details);
@@ -77,8 +78,9 @@ function renderSavedOrders(){ const wrap=$('savedOrdersWrap'); wrap.innerHTML=''
     const isSeries=Number(o.seriesCount)>1;
     const seriesLine=isSeries?`<div class="muted" style="font-size:12px;margin-top:2px">Серия: ${Number(o.seriesCount)} × ${money(o.recommendedPrice)} = ${money(o.seriesTotal)}${o.seriesMonths?` · ${Number(o.seriesMonths)} мес.`:''}</div>`:'';
     const div=document.createElement('div'); div.className='saved-item';
+    const orderId=esc(o.id);
     const metaBits=[o.form&&o.form.estimateNo?`№ ${esc(o.form.estimateNo)}`:'', o.form&&o.form.clientPhone?esc(o.form.clientPhone):'', o.form&&o.form.cleanDate?esc(String(o.form.cleanDate).split('-').reverse().join('.')):''].filter(Boolean).join(' · ');
-    div.innerHTML=`<div style="font-weight:700">${esc(o.clientName)} · ${esc(o.objectType)}</div>${metaBits?`<div class="muted" style="font-size:12px;margin-top:2px">${metaBits}</div>`:''}<div class="muted" style="margin:4px 0">${esc(o.cleanType)} · ${num(o.area)} м²${isSeries?' · серия × '+Number(o.seriesCount):''}</div><div style="display:flex;justify-content:space-between;gap:8px"><span>${money(isSeries?o.seriesTotal:o.recommendedPrice)}</span><span class="muted">${hours(o.brigadeHours)}</span></div>${seriesLine}<div class="muted" style="font-size:12px;margin-top:4px">Нормо-часы: ${hours(o.normHours)}</div><div class="muted" style="font-size:12px;margin-top:2px">${esc(o.createdAt)}</div><div class="btns" style="margin-top:8px"><button type="button" data-order-repeat="${o.id}">Повторить</button><button type="button" class="danger" data-order-delete="${o.id}">Удалить</button></div>`;
+    div.innerHTML=`<div style="font-weight:700">${esc(o.clientName)} · ${esc(o.objectType)}</div>${metaBits?`<div class="muted" style="font-size:12px;margin-top:2px">${metaBits}</div>`:''}<div class="muted" style="margin:4px 0">${esc(o.cleanType)} · ${num(o.area)} м²${isSeries?' · серия × '+Number(o.seriesCount):''}</div><div style="display:flex;justify-content:space-between;gap:8px"><span>${money(isSeries?o.seriesTotal:o.recommendedPrice)}</span><span class="muted">${hours(o.brigadeHours)}</span></div>${seriesLine}<div class="muted" style="font-size:12px;margin-top:4px">Нормо-часы: ${hours(o.normHours)}</div><div class="muted" style="font-size:12px;margin-top:2px">${esc(o.createdAt)}</div><div class="btns" style="margin-top:8px"><button type="button" data-order-repeat="${orderId}">Повторить</button><button type="button" class="danger" data-order-delete="${orderId}">Удалить</button></div>`;
     wrap.appendChild(div);
   });
   wrap.querySelectorAll('[data-order-repeat]').forEach(btn=>btn.onclick=()=>repeatSavedOrder(btn.dataset.orderRepeat));
@@ -106,6 +108,10 @@ function renderEconomyWarning(r){
       el.classList.remove('hidden');
       el.innerHTML = `<strong>Принудительная скидка: прибыли нет, не хватает ${money(r.forcedGapValue)} до полной себестоимости.</strong><br>
         Итоговая цена (${money(r.recommendedPrice)}) покрывает прямые затраты (${money(r.directCost)}), но не полную себестоимость (${money(r.fullCost)}). Автоподъём цены отключён флажком «Принудительная скидка».`;
+    } else if(r.forcedBelowBreakEven){
+      el.classList.remove('hidden');
+      el.innerHTML = `<strong>Принудительная скидка: после налога не хватает ${money(r.forcedBreakEvenGapValue)} до нуля.</strong><br>
+        Итоговая цена (${money(r.recommendedPrice)}) покрывает себестоимость (${money(r.fullCost)}), но налоговая точка безубыточности выше: ${money(r.breakEvenPrice)}.`;
     } else {
       el.classList.add('hidden'); el.innerHTML='';
     }
@@ -343,9 +349,8 @@ function buildPdfFileName(){
   return `Смета${no}${client?'_'+client:''}_${date}.pdf`;
 }
 // Генерирует PDF-файл из той же вёрстки, что печать и превью. Требует локальную библиотеку html2pdf.
-// Файл для «Поделиться» делается одной длинной страницей по высоте содержимого:
+// Файл для «Поделиться» и «Скачать PDF» делается одной длинной страницей по высоте содержимого:
 // на телефоне клиент просто прокручивает смету, и никакие строки не рвутся между страницами.
-// Для печати на A4 остаётся «Скачать PDF» (window.print с постраничной разбивкой браузера).
 async function generatePdfBlob(){
   if(typeof html2pdf==='undefined') throw new Error('html2pdf не загружен');
   const host=document.createElement('div');
@@ -366,18 +371,23 @@ async function generatePdfBlob(){
     host.remove();
   }
 }
+function canSharePdfFile(file){
+  if(!navigator.share) return false;
+  if(!navigator.canShare) return true;
+  try{ return navigator.canShare({files:[file]}); }catch(e){ return false; }
+}
 async function sharePdfEstimate(){
   if(validateCurrentOrder().length) return;
   ensureEstimateNo();
-  const btn=$('sharePdfBtn');
-  if(btn) btn.disabled=true;
+  const buttons=[$('sharePdfBtn'), $('mobileShareBtn')].filter(Boolean);
+  buttons.forEach(btn=>btn.disabled=true);
   toast('Готовлю PDF…');
   try{
     const blob=await generatePdfBlob();
     const file=new File([blob], buildPdfFileName(), {type:'application/pdf'});
-    if(navigator.share && navigator.canShare && navigator.canShare({files:[file]})){
+    if(canSharePdfFile(file)){
       try{
-        await navigator.share({files:[file], title:'Смета на уборку'});
+        await navigator.share({files:[file], title:'Смета на уборку', text:'PDF-смета на уборку'});
         toast('Смета отправлена');
       }catch(e){
         if(e && e.name!=='AbortError'){ downloadBlob(blob, file.name); toast('Поделиться не получилось — PDF скачан'); }
@@ -386,6 +396,22 @@ async function sharePdfEstimate(){
       downloadBlob(blob, file.name);
       toast('«Поделиться» здесь не поддерживается — PDF скачан файлом');
     }
+  }catch(e){
+    toast('Не удалось создать PDF');
+  } finally {
+    buttons.forEach(btn=>btn.disabled=false);
+  }
+}
+async function downloadPdfEstimate(){
+  if(validateCurrentOrder().length) return;
+  ensureEstimateNo();
+  const btn=$('printPdfBtn');
+  if(btn) btn.disabled=true;
+  toast('Готовлю PDF…');
+  try{
+    const blob=await generatePdfBlob();
+    downloadBlob(blob, buildPdfFileName());
+    toast('PDF скачан');
   }catch(e){
     toast('Не удалось создать PDF');
   } finally {

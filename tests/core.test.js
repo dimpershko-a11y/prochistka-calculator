@@ -29,6 +29,20 @@ test('нулевая площадь не применяет минимальну
   assert.equal(result.laborCost,0);
 });
 
+test('нулевая площадь не создаёт рекомендованную цену из допов, выезда и накладных', () => {
+  const state=makeState({extras:[{id:1,name:'Окно',qty:3,price:500,time:.5}]});
+  state.form.area=0;
+  state.form.travelType='km20plus';
+  state.form.travelKm=20;
+  const result=calculateOrder(state);
+  assert.equal(result.extrasTotal,0);
+  assert.equal(result.travelTotal,0);
+  assert.equal(result.overheadPerCleaning,0);
+  assert.equal(result.targetPrice,0);
+  assert.equal(result.singleRecommendedPrice,0);
+  assert.equal(result.recommendedPrice,0);
+});
+
 test('минимальная стоимость применяется при положительной площади', () => {
   const state=makeState();
   state.form.area=10;
@@ -279,6 +293,21 @@ test('налог с выручки закладывается в целевую 
   assert.equal(r.taxValue,Math.round(17620*0.06));
   // чистая прибыль ~ 25% от полной себестоимости (с точностью до округления)
   assert.ok(Math.abs(r.netProfit-13250*0.25)<2);
+});
+
+test('рыночная прибыль и точка безубыточности учитывают налог с выручки', () => {
+  const state=makeState({extras:[{id:1,name:'Разовая услуга',qty:1,price:5000,time:0}]});
+  state.overhead={monthly:75000,jobsPerMonth:10,taxPercent:10};
+  state.form.forceDiscount=true;
+  state.form.discountMode='amount';
+  state.form.discountAmount=1000; // рынок = 14000: себестоимость покрыта, налоговая точка ещё нет
+  const r=calculateOrder(state);
+  assert.equal(r.breakEvenPrice,14722); // 13250 / 0.9
+  assert.equal(r.marketPrice,14000);
+  assert.equal(r.marketTaxValue,1400);
+  assert.equal(r.marketNetProfit,r.marketPrice-r.fullCost-r.marketTaxValue);
+  assert.equal(r.forcedBelowBreakEven,true);
+  assert.equal(r.forcedBreakEvenGapValue,r.breakEvenPrice-r.recommendedPrice);
 });
 
 test('налог 0 не меняет расчёт', () => {

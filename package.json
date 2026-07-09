@@ -1,6 +1,6 @@
 {
   "name": "prochistka-calculator",
-  "version": "4.10.0",
+  "version": "4.10.1",
   "description": "Мини-приложение калькулятора стоимости уборки PRO-CHISTKA.",
   "private": true,
   "type": "commonjs",
@@ -20,6 +20,7 @@
     "@eslint/js": "^10.0.1",
     "eslint": "^10.5.0",
     "htmlhint": "^1.9.2",
+    "playwright": "^1.61.1",
     "prettier": "^3.8.4",
     "stylelint": "^17.14.0",
     "stylelint-config-standard": "^40.0.0",

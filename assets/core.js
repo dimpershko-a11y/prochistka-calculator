@@ -37,6 +37,7 @@
     if(!rate || !clutter || !dirt) throw new Error('Некорректные параметры тарифа');
 
     const area = num(form.area);
+    const orderActive = area > 0;
     const profitPercent = num(form.profitPercent);
     const discountPercent = Math.min(100, num(form.discount));
     const clutterPriceK = Number(clutter.priceK) || 1;
@@ -55,7 +56,7 @@
     const minBaseApplied = area > 0 && baseWithK < minBase;
     const baseRaw = area > 0 ? Math.max(baseWithK, minBase) : 0;
     const extras = Array.isArray(state.extras) ? state.extras : [];
-    const extrasTotal = rub(extras.reduce((sum, item) => sum + num(item.qty) * num(item.price), 0));
+    const extrasTotal = orderActive ? rub(extras.reduce((sum, item) => sum + num(item.qty) * num(item.price), 0)) : 0;
     // Стоимость выезда берётся из настроек (state.travel), с запасным значением для старых копий.
     const DEFAULT_TRAVEL = {
       kad: {base: 0, perKm: 0},
@@ -65,7 +66,7 @@
     const travelConf = (state.travel && state.travel[form.travelType]) || DEFAULT_TRAVEL[form.travelType] || {base: 0, perKm: 0};
     const travelBase = num(travelConf.base);
     const travelPerKm = num(travelConf.perKm);
-    const travelTotal = rub(travelBase + (travelPerKm > 0 ? num(form.travelKm) * travelPerKm : 0));
+    const travelTotal = orderActive ? rub(travelBase + (travelPerKm > 0 ? num(form.travelKm) * travelPerKm : 0)) : 0;
     // Скидка считается от базовой стоимости уборки и доп. услуг. Выезд НЕ дисконтируется.
     const discountBase = baseRaw + extrasTotal;
     const discountValue = rub(form.discountMode === 'amount'
@@ -75,8 +76,8 @@
     const marketPrice = Math.max(0, subtotal - discountValue);
 
     // --- Время и размер бригады (бригада выводится из нормо-часов и лимита часов в день) ---
-    const baseHours = num(rate.speed) > 0 ? area / num(rate.speed) : 0;
-    const extrasHours = extras.reduce((sum, item) => sum + num(item.qty) * num(item.time), 0);
+    const baseHours = orderActive && num(rate.speed) > 0 ? area / num(rate.speed) : 0;
+    const extrasHours = orderActive ? extras.reduce((sum, item) => sum + num(item.qty) * num(item.time), 0) : 0;
     const normHours = (baseHours + extrasHours) * timeK;
     const labor = state.labor || {};
     const maxHoursPerDay = num(labor.maxHoursPerDay) || 9;
@@ -119,7 +120,7 @@
     // --- Серия уборок (абонемент): накладные одного заказа делятся на все уборки серии ---
     const seriesCount = Math.max(1, Math.round(num(form.seriesCount)) || 1);
     const seriesMonths = Math.max(1, Math.round(num(form.seriesMonths)) || 1);
-    const overheadPerCleaning = rub(overheadPerJob / seriesCount);
+    const overheadPerCleaning = orderActive ? rub(overheadPerJob / seriesCount) : 0;
 
     // --- Налог с выручки (УСН/НПД). Целевая цена закладывает налог, чтобы заданная прибыль оставалась чистой ---
     const taxPercent = Math.min(99, num(overhead.taxPercent));
@@ -145,27 +146,33 @@
     const recommendedPrice = priceBeforeSeriesDiscount - seriesDiscountValue;
 
     // --- Разовый заказ для сравнения (все накладные ложатся на одну уборку) ---
-    const singleFullCost = directCost + overheadPerJob;
-    const singleTargetPrice = rub(singleFullCost * (1 + profitPercent / 100) / taxK);
-    const singleRecommendedPrice = Math.max(marketPrice, singleTargetPrice, directCost);
+    const singleFullCost = orderActive ? directCost + overheadPerJob : 0;
+    const singleTargetPrice = orderActive ? rub(singleFullCost * (1 + profitPercent / 100) / taxK) : 0;
+    const singleRecommendedPrice = orderActive ? Math.max(marketPrice, singleTargetPrice, directCost) : 0;
     const seriesTotal = recommendedPrice * seriesCount;
     const seriesSavingPerCleaning = Math.max(0, singleRecommendedPrice - recommendedPrice);
     const seriesSavingTotal = seriesSavingPerCleaning * seriesCount;
 
+    const breakEvenPrice = taxK > 0 ? rub(fullCost / taxK) : fullCost; // цена без прибыли, но с учётом налога
     const taxValue = rub(recommendedPrice * taxPercent / 100); // налог при рекомендованной цене
     const netProfit = recommendedPrice - fullCost - taxValue;  // факт. прибыль при рекомендованной цене (после налога)
     const marginPct = recommendedPrice > 0 ? (netProfit / recommendedPrice) * 100 : 0;
     const contribution = recommendedPrice - directCost;        // вклад в накладные + прибыль
-    const marketNetProfit = marketPrice - fullCost;            // прибыль, если продать строго по рынку
+    const marketTaxValue = rub(marketPrice * taxPercent / 100);
+    const marketNetProfit = marketPrice - fullCost - marketTaxValue; // прибыль, если продать строго по рынку
     const belowDirect = area > 0 && marketPrice < directCost;
     const belowFull = area > 0 && marketPrice < fullCost;
+    const belowBreakEven = area > 0 && marketPrice < breakEvenPrice;
     const economyGap = Math.max(0, fullCost - marketPrice);
+    const breakEvenGap = Math.max(0, breakEvenPrice - marketPrice);
 
     // --- Предупреждения для принудительной скидки: тут в убыток может уйти именно итоговая цена ---
     const forcedBelowDirect = forceDiscount && area > 0 && recommendedPrice < directCost;
     const forcedBelowFull = forceDiscount && area > 0 && !forcedBelowDirect && recommendedPrice < fullCost;
+    const forcedBelowBreakEven = forceDiscount && area > 0 && !forcedBelowDirect && !forcedBelowFull && recommendedPrice < breakEvenPrice;
     const forcedLossValue = forcedBelowDirect ? rub(directCost - recommendedPrice) : 0;
     const forcedGapValue = forcedBelowFull ? rub(fullCost - recommendedPrice) : 0;
+    const forcedBreakEvenGapValue = forcedBelowBreakEven ? rub(breakEvenPrice - recommendedPrice) : 0;
 
     const selectedExtras = extras.filter(item => num(item.qty) > 0);
 
@@ -178,20 +185,20 @@
       crewNeeded, hiredCleaners, peopleOnSite, ownerRole, ownerCost,
       cleanerDay, ownerManagerDay, ownerCleanerManagerDay,
       laborCost, materialPerM2, materialsCost, overheadMonthly, jobsPerMonth, overheadPerJob,
-      taxPercent, taxValue,
+      taxPercent, taxValue, marketTaxValue, breakEvenPrice,
       seriesCount, seriesMonths, overheadPerCleaning,
       seriesDiscountPercent, seriesDiscountValue, priceBeforeSeriesDiscount,
       singleFullCost, singleTargetPrice, singleRecommendedPrice,
       seriesTotal, seriesSavingPerCleaning, seriesSavingTotal,
       directCost, fullCost, profitPercent, targetPrice, recommendedPrice,
-      netProfit, marginPct, contribution, marketNetProfit, belowDirect, belowFull, economyGap,
-      forceDiscount, forcedBelowDirect, forcedBelowFull, forcedLossValue, forcedGapValue,
+      netProfit, marginPct, contribution, marketNetProfit, belowDirect, belowFull, belowBreakEven, economyGap, breakEvenGap,
+      forceDiscount, forcedBelowDirect, forcedBelowFull, forcedBelowBreakEven, forcedLossValue, forcedGapValue, forcedBreakEvenGapValue,
       selectedExtras,
       // алиасы для обратной совместимости со старым кодом отображения
       payroll: laborCost,
       costBasedPrice: fullCost,
       directCostFloor: directCost,
-      breakEvenNoProfit: directCost,
+      breakEvenNoProfit: breakEvenPrice,
       targetProfitValue: targetPrice - fullCost,
       // Корректировка в смете считается до скидки за серию: рынок + корректировка − скидка за серию = итог.
       economyTopup: Math.max(0, priceBeforeSeriesDiscount - marketPrice),

@@ -47,7 +47,7 @@ function check(name, ok, detail) {
   const server = await startServer();
   const base = `http://127.0.0.1:${server.address().port}/index.html`;
   const browser = await playwright.chromium.launch();
-  const page = await browser.newPage({viewport: {width: 1280, height: 900}});
+  const page = await browser.newPage({viewport: {width: 1280, height: 900}, acceptDownloads: true});
   const pageErrors = [];
   page.on('pageerror', e => pageErrors.push(e.message));
 
@@ -85,6 +85,12 @@ function check(name, ok, detail) {
     return {size: blob.size, head};
   });
   check('PDF генерируется (%PDF, > 50 КБ)', pdf.head === '%PDF-' && pdf.size > 50000, JSON.stringify(pdf));
+  const [pdfDownload] = await Promise.all([
+    page.waitForEvent('download'),
+    page.click('#printPdfBtn')
+  ]);
+  const expectedPdfName = await page.evaluate(() => buildPdfFileName());
+  check('«Скачать PDF» использует то же имя файла, что и «Поделиться PDF»', pdfDownload.suggestedFilename() === expectedPdfName, JSON.stringify({download: pdfDownload.suggestedFilename(), expected: expectedPdfName}));
 
   // Сохранить / повторить / удалить заказ
   await page.click('#saveOrderBtn');

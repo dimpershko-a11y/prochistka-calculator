@@ -163,10 +163,11 @@ function renderPdfBlocks(){
   const wrap = $('pdfBlocksWrap'); if(!wrap) return;
   wrap.innerHTML = '';
   state.pdfSettings.order.forEach((key)=>{
+    const safeKey=esc(key);
     const card = document.createElement('div');
     card.className = 'pdf-block-card';
-    card.innerHTML = `<label class="pdf-block-toggle"><input type="checkbox" data-pdf-visible="${key}" ${state.pdfSettings.visible[key]?'checked':''}><span>${labels[key]||key}</span></label>
-      <div class="pdf-block-actions"><button type="button" aria-label="Поднять блок" title="Поднять" data-pdf-up="${key}">↑</button><button type="button" aria-label="Опустить блок" title="Опустить" data-pdf-down="${key}">↓</button></div>`;
+    card.innerHTML = `<label class="pdf-block-toggle"><input type="checkbox" data-pdf-visible="${safeKey}" ${state.pdfSettings.visible[key]?'checked':''}><span>${esc(labels[key]||key)}</span></label>
+      <div class="pdf-block-actions"><button type="button" aria-label="Поднять блок" title="Поднять" data-pdf-up="${safeKey}">↑</button><button type="button" aria-label="Опустить блок" title="Опустить" data-pdf-down="${safeKey}">↓</button></div>`;
     wrap.appendChild(card);
   });
   wrap.querySelectorAll('[data-pdf-visible]').forEach(el=>el.onchange=e=>{ state.pdfSettings.visible[e.target.dataset.pdfVisible]=e.target.checked; saveState(); });
@@ -177,14 +178,15 @@ function renderExtrasEditor(){
   const wrap = $('extrasEditorWrap'); if(!wrap) return;
   wrap.innerHTML = '';
   state.extras.forEach(item=>{
+    const itemId=esc(item.id);
     const div = document.createElement('div'); div.className = 'extra-card';
     div.innerHTML = `<div class="grid g3">
-      <div><label>Название</label><input data-edit-extra="${item.id}" data-field="name" value="${esc(item.name)}"></div>
-      <div><label>Ед. изм.</label><input data-edit-extra="${item.id}" data-field="unit" value="${esc(item.unit)}"></div>
-      <div><label>Категория / блок</label><select data-edit-extra="${item.id}" data-field="category">${getExtraCategories().map(cat=>`<option value="${esc(cat)}" ${cat===(item.category||'Другое')?'selected':''}>${esc(cat)}</option>`).join('')}</select></div>
-      <div><label>Цена</label><input type="number" min="0" data-edit-extra="${item.id}" data-field="price" value="${num(item.price)}"></div>
-      <div><label>Время, ч</label><input type="number" min="0" step="0.1" data-edit-extra="${item.id}" data-field="time" value="${num(item.time)}"></div>
-      <div class="btns" style="align-items:end"><button type="button" data-extra-up="${item.id}">↑</button><button type="button" data-extra-down="${item.id}">↓</button><button type="button" data-extra-delete="${item.id}" class="danger">Удалить</button></div>
+      <div><label>Название</label><input data-edit-extra="${itemId}" data-field="name" value="${esc(item.name)}"></div>
+      <div><label>Ед. изм.</label><input data-edit-extra="${itemId}" data-field="unit" value="${esc(item.unit)}"></div>
+      <div><label>Категория / блок</label><select data-edit-extra="${itemId}" data-field="category">${getExtraCategories().map(cat=>`<option value="${esc(cat)}" ${cat===(item.category||'Другое')?'selected':''}>${esc(cat)}</option>`).join('')}</select></div>
+      <div><label>Цена</label><input type="number" min="0" data-edit-extra="${itemId}" data-field="price" value="${num(item.price)}"></div>
+      <div><label>Время, ч</label><input type="number" min="0" step="0.1" data-edit-extra="${itemId}" data-field="time" value="${num(item.time)}"></div>
+      <div class="btns" style="align-items:end"><button type="button" data-extra-up="${itemId}">↑</button><button type="button" data-extra-down="${itemId}">↓</button><button type="button" data-extra-delete="${itemId}" class="danger">Удалить</button></div>
     </div>`;
     wrap.appendChild(div);
   });
@@ -227,18 +229,20 @@ function renderCoefficientEditor(wrapId, typeKey, groupName, fieldName){
   </div>`;
   wrap.appendChild(head);
   Object.entries(collection).forEach(([key,v])=>{
+    const safeKey=esc(key);
+    const safeField=esc(fieldName);
     const div=document.createElement('div'); div.className='extra-card';
     div.innerHTML=`<div class="grid g3">
-      <div><label>Название</label><input type="text" data-coef-edit="${fieldName}" data-key="${key}" data-field="label" value="${esc(v.label||key)}"></div>
-      <div><label>Коэффициент цены</label><input type="number" step="0.01" min="0" data-coef-edit="${fieldName}" data-key="${key}" data-field="priceK" value="${Number(v.priceK)||1}"></div>
-      <div><label>Коэффициент времени</label><input type="number" step="0.01" min="0" data-coef-edit="${fieldName}" data-key="${key}" data-field="timeK" value="${Number(v.timeK)||1}"></div>
+      <div><label>Название</label><input type="text" data-coef-edit="${safeField}" data-key="${safeKey}" data-field="label" value="${esc(v.label||key)}"></div>
+      <div><label>Коэффициент цены</label><input type="number" step="0.01" min="0" data-coef-edit="${safeField}" data-key="${safeKey}" data-field="priceK" value="${Number(v.priceK)||1}"></div>
+      <div><label>Коэффициент времени</label><input type="number" step="0.01" min="0" data-coef-edit="${safeField}" data-key="${safeKey}" data-field="timeK" value="${Number(v.timeK)||1}"></div>
     </div>
     <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap">
       <span class="muted" style="font-size:12px">ID: ${esc(key)}</span>
       <div class="btns" style="align-items:center">
-        <button type="button" aria-label="Поднять выше" title="Поднять выше" data-move-coef="${fieldName}" data-key="${key}" data-dir="-1">↑</button>
-        <button type="button" aria-label="Опустить ниже" title="Опустить ниже" data-move-coef="${fieldName}" data-key="${key}" data-dir="1">↓</button>
-        <button type="button" class="danger" data-delete-coef="${fieldName}" data-key="${key}">Удалить тип</button>
+        <button type="button" aria-label="Поднять выше" title="Поднять выше" data-move-coef="${safeField}" data-key="${safeKey}" data-dir="-1">↑</button>
+        <button type="button" aria-label="Опустить ниже" title="Опустить ниже" data-move-coef="${safeField}" data-key="${safeKey}" data-dir="1">↓</button>
+        <button type="button" class="danger" data-delete-coef="${safeField}" data-key="${safeKey}">Удалить тип</button>
       </div>
     </div>`;
     wrap.appendChild(div);
@@ -369,11 +373,12 @@ function renderTariffs(){
   renderCoefficientEditor('dirtWrap', typeKey, 'Типы загрязнённости для этого вида уборки', 'dirtiness');
   const travel=$('travelWrap'); if(travel){ travel.innerHTML='';
     Object.entries(state.travel||{}).forEach(([k,v])=>{
+      const safeKey=esc(k);
       const div=document.createElement('div'); div.className='extra-card';
       div.innerHTML=`<div class="grid g3">
-        <div><label>Название</label><input type="text" data-kind="travel" data-key="${k}" data-field="label" value="${esc(v.label)}"></div>
-        <div><label>База, ₽</label><input type="number" min="0" data-kind="travel" data-key="${k}" data-field="base" value="${num(v.base)}"></div>
-        <div><label>₽ / км</label><input type="number" min="0" data-kind="travel" data-key="${k}" data-field="perKm" value="${num(v.perKm)}"></div>
+        <div><label>Название</label><input type="text" data-kind="travel" data-key="${safeKey}" data-field="label" value="${esc(v.label)}"></div>
+        <div><label>База, ₽</label><input type="number" min="0" data-kind="travel" data-key="${safeKey}" data-field="base" value="${num(v.base)}"></div>
+        <div><label>₽ / км</label><input type="number" min="0" data-kind="travel" data-key="${safeKey}" data-field="perKm" value="${num(v.perKm)}"></div>
       </div>`;
       travel.appendChild(div);
     });

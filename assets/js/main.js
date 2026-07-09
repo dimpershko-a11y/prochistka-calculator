@@ -48,7 +48,7 @@ function bind(){
   if($('previewPdfBtn')) $('previewPdfBtn').onclick=openPdfPreview;
   if($('closePdfPreviewBtn')) $('closePdfPreviewBtn').onclick=closePdfPreview;
   if($('refreshPdfPreviewBtn')) $('refreshPdfPreviewBtn').onclick=refreshPdfPreview;
-  $('copyEstimateBtn').onclick=copyEstimate; $('printPdfBtn').onclick=printEstimate;
+  $('copyEstimateBtn').onclick=copyEstimate; $('printPdfBtn').onclick=downloadPdfEstimate;
   if($('sharePdfBtn')) $('sharePdfBtn').onclick=sharePdfEstimate;
   $('equipmentText').oninput=e=>{ state.mainInfo.equipmentText=e.target.value; saveState(); };
   $('chemistryText').oninput=e=>{ state.mainInfo.chemistryText=e.target.value; saveState(); };
