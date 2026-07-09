@@ -1,7 +1,7 @@
 window.PROCHISTKA_CONFIG = {
   "APP_VERSION": "v4.10.1",
   "APP_PASSWORD": "",
-  "CONFIG_REVISION": 10,
+  "CONFIG_REVISION": 11,
   "SYNC_BRAND_PDF_ON_REVISION": true,
   "WINDOW_CATEGORIES": [
     "Окна"
@@ -438,7 +438,7 @@ window.PROCHISTKA_CONFIG = {
       "discountMode": "percent",
       "discountAmount": 0,
       "clutter": "low",
-      "dirtiness": "low",
+      "dirtiness": "dirt_mr52pkjq",
       "travelType": "kad",
       "travelKm": 20,
       "ownerRole": "manager",
@@ -457,7 +457,7 @@ window.PROCHISTKA_CONFIG = {
     },
     "labor": {
       "cleanerDay": 5000,
-      "ownerManagerDay": 3000,
+      "ownerManagerDay": 5000,
       "ownerCleanerManagerDay": 8000,
       "hourlyRate": 550,
       "maxHoursPerDay": 10
@@ -566,12 +566,12 @@ window.PROCHISTKA_CONFIG = {
           "low": {
             "label": "Минимальная",
             "priceK": 0.95,
-            "timeK": 1
+            "timeK": 0.9
           },
           "medium": {
             "label": "Средняя",
             "priceK": 1,
-            "timeK": 1.2
+            "timeK": 1
           },
           "high": {
             "label": "Высокая",
@@ -580,6 +580,11 @@ window.PROCHISTKA_CONFIG = {
           }
         },
         "dirtiness": {
+          "dirt_mrduq1kz": {
+            "label": "Низкая",
+            "priceK": 0.95,
+            "timeK": 0.95
+          },
           "low": {
             "label": "Обычная",
             "priceK": 1,
@@ -613,15 +618,20 @@ window.PROCHISTKA_CONFIG = {
           "medium": {
             "label": "Средняя",
             "priceK": 1.2,
-            "timeK": 1.2
+            "timeK": 1.35
           },
           "high": {
             "label": "Высокая",
-            "priceK": 1.5,
+            "priceK": 1.7,
             "timeK": 1.4
           }
         },
         "dirtiness": {
+          "dirt_mr52pkjq": {
+            "label": "Низкая",
+            "priceK": 0.95,
+            "timeK": 0.98
+          },
           "low": {
             "label": "Обычная",
             "priceK": 1,
@@ -636,11 +646,6 @@ window.PROCHISTKA_CONFIG = {
             "label": "Сильная",
             "priceK": 1.8,
             "timeK": 1.4
-          },
-          "dirt_mr52pkjq": {
-            "label": "Лёгкая",
-            "priceK": 0.95,
-            "timeK": 0.98
           }
         }
       }
