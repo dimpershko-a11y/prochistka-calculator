@@ -1,6 +1,7 @@
 const CACHE_PREFIX='prochistka-calc-';
-const CACHE=`${CACHE_PREFIX}v4-11-12`;
-const ASSETS=['./','./index.html','./config.js','./assets/style.css','./assets/vendor/html2pdf.bundle.min.js','./assets/core.js','./assets/js/state.js','./assets/js/helpers.js','./assets/js/settings.js','./assets/js/estimate.js','./assets/js/main.js','./manifest.json'];
+const CACHE=`${CACHE_PREFIX}v4-11-13`;
+const VERSION='4.11.13';
+const ASSETS=['./','./index.html',`./config.js?v=${VERSION}`,`./assets/style.css?v=${VERSION}`,`./assets/vendor/html2pdf.bundle.min.js?v=${VERSION}`,`./assets/core.js?v=${VERSION}`,`./assets/js/state.js?v=${VERSION}`,`./assets/js/helpers.js?v=${VERSION}`,`./assets/js/settings.js?v=${VERSION}`,`./assets/js/estimate.js?v=${VERSION}`,`./assets/js/main.js?v=${VERSION}`,`./manifest.json?v=${VERSION}`];
 self.addEventListener('install',event=>{
   self.skipWaiting();
   event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)));
