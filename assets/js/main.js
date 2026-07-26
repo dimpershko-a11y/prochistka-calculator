@@ -82,4 +82,15 @@ function bind(){
 function updateDiscountInputs(){ const mode=state.form.discountMode==='amount'?'amount':'percent'; const sel=$('discountMode'); if(sel) sel.value=mode; const pct=$('discount'), amt=$('discountAmount'); if(pct) pct.classList.toggle('hidden', mode!=='percent'); if(amt) amt.classList.toggle('hidden', mode!=='amount'); }
 function fillForm(){ if(!isEditUnlocked()){ state.ui.showTariffs=false; state.ui.showSettings=false; } $('clientName').value=state.form.clientName; if($('clientPhone')) $('clientPhone').value=state.form.clientPhone||'+7'; if($('cleanDate')) $('cleanDate').value=state.form.cleanDate||''; if($('address')) $('address').value=state.form.address||''; $('objectType').value=state.form.objectType; $('area').value=state.form.area; $('discount').value=state.form.discount; if($('discountAmount')) $('discountAmount').value=state.form.discountAmount||0; updateDiscountInputs(); $('travelKm').value=state.form.travelKm; if($('outsideKad')) $('outsideKad').checked=!!state.form.outsideKad; if($('managerOnSite')) $('managerOnSite').checked=!!state.form.managerOnSite; if($('ownerRoleBox')) $('ownerRoleBox').classList.toggle('hidden', !state.form.managerOnSite); if($('ownerRole')) $('ownerRole').value=state.form.ownerRole==='cleaner_manager'?'cleaner_manager':'manager'; if($('maintenanceCrewSize')) $('maintenanceCrewSize').value=state.form.maintenanceCrewSize||1; if($('maintenanceFormat')) $('maintenanceFormat').value=state.form.maintenanceFormat||'oneoff'; if($('maintenanceFrequency')) $('maintenanceFrequency').value=state.form.maintenanceFrequency||4; if($('maintenanceTerm')) $('maintenanceTerm').value=state.form.maintenanceTerm||6; $('notes').value=state.form.notes; $('showOnlySelected').checked=!!state.form.showOnlySelected; $('settingsModal')?.classList.toggle('hidden', !state.ui.showSettings); populateMainSelects(); if($('includedServices')) $('includedServices').value=getTypeIncluded(state.form.cleanType)||''; renderSettingsPanel(); setSettingsTab(state.ui.settingsTab); }
 fillForm(); renderTariffs(); bind(); renderExtras(); renderSettingsPanel(); setSettingsTab(state.ui.settingsTab); enhanceAccessibility(); recalc(); updateBackupReminder(); attemptIdbRecovery(); if($('versionBadge')) $('versionBadge').textContent=APP_VERSION; setupAccess();
-if('serviceWorker' in navigator){ window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(registration=>registration.update()).catch(()=>{})); }
+if('serviceWorker' in navigator){
+  let refreshing=false;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{
+    if(refreshing) return;
+    refreshing=true;
+    window.location.reload();
+  });
+  window.addEventListener('load',()=>{
+    const swVersion=String(APP_VERSION).replace(/^v/,'');
+    navigator.serviceWorker.register(`./sw.js?v=${encodeURIComponent(swVersion)}`,{updateViaCache:'none'}).then(registration=>registration.update()).catch(()=>{});
+  });
+}
