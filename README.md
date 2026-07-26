@@ -1,4 +1,4 @@
-# PRO-CHISTKA калькулятор v4.10.1
+# PRO-CHISTKA калькулятор v4.11.12
 
 Мини-приложение собрано из рабочего файла `calculator-calculator-1111.html`.
 

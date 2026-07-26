@@ -75,7 +75,7 @@ function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.remove('
 function validateCurrentOrder(){
   document.querySelectorAll('.field-error').forEach(el=>el.classList.remove('field-error'));
   const errors=CORE.validateOrder(state);
-  if(num(state.form.area)<=0) $('area')?.classList.add('field-error');
+  if(num(state.form.area)<=0 && state.form.cleanType!=='extras_only') $('area')?.classList.add('field-error');
   if(errors.length) toast(errors[0]);
   return errors;
 }
@@ -159,18 +159,18 @@ function renderCategoryManager(){
   wrap.querySelectorAll('[data-cat-delete]').forEach(btn=>btn.onclick=()=>{ const cat=btn.dataset.catDelete; const target=wrap.querySelector(`[data-cat-target="${CSS.escape(cat)}"]`)?.value || 'Другое'; if(confirm(`Удалить категорию «${cat}» и перенести услуги в «${target}»?`)) deleteExtraCategory(cat,target); });
 }
 function renderPdfBlocks(){
-  const labels = {client:'Шапка и данные клиента', included:'Что входит в уборку', extras:'Дополнительные услуги', pricing:'Стоимость и итоги', useful_info:'Дополнительная информация', main_info:'Основная информация', notes:'Заметки'};
+  const labels = {client:'Шапка и данные клиента', included:'Входят в уборку', not_included:'Не входят в уборку', extras:'Дополнительные услуги', pricing:'Стоимость и итоги', useful_info:'Дополнительная информация', main_info:'Основная информация', notes:'Заметки'};
   const wrap = $('pdfBlocksWrap'); if(!wrap) return;
   wrap.innerHTML = '';
   state.pdfSettings.order.forEach((key)=>{
     const safeKey=esc(key);
     const card = document.createElement('div');
-    card.className = 'pdf-block-card';
-    card.innerHTML = `<label class="pdf-block-toggle"><input type="checkbox" data-pdf-visible="${safeKey}" ${state.pdfSettings.visible[key]?'checked':''}><span>${esc(labels[key]||key)}</span></label>
+    card.className = 'pdf-block-card'+(state.pdfSettings.visible[key]?'':' is-disabled');
+    card.innerHTML = `<div class="pdf-block-toggle"><b>${esc(labels[key]||key)}</b><input class="inline-switch" type="checkbox" data-pdf-visible="${safeKey}" ${state.pdfSettings.visible[key]?'checked':''}/></div>
       <div class="pdf-block-actions"><button type="button" aria-label="Поднять блок" title="Поднять" data-pdf-up="${safeKey}">↑</button><button type="button" aria-label="Опустить блок" title="Опустить" data-pdf-down="${safeKey}">↓</button></div>`;
     wrap.appendChild(card);
   });
-  wrap.querySelectorAll('[data-pdf-visible]').forEach(el=>el.onchange=e=>{ state.pdfSettings.visible[e.target.dataset.pdfVisible]=e.target.checked; saveState(); });
+  wrap.querySelectorAll('[data-pdf-visible]').forEach(el=>el.onchange=e=>{ state.pdfSettings.visible[e.target.dataset.pdfVisible]=e.target.checked; e.target.closest('.pdf-block-card')?.classList.toggle('is-disabled',!e.target.checked); saveState(); });
   wrap.querySelectorAll('[data-pdf-up]').forEach(el=>el.onclick=()=>{ const i=state.pdfSettings.order.indexOf(el.dataset.pdfUp); state.pdfSettings.order=moveItem(state.pdfSettings.order,i,i-1); saveState(); renderPdfBlocks(); });
   wrap.querySelectorAll('[data-pdf-down]').forEach(el=>el.onclick=()=>{ const i=state.pdfSettings.order.indexOf(el.dataset.pdfDown); state.pdfSettings.order=moveItem(state.pdfSettings.order,i,i+1); saveState(); renderPdfBlocks(); });
 }
@@ -186,11 +186,14 @@ function renderExtrasEditor(){
       <div><label>Категория / блок</label><select data-edit-extra="${itemId}" data-field="category">${getExtraCategories().map(cat=>`<option value="${esc(cat)}" ${cat===(item.category||'Другое')?'selected':''}>${esc(cat)}</option>`).join('')}</select></div>
       <div><label>Цена</label><input type="number" min="0" data-edit-extra="${itemId}" data-field="price" value="${num(item.price)}"></div>
       <div><label>Время, ч</label><input type="number" min="0" step="0.1" data-edit-extra="${itemId}" data-field="time" value="${num(item.time)}"></div>
+      <div class="extra-switches"><div class="extra-switch-row"><span>Учитывать в минимальной стоимости</span><input class="inline-switch" type="checkbox" data-extra-minimum="${itemId}" ${item.countsTowardMinimum===true?'checked':''}/></div><div class="extra-switch-row"><span>Можно выбрать отдельно</span><input class="inline-switch" type="checkbox" data-extra-standalone="${itemId}" ${item.availableSeparately===true?'checked':''}/></div></div>
       <div class="btns" style="align-items:end"><button type="button" data-extra-up="${itemId}">↑</button><button type="button" data-extra-down="${itemId}">↓</button><button type="button" data-extra-delete="${itemId}" class="danger">Удалить</button></div>
     </div>`;
     wrap.appendChild(div);
   });
   wrap.querySelectorAll('[data-edit-extra]').forEach(el=>{ const handler=e=>{ const item=state.extras.find(x=>x.id===Number(e.target.dataset.editExtra)); if(!item) return; const f=e.target.dataset.field; item[f]=['price','time'].includes(f)?(Number(e.target.value)||0):e.target.value; if(f==='category' && !state.extraCategories.includes(item[f])) state.extraCategories.push(item[f]); saveState(); renderCategoryOptions(item.category); renderCategoryManager(); renderExtras(); }; el.oninput=handler; el.onchange=handler; });
+  wrap.querySelectorAll('[data-extra-minimum]').forEach(el=>el.onchange=e=>{ const item=state.extras.find(x=>x.id===Number(e.target.dataset.extraMinimum)); if(!item) return; item.countsTowardMinimum=e.target.checked; saveState(); recalc(); });
+  wrap.querySelectorAll('[data-extra-standalone]').forEach(el=>el.onchange=e=>{ const item=state.extras.find(x=>x.id===Number(e.target.dataset.extraStandalone)); if(!item) return; item.availableSeparately=e.target.checked; state.form.showOnlySelected=false; extrasQuery=''; if($('showOnlySelected')) $('showOnlySelected').checked=false; if($('extrasSearch')) $('extrasSearch').value=''; saveState(); renderExtras(); recalc(); });
   wrap.querySelectorAll('[data-extra-delete]').forEach(el=>el.onclick=()=>{ state.extras=state.extras.filter(x=>x.id!==Number(el.dataset.extraDelete)); saveState(); renderCategoryManager(); renderExtras(); renderExtrasEditor(); });
   wrap.querySelectorAll('[data-extra-up]').forEach(el=>el.onclick=()=>{ const i=state.extras.findIndex(x=>x.id===Number(el.dataset.extraUp)); state.extras=moveItem(state.extras,i,i-1); saveState(); renderExtras(); renderExtrasEditor(); });
   wrap.querySelectorAll('[data-extra-down]').forEach(el=>el.onclick=()=>{ const i=state.extras.findIndex(x=>x.id===Number(el.dataset.extraDown)); state.extras=moveItem(state.extras,i,i+1); saveState(); renderExtras(); renderExtrasEditor(); });
@@ -325,8 +328,9 @@ function renderTariffs(){
   rates.appendChild(main);
   const description=document.createElement('div'); description.className='extra-card tariff-main-panel'; description.id='tariffDescriptionPanel';
   description.innerHTML=`<div class="chip">Описание выбранного вида</div>
-    <div class="grid g2">
+    <div class="grid g3">
       <div><label>Описание / что входит именно в этот вид уборки</label><textarea id="tariffIncludedText" placeholder="Описание будет попадать в смету для выбранного вида уборки">${esc(type.included||'')}</textarea></div>
+      <div><label>Что не входит в уборку</label><textarea id="tariffNotIncludedText" placeholder="Отдельный блок в смете">${esc(type.notIncluded||'')}</textarea></div>
       <div><label>Описание работ по окнам / остеклению для этого вида</label><textarea id="tariffWindowsText" placeholder="Добавляется в смету только если выбраны услуги из категории Окна">${esc(getTypeWindowDescription(typeKey)||'')}</textarea></div>
     </div>`;
   rates.appendChild(description);
@@ -368,6 +372,7 @@ function renderTariffs(){
     syncLegacyFromCleaningTypes(state); saveState(); populateMainSelects(); renderIncludedPreview(); recalc();
   });
   const inc=$('tariffIncludedText'); if(inc) inc.oninput=e=>{ setTypeIncluded(typeKey,e.target.value); saveState(); if(state.form.cleanType===typeKey){ if($('includedServices')) $('includedServices').value=e.target.value; renderIncludedPreview(); } };
+  const notInc=$('tariffNotIncludedText'); if(notInc) notInc.oninput=e=>{ type.notIncluded=e.target.value; saveState(); if(state.form.cleanType===typeKey) renderIncludedPreview(); };
   const winText=$('tariffWindowsText'); if(winText) winText.oninput=e=>{ setTypeWindowDescription(typeKey,e.target.value); saveState(); if(state.form.cleanType===typeKey) renderIncludedPreview(); };
   renderCoefficientEditor('clutterWrap', typeKey, 'Типы заставленности для этого вида уборки', 'clutter');
   renderCoefficientEditor('dirtWrap', typeKey, 'Типы загрязнённости для этого вида уборки', 'dirtiness');
@@ -392,19 +397,26 @@ function renderTariffs(){
       <div><label>Твой день: клинер+менеджер, ₽</label><input type="number" min="0" data-cfg="labor" data-field="ownerCleanerManagerDay" value="${num(L.ownerCleanerManagerDay)}"></div>
     </div>`;
     laborW.appendChild(card);
+    const slots=document.createElement('div'); slots.className='extra-card';
+    slots.innerHTML=`<strong>Поддерживающая уборка: оплата сотрудника за визит</strong><div class="muted" style="margin:6px 0 10px">Выбирается по времени работы одного сотрудника.</div><div class="grid g2">${(L.maintenanceSlots||[]).map((slot,i)=>`<div><label>До ${num(slot.maxHours)} ч — ₽</label><input type="number" min="0" data-maint-slot="${i}" value="${num(slot.pay)}"></div>`).join('')}</div>`;
+    laborW.appendChild(slots);
   }
-  const ovW=$('overheadWrap'); if(ovW){ const O=state.overhead||{}; const perJob=num(O.jobsPerMonth)>0?num(O.monthly)/num(O.jobsPerMonth):0; ovW.innerHTML='';
+  const ovW=$('overheadWrap'); if(ovW){ const O=state.overhead||{}; ovW.innerHTML='';
     const card=document.createElement('div'); card.className='extra-card';
     card.innerHTML=`<div class="grid g3">
       <div><label>Материалы, ₽ / м²</label><input type="number" min="0" step="0.5" data-cfg="material" data-field="materialPerM2" value="${num(state.materialPerM2)}"></div>
-      <div><label>Накладные в месяц, ₽</label><input type="number" min="0" data-cfg="overhead" data-field="monthly" value="${num(O.monthly)}"></div>
-      <div><label>Заказов в месяц</label><input type="number" min="1" data-cfg="overhead" data-field="jobsPerMonth" value="${num(O.jobsPerMonth)||1}"></div>
+      <div><label>Накладные на заказ, ₽</label><input type="number" min="0" data-cfg="overhead" data-field="fixedPerOrder" value="${num(O.fixedPerOrder)}"></div>
+      <div><label>Накладные, ₽ / м²</label><input type="number" min="0" step="0.5" data-cfg="overhead" data-field="perM2" value="${num(O.perM2)}"></div>
+      <div><label>Поддерживающая: на визит, ₽</label><input type="number" min="0" data-cfg="overhead" data-field="maintenanceFixedPerVisit" value="${num(O.maintenanceFixedPerVisit)}"></div>
+      <div><label>Поддерживающая: ₽ / м²</label><input type="number" min="0" step="0.5" data-cfg="overhead" data-field="maintenancePerM2" value="${num(O.maintenancePerM2)}"></div>
       <div><label>Налог с выручки, %</label><input type="number" min="0" max="50" step="0.5" data-cfg="overhead" data-field="taxPercent" value="${num(O.taxPercent)}"></div>
+      <div><label>Целевая прибыль, %</label><input type="number" min="0" data-cfg="pricing" data-field="profitPercent" value="${num(state.pricing?.profitPercent)}"></div>
     </div>
-    <div class="muted" style="margin-top:8px">Накладные на один заказ: <strong id="overheadPerJobHint">${money(perJob)}</strong>. Налог (УСН/НПД) закладывается в целевую цену и вычитается из фактической прибыли.</div>`;
+    <div class="muted" style="margin-top:8px">Накладные считаются отдельно для каждого заказа. Они не меняют цену клиенту автоматически.</div>`;
     ovW.appendChild(card);
   }
-  document.querySelectorAll('[data-cfg]').forEach(inp=>inp.oninput=(e)=>{ const {cfg,field}=e.target.dataset; const val=num(e.target.value); if(cfg==='material'){ state.materialPerM2=val; } else { state[cfg]=state[cfg]||{}; state[cfg][field]=val; } if($('overheadPerJobHint')){ const O=state.overhead||{}; $('overheadPerJobHint').textContent=money(num(O.jobsPerMonth)>0?num(O.monthly)/num(O.jobsPerMonth):0); } saveState(); recalc(); });
+  document.querySelectorAll('[data-cfg]').forEach(inp=>inp.oninput=(e)=>{ const {cfg,field}=e.target.dataset; const val=num(e.target.value); if(cfg==='material'){ state.materialPerM2=val; } else { state[cfg]=state[cfg]||{}; state[cfg][field]=val; } saveState(); recalc(); });
+  document.querySelectorAll('[data-maint-slot]').forEach(inp=>inp.oninput=e=>{ const i=Number(e.target.dataset.maintSlot); state.labor.maintenanceSlots[i].pay=num(e.target.value); saveState(); recalc(); });
   document.querySelectorAll('[data-kind]').forEach(inp=>inp.oninput=(e)=>{ const {kind,key,field}=e.target.dataset; state[kind][key][field]=(field==='label')?e.target.value:num(e.target.value); saveState(); populateMainSelects(); recalc(); });
   ['clutterWrap','dirtWrap','travelWrap','laborWrap','overheadWrap'].forEach(id=>{ const block=$(id)?.parentElement; if(block) block.classList.add('tariff-panel-block'); });
   document.querySelectorAll('[data-tariff-inner-tab]').forEach(btn=>{

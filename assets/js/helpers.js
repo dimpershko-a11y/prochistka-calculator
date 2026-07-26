@@ -103,6 +103,7 @@ function buildConfigDefaultsFromState(){
   const formDefaults = {
     ...(clone(defaults.form||{})),
     clientName:'',
+    address:'',
     objectType: state.form.objectType || (defaults.form && defaults.form.objectType) || 'Квартира',
     area:0,
     cleanType:firstTypeKey,
@@ -114,7 +115,9 @@ function buildConfigDefaultsFromState(){
     dirtiness:firstDirtiness,
     travelType: state.form.travelType || (defaults.form && defaults.form.travelType) || 'kad',
     travelKm: Number(state.form.travelKm)||20,
-    ownerRole: state.form.ownerRole || (defaults.form && defaults.form.ownerRole) || 'cleaner_manager',
+    outsideKad:false,
+    managerOnSite:false,
+    ownerRole:'none',
     profitPercent: Number(state.form.profitPercent) || Number(defaults.form && defaults.form.profitPercent) || 25,
     notes:'',
     showOnlySelected:false
@@ -165,7 +168,7 @@ function readJsonFile(file, cb){
 function exportOrders(){ downloadJson({type:'prochistka_orders', version:APP_VERSION, exportedAt:new Date().toISOString(), savedOrders:state.savedOrders||[]}, `prochistka-orders-${Date.now()}.json`); }
 function importOrdersFile(file){ readJsonFile(file, data=>{ const incoming = Array.isArray(data.savedOrders)?data.savedOrders:(Array.isArray(data)?data:[]); if(!incoming.length){ toast('В файле нет заказов'); return; } const map=new Map((state.savedOrders||[]).map(o=>[String(o.id),o])); incoming.forEach(o=>map.set(String(o.id||Date.now()+Math.random()), o)); state.savedOrders=Array.from(map.values()).slice(0,50); saveState(); renderSavedOrders(); toast('Заказы импортированы'); }); }
 function exportBackup(){ state.ui=state.ui||{}; state.ui.ordersSinceBackup=0; state.ui.lastBackupAt=Date.now(); saveState(); downloadJson({type:'prochistka_full_backup', version:APP_VERSION, exportedAt:new Date().toISOString(), state}, `prochistka-backup-${Date.now()}.json`); if(typeof updateBackupReminder==='function') updateBackupReminder(); }
-function importBackupFile(file){ readJsonFile(file, data=>{ const result=CORE.validateBackup(data, defaults); if(!result.ok){ toast(result.error); return; } state=mergeState(result.state); migrateV43(); migrateV46(); syncConfigRevision(); fillForm(); renderTariffs(); renderExtras(); renderSettingsPanel(); recalc(); updateBackupReminder(); toast('Резервная копия восстановлена'); }); }
+function importBackupFile(file){ readJsonFile(file, data=>{ const result=CORE.validateBackup(data, defaults); if(!result.ok){ toast(result.error); return; } state=mergeState(result.state); migrateV43(); migrateV46(); migrateV415(); syncConfigRevision(); fillForm(); renderTariffs(); renderExtras(); renderSettingsPanel(); recalc(); updateBackupReminder(); toast('Резервная копия восстановлена'); }); }
 function isEditUnlocked(){
   const pass = APP_CONFIG.APP_PASSWORD || APP_CONFIG.appPassword || '';
   return !pass || sessionStorage.getItem('prochistka_edit_ok') === '1';

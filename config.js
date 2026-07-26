@@ -1,7 +1,7 @@
 window.PROCHISTKA_CONFIG = {
-  "APP_VERSION": "v4.10.1",
+  "APP_VERSION": "v4.11.12",
   "APP_PASSWORD": "",
-  "CONFIG_REVISION": 11,
+  "CONFIG_REVISION": 15,
   "SYNC_BRAND_PDF_ON_REVISION": true,
   "WINDOW_CATEGORIES": [
     "Окна"
@@ -19,8 +19,8 @@ window.PROCHISTKA_CONFIG = {
     "baseRates": {
       "maintenance": {
         "label": "Поддерживающая",
-        "rate": 150,
-        "min": 6000,
+        "rate": 120,
+        "min": 6500,
         "speed": 25
       },
       "general": {
@@ -76,15 +76,11 @@ window.PROCHISTKA_CONFIG = {
         "base": 0,
         "perKm": 0
       },
-      "km15": {
-        "label": "До 15 км от КАД",
+      "outsideKad": {
+        "label": "За КАД",
         "base": 1700,
-        "perKm": 0
-      },
-      "km20plus": {
-        "label": "15+ км",
-        "base": 1700,
-        "perKm": 40
+        "perKm": 40,
+        "includedKm": 15
       }
     },
     "includedByType": {
@@ -431,6 +427,7 @@ window.PROCHISTKA_CONFIG = {
     ],
     "form": {
       "clientName": "",
+      "address": "",
       "objectType": "Квартира",
       "area": 0,
       "cleanType": "postreno",
@@ -440,9 +437,11 @@ window.PROCHISTKA_CONFIG = {
       "clutter": "low",
       "dirtiness": "dirt_mr52pkjq",
       "travelType": "kad",
+      "outsideKad": false,
       "travelKm": 20,
-      "ownerRole": "manager",
-      "profitPercent": 25,
+      "managerOnSite": false,
+      "ownerRole": "none",
+      "maintenanceCrewSize": 1,
       "notes": "",
       "showOnlySelected": false,
       "seriesCount": 1,
@@ -459,14 +458,22 @@ window.PROCHISTKA_CONFIG = {
       "cleanerDay": 5000,
       "ownerManagerDay": 5000,
       "ownerCleanerManagerDay": 8000,
-      "hourlyRate": 550,
-      "maxHoursPerDay": 10
+      "maxHoursPerDay": 10,
+      "maintenanceSlots": [
+        {"maxHours": 3, "pay": 3500},
+        {"maxHours": 5, "pay": 4000},
+        {"maxHours": 7, "pay": 4500},
+        {"maxHours": 10, "pay": 5000}
+      ]
     },
     "materialPerM2": 17,
     "estimateValidityDays": 14,
+    "pricing": {"profitPercent": 25},
     "overhead": {
-      "monthly": 87200,
-      "jobsPerMonth": 20,
+      "fixedPerOrder": 2500,
+      "perM2": 0,
+      "maintenanceFixedPerVisit": 2500,
+      "maintenancePerM2": 0,
       "taxPercent": 8
     },
     "ui": {
@@ -515,8 +522,8 @@ window.PROCHISTKA_CONFIG = {
     "cleaningTypes": {
       "maintenance": {
         "label": "Поддерживающая",
-        "rate": 150,
-        "min": 6000,
+        "rate": 120,
+        "min": 6500,
         "speed": 25,
         "included": "Влажная уборка всех доступных поверхностей.\nСухая и влажная уборка пола.\nМытьё санузла и сантехники.\nПротирка кухни и техники снаружи.\nВынос мусора.\nНе удаляются сложные загрязнения.\nНе используются агрессивные моющие средства.\nУборка на высоте до 2 метров.\nНе используем спец.технику (пароочистители, стремянки, сгоны, роторные машины, озонаторы, экстракторы и тд.).\nПылесос предоставляет заказчик, если пылесоса нет, можем предоставить в аренду за 1000₽/уборка.\n\nДополнительные задачи. Могут включать: уход за растениями, мойка лотка животного, мойка посуды и тд.\n",
         "windowsDescription": "Работы по остеклению / окнам выполняются по выбранным позициям в смете.\nВ стоимость по окнам входит мойка стекла, рам, створок, подоконников и доступной фурнитуры в рамках выбранного типа работ.\nПри уборке после ремонта по окнам дополнительно удаляются строительная пыль, следы скотча, наклеек, небольшие следы краски, шпаклёвки и раствора с доступных поверхностей, если это безопасно для покрытия.\nРаботы на высоте, промышленный альпинизм, демонтаж сложных конструкций, удаление цементного налёта, эпоксидной затирки, сильных следов клея и старой плёнки рассчитываются отдельно.",

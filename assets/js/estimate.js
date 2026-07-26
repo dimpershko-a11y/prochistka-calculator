@@ -1,9 +1,10 @@
 // Форма и итог: селекты, список услуг, пересчёт, текстовая смета, печатная вёрстка, PDF.
 // Файлы assets/js/*.js загружаются последовательно (см. index.html) и разделяют общую глобальную область.
-function populateMainSelects(){ ensureFormCleanTypeAndCoefs(false); const types=getCleaningTypes(); fillSelect('cleanType', types, state.form.cleanType); const active=getActiveCleaningType(); const clutter=getTypeClutter(state.form.cleanType); const dirtiness=getTypeDirtiness(state.form.cleanType); fillSelect('clutter', clutter, state.form.clutter); fillSelect('dirtiness', dirtiness, state.form.dirtiness); const travelOpts=(state.travel&&Object.keys(state.travel).length)?state.travel:{kad:{label:'В пределах КАД'},km15:{label:'До 15 км от КАД'},km20plus:{label:'20+ км'}}; fillSelect('travelType', travelOpts, state.form.travelType); if($('includedTypeLabel')) $('includedTypeLabel').textContent=active ? active.label : '—'; if($('includedServices')) $('includedServices').value=getTypeIncluded(state.form.cleanType)||''; }
+function populateMainSelects(){ ensureFormCleanTypeAndCoefs(false); const types=getCleaningTypes(); fillSelect('cleanType', types, state.form.cleanType); const active=getActiveCleaningType(); const clutter=getTypeClutter(state.form.cleanType); const dirtiness=getTypeDirtiness(state.form.cleanType); fillSelect('clutter', clutter, state.form.clutter); fillSelect('dirtiness', dirtiness, state.form.dirtiness); if($('includedTypeLabel')) $('includedTypeLabel').textContent=active ? active.label : '—'; if($('includedServices')) $('includedServices').value=getTypeIncluded(state.form.cleanType)||''; }
 let extrasQuery='';
 function getGroupedExtras(){
-  let arr=state.form.showOnlySelected?state.extras.filter(x=>num(x.qty)>0):state.extras;
+  let arr=state.extras.filter(x=>state.form.cleanType!=='extras_only' || x.availableSeparately===true);
+  if(state.form.showOnlySelected) arr=arr.filter(x=>num(x.qty)>0);
   const q=extrasQuery.trim().toLowerCase();
   if(q) arr=arr.filter(x=>String(x.name||'').toLowerCase().includes(q) || String(x.category||'').toLowerCase().includes(q));
   const map={}; arr.forEach(x=>{ const c=x.category||'Другое'; (map[c]||(map[c]=[])).push(x); }); return map;
@@ -18,24 +19,25 @@ function renderExtras(){ const wrap=$('extrasWrap'); wrap.innerHTML=''; const gr
     if(!searching) details.addEventListener('toggle', ()=>setExtraGroupOpen(cat, details.open));
     groups[cat].forEach(item=>{
       const itemId=esc(item.id);
-      const div=document.createElement('div'); div.className='extra-card extra-item extra-pick-card'; div.style.margin='0';
+      const unavailable=state.form.cleanType==='extras_only' && item.availableSeparately!==true;
+      const div=document.createElement('div'); div.className='extra-card extra-item extra-pick-card'+(unavailable?' is-unavailable':''); div.style.margin='0';
       div.innerHTML=`<div class="extra-pick-head">
           <div class="service-name-text">${esc(item.name)}</div>
-          <div class="muted extra-meta">${esc(item.unit)} · ${money(item.price)} · ~ ${hours(item.time)}</div>
+          <div class="muted extra-meta">${esc(item.unit)} · ${money(item.price)} · ~ ${hours(item.time)}${unavailable?' · доступна только с уборкой':''}</div>
         </div>
-        <div class="extra-qty-control"><label>Кол-во</label><div class="qty-stepper"><button type="button" aria-label="Убавить" data-qty-step="-1" data-id="${itemId}">−</button><input type="number" min="0" value="${num(item.qty)}" data-extra="${itemId}" data-field="qty"><button type="button" aria-label="Прибавить" data-qty-step="1" data-id="${itemId}">+</button></div></div>`;
+        <div class="extra-qty-control"><label>Кол-во</label><div class="qty-stepper"><button type="button" aria-label="Убавить" data-qty-step="-1" data-id="${itemId}" ${unavailable?'disabled':''}>−</button><input type="number" min="0" value="${num(item.qty)}" data-extra="${itemId}" data-field="qty" ${unavailable?'disabled':''}><button type="button" aria-label="Прибавить" data-qty-step="1" data-id="${itemId}" ${unavailable?'disabled':''}>+</button></div></div>`;
       content.appendChild(div);
     });
     wrap.appendChild(details);
   });
-  const applyQty=(id, qty, inputEl)=>{ const item=state.extras.find(x=>x.id===id); if(!item) return; item.qty=num(qty); if(inputEl) inputEl.value=item.qty; saveState(); recalc(); renderSelectedExtras(); if(state.form.showOnlySelected) renderExtras(); };
+  const applyQty=(id, qty, inputEl)=>{ const item=state.extras.find(x=>x.id===id); if(!item || (state.form.cleanType==='extras_only' && item.availableSeparately!==true)) return; item.qty=num(qty); if(inputEl) inputEl.value=item.qty; saveState(); recalc(); renderSelectedExtras(); if(state.form.showOnlySelected) renderExtras(); };
   wrap.querySelectorAll('[data-extra]').forEach(inp=>inp.oninput=e=>{ if(e.target.dataset.field!=='qty') return; applyQty(Number(e.target.dataset.extra), e.target.value); });
   wrap.querySelectorAll('[data-qty-step]').forEach(btn=>btn.onclick=()=>{ const id=Number(btn.dataset.id); const item=state.extras.find(x=>x.id===id); if(!item) return; const next=Math.max(0, num(item.qty)+Number(btn.dataset.qtyStep)); const input=wrap.querySelector(`input[data-extra="${id}"]`); applyQty(id, next, input); });
 }
 function calc(){
   return CORE.calculateOrder(state);
 }
-function renderIncludedPreview(){ const lines=getIncludedLines(); $('includedPreview').innerHTML=lines.length?lines.map(x=>`<div>• ${esc(x)}</div>`).join(''):'<div class="muted">Пока не заполнено.</div>'; }
+function renderIncludedPreview(){ const lines=getIncludedLines(); $('includedPreview').innerHTML=lines.length?lines.map(x=>`<div>• ${esc(x)}</div>`).join(''):'<div class="muted">Пока не заполнено.</div>'; const excluded=String(getActiveCleaningType()?.notIncluded||'').split(/\n+/).map(x=>x.trim()).filter(Boolean); if($('notIncludedPreview')) $('notIncludedPreview').innerHTML=excluded.length?excluded.map(x=>`<div>• ${esc(x)}</div>`).join(''):'<div class="muted">Пока не заполнено.</div>'; }
 function safeLogoSrc(){ const url=String(state.brand.logoDataUrl||''); return /^data:image\//.test(url) ? esc(url) : ''; }
 function renderBrandLogoPreview(){ const wrap=$('brandLogoPreview'); if(!wrap) return; const useLogo=!!(state.pdfHeader&&state.pdfHeader.useLogo); if(!useLogo){ wrap.innerHTML='Текстовая шапка активна. Логотип-картинка в PDF не используется.'; return; } const logoSrc=safeLogoSrc(); if(logoSrc){ wrap.innerHTML=`<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><img src="${logoSrc}" alt="Логотип" style="max-height:70px;max-width:220px;object-fit:contain;border:1px solid #dbe3ef;border-radius:10px;background:#fff;padding:6px"><span class="muted">Логотип будет показан в печатной смете.</span></div>`; } else { wrap.innerHTML='Логотип пока не выбран.'; } }
 function setPdfHeaderInputs(){
@@ -134,12 +136,24 @@ function renderEconomyWarning(r){
 function recalc(){
   const r=calc();
   $('recommendedPrice').textContent=money(r.recommendedPrice);
+  if($('summaryKicker')) $('summaryKicker').textContent=r.subscription?'Стоимость абонемента':'Рекомендованная цена для клиента';
+  if($('summaryDescription')) $('summaryDescription').textContent=r.subscription?`${r.frequency} уборки в месяц · ${r.term} мес. · ${r.totalVisits} визитов`:'Цена по тарифу и услугам.';
   if($('sumBaseRawNoK')) $('sumBaseRawNoK').textContent=money(r.baseNoK);
   if($('sumClutterK')) $('sumClutterK').textContent='× '+r.clutterPriceK.toFixed(2);
   if($('sumAfterClutter')) $('sumAfterClutter').textContent=money(r.baseAfterClutter);
   if($('sumDirtK')) $('sumDirtK').textContent='× '+r.dirtPriceK.toFixed(2);
   if($('sumBaseMin')) $('sumBaseMin').textContent=money(r.minBase)+(r.minBaseApplied?' применена':'');
-  $('sumBase').textContent=money(r.baseRaw); $('sumExtras').textContent=money(r.extrasTotal); $('sumTravel').textContent=money(r.travelTotal); $('sumDiscount').textContent='− '+money(r.discountValue); $('sumMarket').textContent=money(r.marketPrice);
+  $('sumBase').textContent=money(r.baseRaw); $('sumExtras').textContent=money(r.extrasTotal); $('sumTravel').textContent=money(r.travelTotal); $('sumDiscount').textContent='− '+money(r.discountValue); $('sumMarket').textContent=money(r.marketPrice); if($('sumMarketLabel')) $('sumMarketLabel').textContent=r.subscription?'Стоимость абонемента':'Цена по рынку';
+  $('regularPricingRows')?.classList.toggle('hidden', !!r.subscription);
+  $('subscriptionPricingRows')?.classList.toggle('hidden', !r.subscription);
+  if(r.subscription){
+    $('sumSubscriptionOneoff').textContent=money(r.oneoffPrice);
+    $('sumSubscriptionDiscount').textContent='− '+Math.round(r.subscriptionDiscount*100)+' %';
+    $('sumSubscriptionVisit').textContent=money(r.visitPrice);
+    $('sumSubscriptionSchedule').textContent=`${r.frequency} уборки/мес. × ${r.term} мес.`;
+    $('sumSubscriptionVisits').textContent=r.totalVisits;
+    $('sumSubscriptionTotal').textContent=money(r.subscriptionTotal);
+  }
   $('sumLabor').textContent=money(r.laborCost); $('sumMaterials').textContent=money(r.materialsCost); $('sumDirect').textContent=money(r.directCost); $('sumOverhead').textContent=money(r.overheadPerCleaning)+(r.seriesCount>1?` (${money(r.overheadPerJob)} / ${r.seriesCount})`:''); $('sumFull').textContent=money(r.fullCost); $('targetLabel').textContent=`Целевая цена (+${num(r.profitPercent)}%${r.taxPercent>0?` и налог ${num(r.taxPercent)}%`:''})`; $('sumTarget').textContent=money(r.targetPrice); $('sumNetProfit').textContent=money(r.netProfit); $('sumMargin').textContent=`${r.marginPct.toFixed(0)} %`;
   if($('taxRow')){
     $('taxRow').classList.toggle('hidden', !(r.taxPercent>0));
@@ -182,29 +196,33 @@ function recalc(){
       seriesBadge.classList.remove('active');
     }
   }
-  $('timeBase').textContent=hours(r.baseHours); $('timeExtras').textContent=hours(r.extrasHours); $('timeNorm').textContent=hours(r.normHours); $('timeBrigade').textContent=hours(r.brigadeHours); $('brigadeLabel').textContent=`Время уборки бригадой (${r.peopleOnSite} чел.)`;
+  if($('timeBaseLabel')) $('timeBaseLabel').textContent=r.subscription?'Время одной уборки':'Время на базовую уборку'; $('timeBase').textContent=hours(r.baseHours); $('timeExtras').textContent=hours(r.extrasHours); $('timeNorm').textContent=hours(r.normHours); $('timeBrigade').textContent=hours(r.brigadeHours); $('brigadeLabel').textContent=r.subscription?`Примерное время одного визита (${r.peopleOnSite} чел.)`:`Время уборки бригадой (${r.peopleOnSite} чел.)`;
   $('cardClient').textContent=state.form.clientName||'—'; $('cardObject').textContent=state.form.objectType||'—'; $('cardArea').textContent=`${num(state.form.area)} м²`; $('cardCleanType').textContent=r.rate.label; $('cardClutter').textContent=r.clutter.label; $('cardDirt').textContent=r.dirt.label;
-  const tconf=(state.travel&&state.travel[state.form.travelType])||{}; const tBase=num(tconf.base), tPerKm=num(tconf.perKm);
-  $('travelKmBox').classList.toggle('hidden', !(tPerKm>0));
-  $('travelHint').textContent = tPerKm>0 ? `Выезд: ${money(tBase)} + ${money(tPerKm)}/км → ${money(tBase + tPerKm*num(state.form.travelKm))}` : (tBase>0 ? `Выезд: ${money(tBase)}` : 'Выезд: бесплатно');
+  const tconf=(state.travel&&state.travel.outsideKad)||{}; const tBase=num(tconf.base), tPerKm=num(tconf.perKm), includedKm=num(tconf.includedKm), outside=!!state.form.outsideKad;
+  $('travelKmBox').classList.toggle('hidden', !outside);
+  $('travelHint').textContent = `Выезд: ${money(tBase)} до ${includedKm} км, далее ${money(tPerKm)}/км → ${money(r.travelTotal)}`;
+  $('ownerRoleBox')?.classList.toggle('hidden', !state.form.managerOnSite);
+  $('maintenanceCrewBox')?.classList.toggle('hidden', state.form.cleanType!=='maintenance');
+  const subscriptionCard=$('maintenanceSubscriptionCard'); if(subscriptionCard) subscriptionCard.classList.toggle('hidden', state.form.cleanType!=='maintenance');
+  const subscriptionHint=$('maintenanceSubscriptionHint'); if(subscriptionHint) subscriptionHint.textContent=r.subscription ? `Абонемент: ${r.frequency} уборки в месяц × ${r.term} мес. = ${r.totalVisits} визитов. Цена визита: ${money(r.visitPrice)}. Итого: ${money(r.subscriptionTotal)}.` : 'Выберите абонемент, чтобы рассчитать стоимость по сетке сайта.';
   renderEconomyWarning(r); renderIncludedPreview(); renderSelectedExtras(); renderSavedOrders(); if(!$('pdfPreviewModal')?.classList.contains('hidden')) refreshPdfPreview(); saveState(); return r;
 }
 function teamTextLines(r){
   const lines=[];
   const cleaners=num(r.hiredCleaners);
-  const ownerOnSite=['manager','cleaner_manager'].includes(String(r.ownerRole||''));
-  if(cleaners>0) lines.push(`Клинеры: ${cleaners} чел.`);
-  if(ownerOnSite) lines.push('Бригадир-менеджер: 1 чел.');
+  const role=String(r.ownerRole||'');
+  if(role==='cleaner_manager'){ lines.push(`Клинеры: ${cleaners+1} чел. (включая менеджера-клинера)`); lines.push('Менеджер-клинер: 1 чел.'); }
+  else { if(cleaners>0) lines.push(`Клинеры: ${cleaners} чел.`); if(role==='manager') lines.push('Менеджер: 1 чел.'); }
   if(!lines.length && num(r.peopleOnSite)>0) lines.push(`Клинеры: ${num(r.peopleOnSite)} чел.`);
   return lines;
 }
 function teamPdfRows(r){
   const rows=[];
   const cleaners=num(r.hiredCleaners);
-  const ownerOnSite=['manager','cleaner_manager'].includes(String(r.ownerRole||''));
+  const role=String(r.ownerRole||'');
   const row=(label,value)=>`<tr style="break-inside:avoid;page-break-inside:avoid"><td style="padding:6px 0">${label}</td><td style="padding:6px 0;text-align:right">${value}</td></tr>`;
-  if(cleaners>0) rows.push(row('Клинеры', `${cleaners} чел.`));
-  if(ownerOnSite) rows.push(row('Бригадир-менеджер', '1 чел.'));
+  if(role==='cleaner_manager'){ rows.push(row('Клинеры', `${cleaners+1} чел. (включая менеджера-клинера)`)); rows.push(row('Менеджер-клинер', '1 чел.')); }
+  else { if(cleaners>0) rows.push(row('Клинеры', `${cleaners} чел.`)); if(role==='manager') rows.push(row('Менеджер', '1 чел.')); }
   if(!rows.length && num(r.peopleOnSite)>0) rows.push(row('Клинеры', `${num(r.peopleOnSite)} чел.`));
   return rows;
 }
@@ -239,14 +257,22 @@ function formatCleanDate(){
   return isNaN(d.getTime()) ? v : d.toLocaleDateString('ru-RU');
 }
 function estimateText(){
-  const r=calc(); const included=getIncludedText()||'Не заполнено'; const extras=r.selectedExtras.length?r.selectedExtras.map(x=>`• ${x.name} × ${num(x.qty)} — ${money(num(x.qty)*num(x.price))}`).join('\n'):'• Без доп. услуг';
-  const lines=[`Стоимость уборки: ${money(r.baseRaw)}${r.minBaseApplied?' (применена минимальная стоимость)':''}`];
-  if(num(r.extrasTotal)>0) lines.push(`Дополнительные услуги: ${money(r.extrasTotal)}`);
+  const r=calc(); const included=getIncludedText()||'Не заполнено'; const notIncluded=getActiveCleaningType()?.notIncluded||'Не заполнено'; const extras=r.selectedExtras.length?r.selectedExtras.map(x=>`• ${x.name} × ${num(x.qty)} — ${money(num(x.qty)*num(x.price))}`).join('\n'):'• Без доп. услуг';
+  const lines=r.subscription ? [
+    'Абонемент поддерживающей уборки',
+    `Разовая стоимость визита: ${money(r.oneoffPrice)}`,
+    `Скидка по абонементу: ${Math.round(r.subscriptionDiscount*100)}%`,
+    `Цена одного визита: ${money(r.visitPrice)}`,
+    `График: ${r.frequency} уборки в месяц × ${r.term} мес. = ${r.totalVisits} визитов`,
+    `ИТОГО за абонемент: ${money(r.subscriptionTotal)}`,
+    `Примерное время одной уборки: ${hours(r.brigadeHours)}`
+  ] : [`Стоимость уборки: ${money(r.baseRaw)}${r.minBaseApplied?' (применена минимальная стоимость)':''}`];
+  if(!r.subscription && num(r.extrasTotal)>0) lines.push(`Дополнительные услуги: ${money(r.extrasTotal)}`);
   if(num(r.travelTotal)>0) lines.push(`Выезд: ${money(r.travelTotal)}`);
   if(num(r.discountValue)>0) lines.push(`Скидка: − ${money(r.discountValue)}`);
   if(num(r.economyTopup)>0) lines.push(`Корректировка стоимости заказа *: + ${money(r.economyTopup)}`);
   if(num(r.seriesDiscountValue)>0) lines.push(`Скидка за серию (${num(r.seriesDiscountPercent)}%): − ${money(r.seriesDiscountValue)}`);
-  lines.push(`\nИТОГО к оплате${r.seriesCount>1?' (за 1 уборку)':''}: ${money(r.recommendedPrice)}`);
+  if(!r.subscription) lines.push(`\nИТОГО к оплате: ${money(r.recommendedPrice)}`);
   if(r.seriesCount>1){
     lines.push(`Серия уборок: ${r.seriesCount} (обслуживание ${r.seriesMonths} мес.)`);
     if(String(state.form.seriesSchedule||'').trim()) lines.push(`График уборок: ${String(state.form.seriesSchedule).trim()}`);
@@ -260,7 +286,7 @@ function estimateText(){
   const meta=estimateMetaLine();
   const phone=String(state.form.clientPhone||'').trim();
   const cleanDateText=formatCleanDate();
-  return `Смета на уборку${meta?`\n${meta}`:''}\n\nКлиент: ${state.form.clientName||'—'}${phone?`\nТелефон: ${phone}`:''}\nОбъект: ${state.form.objectType}${cleanDateText?`\nДата уборки: ${cleanDateText}`:''}\nПлощадь: ${num(state.form.area)} м²\nТип уборки: ${r.rate.label}\nЗаставленность: ${r.clutter.label} (коэф. × ${r.clutterPriceK.toFixed(2)})\nЗагрязнённость: ${r.dirt.label} (коэф. × ${r.dirtPriceK.toFixed(2)})\n\nВ услуги входят:\n${included}\n\nДоп. услуги:\n${extras}\n\n${lines.join('\n')}\n\nДополнительная информация:\n${state.mainInfo.usefulInfo||'—'}\n\nЗаметки: ${state.form.notes||'—'}`;
+  return `Смета на уборку${meta?`\n${meta}`:''}\n\nКлиент: ${state.form.clientName||'—'}${phone?`\nТелефон: ${phone}`:''}\nОбъект: ${state.form.objectType}${state.form.address?`\nАдрес: ${state.form.address}`:''}${cleanDateText?`\nДата уборки: ${cleanDateText}`:''}\nПлощадь: ${num(state.form.area)} м²\nТип уборки: ${r.rate.label}\nЗаставленность: ${r.clutter.label} (коэф. × ${r.clutterPriceK.toFixed(2)})\nЗагрязнённость: ${r.dirt.label} (коэф. × ${r.dirtPriceK.toFixed(2)})\n\nВ услуги входят:\n${included}\n\nНе входят:\n${notIncluded}\n\nДоп. услуги:\n${extras}\n\n${lines.join('\n')}\n\nДополнительная информация:\n${state.mainInfo.usefulInfo||'—'}\n\nЗаметки: ${state.form.notes||'—'}`;
 }
 async function copyEstimate(){ if(validateCurrentOrder().length) return; ensureEstimateNo(); const text=estimateText(); try{ await navigator.clipboard.writeText(text); toast('Смета скопирована'); }catch(e){ $('shareText').value=text; $('shareModal').classList.remove('hidden'); toast('Открыл смету для ручного копирования'); } }
 function buildPrintHtml(){
@@ -292,6 +318,7 @@ function buildPrintHtml(){
       <tr style="break-inside:avoid;page-break-inside:avoid"><td style="padding:6px 0;font-weight:700">Клиент</td><td style="padding:6px 0">${esc(state.form.clientName||'—')}</td></tr>
       ${clientPhone?`<tr style="break-inside:avoid;page-break-inside:avoid"><td style="padding:6px 0;font-weight:700">Телефон</td><td style="padding:6px 0">${esc(clientPhone)}</td></tr>`:''}
       <tr style="break-inside:avoid;page-break-inside:avoid"><td style="padding:6px 0;font-weight:700">Объект</td><td style="padding:6px 0">${esc(state.form.objectType)}</td></tr>
+      ${state.form.address?`<tr style="break-inside:avoid;page-break-inside:avoid"><td style="padding:6px 0;font-weight:700">Адрес</td><td style="padding:6px 0">${esc(state.form.address)}</td></tr>`:''}
       ${cleanDateText?`<tr style="break-inside:avoid;page-break-inside:avoid"><td style="padding:6px 0;font-weight:700">Дата уборки</td><td style="padding:6px 0">${esc(cleanDateText)}</td></tr>`:''}
       <tr style="break-inside:avoid;page-break-inside:avoid"><td style="padding:6px 0;font-weight:700">Площадь</td><td style="padding:6px 0">${num(state.form.area)} м²</td></tr>
       <tr style="break-inside:avoid;page-break-inside:avoid"><td style="padding:6px 0;font-weight:700">Тип уборки</td><td style="padding:6px 0">${esc(r.rate.label)}</td></tr>
@@ -299,9 +326,20 @@ function buildPrintHtml(){
       <tr style="break-inside:avoid;page-break-inside:avoid"><td style="padding:6px 0;font-weight:700">Загрязнённость</td><td style="padding:6px 0">${esc(r.dirt.label)} (коэф. × ${r.dirtPriceK.toFixed(2)})</td></tr>
     </table>`,
     included: `${sectionTitle('В услуги входят')}<div style="border:1px solid #cbd5e1;border-radius:14px;padding:14px;margin-bottom:18px">${included.length?included.map(x=>`<div style="${AVOID};margin:0 0 6px">• ${esc(x)}</div>`).join(''):'<div>—</div>'}</div>`,
+    not_included: `${sectionTitle('В услуги не входят')}<div style="border:1px solid #cbd5e1;border-radius:14px;padding:14px;margin-bottom:18px">${String(getActiveCleaningType()?.notIncluded||'').split(/\n+/).map(x=>x.trim()).filter(Boolean).map(x=>`<div style="${AVOID};margin:0 0 6px">• ${esc(x)}</div>`).join('')||'<div>—</div>'}</div>`,
     extras: `${sectionTitle('Дополнительные услуги')}<div style="border:1px solid #cbd5e1;border-radius:14px;padding:14px;margin-bottom:18px">${extras.length?extras.map(x=>`<div style="${AVOID};display:flex;justify-content:space-between;gap:12px;margin:0 0 7px;align-items:flex-start"><span><span style="display:inline-block;font-size:10px;line-height:1;padding:4px 7px;border-radius:999px;background:#eef2f7;color:#475569;font-weight:700;margin-right:7px;vertical-align:middle;text-transform:uppercase;letter-spacing:.2px">${esc(x.category||'Другое')}</span>${esc(x.name)} × ${num(x.qty)}</span><span style="white-space:nowrap">${money(num(x.qty)*num(x.price))}</span></div>`).join(''):'<div>Без доп. услуг</div>'}</div>`,
     pricing: (()=>{
       const rows=[];
+      if(r.subscription){
+        rows.push(`<tr style="break-inside:avoid;page-break-inside:avoid"><td style="padding:6px 0">Разовая стоимость одного визита</td><td style="padding:6px 0;text-align:right">${money(r.oneoffPrice)}</td></tr>`);
+        rows.push(`<tr style="break-inside:avoid;page-break-inside:avoid"><td style="padding:6px 0">Скидка по абонементу</td><td style="padding:6px 0;text-align:right">− ${Math.round(r.subscriptionDiscount*100)}%</td></tr>`);
+        rows.push(`<tr style="break-inside:avoid;page-break-inside:avoid"><td style="padding:6px 0">Цена одного визита</td><td style="padding:6px 0;text-align:right">${money(r.visitPrice)}</td></tr>`);
+        rows.push(`<tr style="break-inside:avoid;page-break-inside:avoid"><td style="padding:6px 0">График абонемента</td><td style="padding:6px 0;text-align:right">${r.frequency} уборки/мес. × ${r.term} мес.</td></tr>`);
+        rows.push(`<tr style="break-inside:avoid;page-break-inside:avoid"><td style="padding:6px 0">Количество визитов</td><td style="padding:6px 0;text-align:right">${r.totalVisits}</td></tr>`);
+        rows.push(`<tr style="break-inside:avoid;page-break-inside:avoid"><td style="padding:12px 0;border-top:2px solid #0f172a;font-weight:800;font-size:17px">Итого за абонемент</td><td style="padding:12px 0;border-top:2px solid #0f172a;text-align:right;font-weight:800;font-size:17px">${money(r.subscriptionTotal)}</td></tr>`);
+        rows.push(`<tr style="break-inside:avoid;page-break-inside:avoid"><td style="padding:6px 0">Примерное время одной уборки</td><td style="padding:6px 0;text-align:right">${hours(r.brigadeHours)}</td></tr>`);
+        return `${sectionTitle('Абонемент поддерживающей уборки')}<table style="width:100%;border-collapse:collapse;font-size:14px">${rows.join('')}</table>`;
+      }
       rows.push(`<tr style="break-inside:avoid;page-break-inside:avoid"><td style="padding:6px 0">Стоимость уборки</td><td style="padding:6px 0;text-align:right">${money(r.baseNoK)}</td></tr>`);
       rows.push(`<tr style="break-inside:avoid;page-break-inside:avoid"><td style="padding:6px 0">Стоимость с коэффициентом заставленности</td><td style="padding:6px 0;text-align:right">${money(r.baseAfterClutter)}</td></tr>`);
       rows.push(`<tr style="break-inside:avoid;page-break-inside:avoid"><td style="padding:6px 0">Стоимость с коэффициентом загрязнённости</td><td style="padding:6px 0;text-align:right">${money(r.baseWithK)}</td></tr>`);

@@ -11,13 +11,14 @@ defaults.pdfHeader = defaults.pdfHeader || {useLogo:false,fontFamily:'Orbitron, 
 defaults.baseRates = defaults.baseRates || {};
 defaults.clutter = defaults.clutter || {};
 defaults.dirtiness = defaults.dirtiness || {};
-defaults.travel = defaults.travel || {kad:{label:'В пределах КАД',base:0,perKm:0},km15:{label:'До 15 км от КАД',base:1500,perKm:0},km20plus:{label:'20+ км',base:1500,perKm:15}};
-defaults.labor = defaults.labor || {cleanerDay:5000,ownerManagerDay:5000,ownerCleanerManagerDay:7000,hourlyRate:550,maxHoursPerDay:9};
+defaults.travel = defaults.travel || {kad:{label:'В пределах КАД',base:0,perKm:0},outsideKad:{label:'За КАД',base:1700,perKm:40,includedKm:15}};
+defaults.labor = defaults.labor || {cleanerDay:5000,ownerManagerDay:5000,ownerCleanerManagerDay:7000,maxHoursPerDay:9,maintenanceSlots:[{maxHours:3,pay:3500},{maxHours:5,pay:4000},{maxHours:7,pay:4500},{maxHours:10,pay:5000}]};
 defaults.materialPerM2 = defaults.materialPerM2 != null ? defaults.materialPerM2 : 15;
-defaults.overhead = defaults.overhead || {monthly:75000,jobsPerMonth:10};
+defaults.overhead = defaults.overhead || {fixedPerOrder:2500,perM2:0,maintenanceFixedPerVisit:2500,maintenancePerM2:0};
+defaults.pricing = defaults.pricing || {profitPercent:25};
 defaults.includedByType = defaults.includedByType || {};
 defaults.serviceDescriptions = defaults.serviceDescriptions || {windows:''};
-defaults.pdfSettings = defaults.pdfSettings || {order:['client','included','extras','pricing','main_info','useful_info','notes'], visible:{client:true,included:true,extras:true,pricing:true,main_info:true,useful_info:true,notes:true}};
+defaults.pdfSettings = defaults.pdfSettings || {order:['client','included','not_included','extras','pricing','main_info','useful_info','notes'], visible:{client:true,included:true,not_included:true,extras:true,pricing:true,main_info:true,useful_info:true,notes:true}};
 defaults.mainInfo = defaults.mainInfo || {equipmentText:'', chemistryText:'', usefulInfo:'Всё необходимое для клининга — техника и моющие средства — привозим самостоятельно.\nРаботаем по договору.\nПриём оплаты: наличные, перевод, QR-код СБП, ссылка СБП, карта VISA/MasterCard/МИР, Долями от Т-Банка, безналичный расчёт для юридических лиц.'};
 defaults.extras = defaults.extras || [];
 defaults.extraCategories = defaults.extraCategories || [];
@@ -28,10 +29,17 @@ if(defaults.form.seriesDiscount == null) defaults.form.seriesDiscount = 0;
 if(defaults.form.seriesSchedule == null) defaults.form.seriesSchedule = '';
 if(defaults.form.clientPhone == null) defaults.form.clientPhone = '';
 if(defaults.form.cleanDate == null) defaults.form.cleanDate = '';
+if(defaults.form.address == null) defaults.form.address = '';
+if(defaults.form.managerOnSite == null) defaults.form.managerOnSite = false;
 if(defaults.form.estimateNo == null) defaults.form.estimateNo = '';
 if(defaults.form.estimateDate == null) defaults.form.estimateDate = 0;
 if(defaults.form.forceDiscount == null) defaults.form.forceDiscount = false;
 if(defaults.overhead.taxPercent == null) defaults.overhead.taxPercent = 0;
+if(defaults.form.maintenanceCrewSize == null) defaults.form.maintenanceCrewSize = 1;
+if(defaults.form.outsideKad == null) defaults.form.outsideKad = false;
+if(defaults.form.maintenanceFormat == null) defaults.form.maintenanceFormat = 'oneoff';
+if(defaults.form.maintenanceFrequency == null) defaults.form.maintenanceFrequency = 4;
+if(defaults.form.maintenanceTerm == null) defaults.form.maintenanceTerm = 6;
 defaults.estimateValidityDays = defaults.estimateValidityDays != null ? defaults.estimateValidityDays : 14;
 defaults.savedOrders = [];
 defaults.ui = defaults.ui || {showTariffs:false, showSettings:false, extraGroupsCollapsed:{}};
@@ -72,6 +80,7 @@ function normalizeCleaningTypes(cleaningTypes, target){
       min: Number(t.min ?? (legacy[key] && legacy[key].min)) || 0,
       speed: Number(t.speed ?? (legacy[key] && legacy[key].speed)) || 1,
       included: t.included ?? includedByType[key] ?? (legacy[key] && legacy[key].included) ?? '',
+      notIncluded: t.notIncluded ?? '',
       windowsDescription: t.windowsDescription ?? t.windows ?? (target && target.serviceDescriptions && target.serviceDescriptions.windows) ?? (legacy[key] && legacy[key].windowsDescription) ?? '',
       clutter: (t.clutter && typeof t.clutter === 'object' && Object.keys(t.clutter).length) ? clone(t.clutter) : clone(fallbackClutter),
       dirtiness: (t.dirtiness && typeof t.dirtiness === 'object' && Object.keys(t.dirtiness).length) ? clone(t.dirtiness) : clone(fallbackDirtiness)
@@ -99,6 +108,7 @@ function syncLegacyFromCleaningTypes(target){
     item.min = Number(item.min)||0;
     item.speed = Number(item.speed)||1;
     item.included = item.included ?? target.includedByType?.[key] ?? '';
+    item.notIncluded = item.notIncluded ?? '';
     item.windowsDescription = item.windowsDescription ?? item.windows ?? (target.serviceDescriptions&&target.serviceDescriptions.windows) ?? '';
     if(!item.clutter || typeof item.clutter !== 'object' || !Object.keys(item.clutter).length) item.clutter = clone(fallbackClutter);
     if(!item.dirtiness || typeof item.dirtiness !== 'object' || !Object.keys(item.dirtiness).length) item.dirtiness = clone(fallbackDirtiness);
@@ -114,6 +124,13 @@ function syncLegacyFromCleaningTypes(target){
   return target;
 }
 defaults.cleaningTypes = normalizeCleaningTypes(defaults.cleaningTypes, defaults);
+if(!defaults.cleaningTypes.postreno_basic && defaults.cleaningTypes.postreno){
+  defaults.cleaningTypes.postreno_basic = {...clone(defaults.cleaningTypes.postreno), label:'После ремонта — базовая', rate:250, min:13000,
+    clutter:{empty:{label:'Без мебели',priceK:1,timeK:1},slight:{label:'Небольшая заставленность',priceK:1.2,timeK:1.2}}};
+}
+if(!defaults.cleaningTypes.extras_only){
+  defaults.cleaningTypes.extras_only={label:'Только доп. услуги',rate:0,min:0,speed:1,included:'',notIncluded:'',clutter:{normal:{label:'Не применяется',priceK:1,timeK:1}},dirtiness:{normal:{label:'Не применяется',priceK:1,timeK:1}}};
+}
 syncLegacyFromCleaningTypes(defaults);
 function getDefaultContactText(){ return [defaults.brand?.phone, defaults.brand?.site].filter(Boolean).join('\n'); }
 function ensureBrandContactText(obj){
@@ -122,7 +139,7 @@ function ensureBrandContactText(obj){
 }
 function mergeConfiguredExtras(configExtras, currentExtras){
   const qtyById = new Map((Array.isArray(currentExtras)?currentExtras:[]).map(x=>[String(x.id), Math.max(0, Number(x.qty)||0)]));
-  return (Array.isArray(configExtras)?configExtras:[]).map(x=>({...clone(x), qty: qtyById.has(String(x.id)) ? qtyById.get(String(x.id)) : Math.max(0, Number(x.qty)||0)}));
+  return (Array.isArray(configExtras)?configExtras:[]).map(x=>({...clone(x), availableSeparately:x.availableSeparately !== false, qty: qtyById.has(String(x.id)) ? qtyById.get(String(x.id)) : Math.max(0, Number(x.qty)||0)}));
 }
 function applyConfigRevisionData(){
   state.cleaningTypes = clone(defaults.cleaningTypes);
@@ -131,6 +148,7 @@ function applyConfigRevisionData(){
   state.labor = clone(defaults.labor);
   state.materialPerM2 = defaults.materialPerM2;
   state.overhead = clone(defaults.overhead);
+  state.pricing = clone(defaults.pricing);
   state.extras = mergeConfiguredExtras(defaults.extras, state.extras);
   state.extraCategories = clone(defaults.extraCategories || state.extraCategories || []);
   state.includedByType = clone(state.includedByType || defaults.includedByType);
@@ -160,6 +178,7 @@ function mergeState(parsed){
     materialPerM2: parsed.materialPerM2 != null ? parsed.materialPerM2 : d.materialPerM2,
     estimateValidityDays: parsed.estimateValidityDays != null ? parsed.estimateValidityDays : d.estimateValidityDays,
     overhead:{...d.overhead,...(parsed.overhead||{})},
+    pricing:{...d.pricing,...(parsed.pricing||{})},
     includedByType:{...d.includedByType,...(parsed.includedByType||{})},
     serviceDescriptions:{...d.serviceDescriptions,...(parsed.serviceDescriptions||{})},
     pdfSettings:{order:Array.isArray(parsed.pdfSettings?.order)?parsed.pdfSettings.order:d.pdfSettings.order, visible:{...d.pdfSettings.visible,...(parsed.pdfSettings?.visible||{})}},
@@ -220,8 +239,56 @@ function migrateV46(){
     saveState();
   }
 }
+function migrateV411(){
+  state.form = state.form || {};
+  if(state.form.travelType === 'km15' || state.form.travelType === 'km20plus') state.form.travelType = 'outsideKad';
+  if(state.form.maintenanceCrewSize == null) state.form.maintenanceCrewSize = 1;
+  state.pricing = {...clone(defaults.pricing), ...(state.pricing||{})};
+  if(state.form.profitPercent != null && state.pricing.profitPercent == null) state.pricing.profitPercent = Math.max(0, Number(state.form.profitPercent) || 0);
+  delete state.form.profitPercent;
+  state.overhead = {...clone(defaults.overhead), ...(state.overhead||{})};
+  delete state.overhead.monthly; delete state.overhead.jobsPerMonth;
+  state.labor = {...clone(defaults.labor), ...(state.labor||{})};
+  if(!Array.isArray(state.labor.maintenanceSlots) || !state.labor.maintenanceSlots.length) state.labor.maintenanceSlots = clone(defaults.labor.maintenanceSlots);
+  if(state.ui?.modelV411 !== true){ state.ui.modelV411 = true; saveState(); }
+}
+function migrateV412(){
+  if(!state.cleaningTypes?.extras_only && defaults.cleaningTypes?.extras_only){
+    state.cleaningTypes.extras_only = clone(defaults.cleaningTypes.extras_only);
+    syncLegacyFromCleaningTypes(state);
+    saveState();
+  }
+}
+function migrateV413(){
+  state.pdfSettings = state.pdfSettings || clone(defaults.pdfSettings);
+  state.pdfSettings.order = Array.isArray(state.pdfSettings.order) ? state.pdfSettings.order : clone(defaults.pdfSettings.order);
+  if(!state.pdfSettings.order.includes('not_included')){
+    const includedIndex=state.pdfSettings.order.indexOf('included');
+    state.pdfSettings.order.splice(includedIndex<0 ? 0 : includedIndex+1,0,'not_included');
+  }
+  state.pdfSettings.visible = state.pdfSettings.visible || {};
+  if(state.pdfSettings.visible.not_included === undefined) state.pdfSettings.visible.not_included = true;
+}
+function migrateV414(){
+  state.form = state.form || {};
+  if(state.ui?.modelV414 === true) return;
+  if(state.form.address == null) state.form.address = '';
+  state.form.managerOnSite = false;
+  state.form.ownerRole = 'none';
+  state.ui = state.ui || {}; state.ui.modelV414 = true; saveState();
+}
+function migrateV415(){
+  if(state.ui?.modelV415 === true) return;
+  (state.extras||[]).forEach(item=>{ if(item.availableSeparately === undefined) item.availableSeparately = true; });
+  state.ui = state.ui || {}; state.ui.modelV415 = true; saveState();
+}
 migrateV43();
 migrateV46();
+migrateV411();
+migrateV412();
+migrateV413();
+migrateV414();
+migrateV415();
 syncConfigRevision();
 
 // === Защита от потери данных ===
@@ -242,7 +309,7 @@ function attemptIdbRecovery(){
     const hasOrders = Array.isArray(saved.savedOrders) && saved.savedOrders.length>0;
     const hasExtras = Array.isArray(saved.extras) && saved.extras.length>0;
     if(!hasOrders && !hasExtras) return;
-    state=mergeState(saved); migrateV43(); migrateV46(); syncConfigRevision();
+    state=mergeState(saved); migrateV43(); migrateV46(); migrateV411(); migrateV412(); migrateV413(); migrateV414(); migrateV415(); syncConfigRevision();
     fillForm(); renderTariffs(); renderExtras(); renderSettingsPanel(); recalc(); updateBackupReminder();
     toast('Данные восстановлены из резервного хранилища');
   }).catch(()=>{});

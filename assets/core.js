@@ -4,256 +4,137 @@
   if(root) root.PROCHISTKA_CORE = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this, function(){
   const num = value => Math.max(0, Number(value) || 0);
+  const rub = value => Math.round(value);
   const isRecord = value => !!value && typeof value === 'object' && !Array.isArray(value);
   const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(object || {}, key);
+  const cleanType = (state, key) => state.cleaningTypes?.[key] || state.baseRates?.[key] || null;
 
-  function getCleaningType(state, cleanType){
-    return state.cleaningTypes && state.cleaningTypes[cleanType] ? state.cleaningTypes[cleanType] : null;
+  function travelCost(state, form, active){
+    const fallback = {kad:{base:0, perKm:0}, outsideKad:{base:1700, perKm:40, includedKm:15}};
+    const legacyKey = form.outsideKad === true ? 'outsideKad' : (form.travelType === 'km15' ? 'outsideKad' : form.travelType === 'km20plus' ? 'outsideKad' : form.travelType);
+    const conf = state.travel?.[legacyKey] || fallback[legacyKey] || {};
+    if(!active) return {base:0, perKm:0, includedKm:0, total:0};
+    const base = num(conf.base), perKm = num(conf.perKm), includedKm = num(conf.includedKm);
+    return {base, perKm, includedKm, total:rub(base + Math.max(0, num(form.travelKm) - includedKm) * perKm)};
   }
 
-  function getRateConf(state, form){
-    const type = getCleaningType(state, form.cleanType);
-    if(type){
-      return {label:type.label, rate:type.rate, min:type.min, speed:type.speed, code:form.cleanType};
-    }
-    return state.baseRates?.[form.cleanType];
-  }
-
-  function getClutterCollection(state, form){
-    const type = getCleaningType(state, form.cleanType);
-    return (type && isRecord(type.clutter)) ? type.clutter : state.clutter;
-  }
-
-  function getDirtinessCollection(state, form){
-    const type = getCleaningType(state, form.cleanType);
-    return (type && isRecord(type.dirtiness)) ? type.dirtiness : state.dirtiness;
+  function maintenanceLabor(state, normHours, form){
+    const crew = Math.max(1, Math.round(num(form.maintenanceCrewSize)) || 1);
+    const hoursPerPerson = normHours / crew;
+    const slots = Array.isArray(state.labor?.maintenanceSlots) && state.labor.maintenanceSlots.length
+      ? state.labor.maintenanceSlots : [
+        {maxHours:3, pay:3500}, {maxHours:5, pay:4000},
+        {maxHours:7, pay:4500}, {maxHours:10, pay:5000}
+      ];
+    const sorted = slots.slice().sort((a,b)=>num(a.maxHours)-num(b.maxHours));
+    const slot = sorted.find(item=>hoursPerPerson<=num(item.maxHours)) || sorted[sorted.length-1];
+    const payPerPerson = num(slot?.pay);
+    return {crewNeeded:crew, peopleOnSite:crew, hiredCleaners:crew, ownerCost:0, hoursPerPerson, payPerPerson, laborCost:rub(payPerPerson * crew)};
   }
 
   function calculateOrder(state){
     const form = state.form || {};
-    const rate = getRateConf(state, form);
-    const clutter = getClutterCollection(state, form)?.[form.clutter];
-    const dirt = getDirtinessCollection(state, form)?.[form.dirtiness];
+    const rate = cleanType(state, form.cleanType);
+    const clutter = (rate?.clutter || state.clutter || {})[form.clutter];
+    const dirt = (rate?.dirtiness || state.dirtiness || {})[form.dirtiness];
     if(!rate || !clutter || !dirt) throw new Error('Некорректные параметры тарифа');
 
-    const area = num(form.area);
-    const orderActive = area > 0;
-    const profitPercent = num(form.profitPercent);
-    const discountPercent = Math.min(100, num(form.discount));
-    const clutterPriceK = Number(clutter.priceK) || 1;
-    const dirtPriceK = Number(dirt.priceK) || 1;
-    const clutterTimeK = Number(clutter.timeK) || 1;
-    const dirtTimeK = Number(dirt.timeK) || 1;
-    const priceK = clutterPriceK * dirtPriceK;
-    const timeK = clutterTimeK * dirtTimeK;
-    // Все денежные величины округляются до рубля сразу в расчёте,
-    // чтобы строки сметы всегда сходились с итогом копейка в копейку.
-    const rub = value => Math.round(value);
+    const area = num(form.area), extrasOnly = form.cleanType === 'extras_only';
+    const clutterPriceK = Number(clutter.priceK) || 1, dirtPriceK = Number(dirt.priceK) || 1;
+    const clutterTimeK = Number(clutter.timeK) || 1, dirtTimeK = Number(dirt.timeK) || 1;
     const baseNoK = rub(area * num(rate.rate));
     const baseAfterClutter = rub(baseNoK * clutterPriceK);
     const baseWithK = rub(baseAfterClutter * dirtPriceK);
-    const minBase = rub(num(rate.min));
-    const minBaseApplied = area > 0 && baseWithK < minBase;
-    const baseRaw = area > 0 ? Math.max(baseWithK, minBase) : 0;
-    const extras = Array.isArray(state.extras) ? state.extras : [];
-    const extrasTotal = orderActive ? rub(extras.reduce((sum, item) => sum + num(item.qty) * num(item.price), 0)) : 0;
-    // Стоимость выезда берётся из настроек (state.travel), с запасным значением для старых копий.
-    const DEFAULT_TRAVEL = {
-      kad: {base: 0, perKm: 0},
-      km15: {base: 1500, perKm: 0},
-      km20plus: {base: 1500, perKm: 15}
-    };
-    const travelConf = (state.travel && state.travel[form.travelType]) || DEFAULT_TRAVEL[form.travelType] || {base: 0, perKm: 0};
-    const travelBase = num(travelConf.base);
-    const travelPerKm = num(travelConf.perKm);
-    const travelTotal = orderActive ? rub(travelBase + (travelPerKm > 0 ? num(form.travelKm) * travelPerKm : 0)) : 0;
-    // Скидка считается от базовой стоимости уборки и доп. услуг. Выезд НЕ дисконтируется.
-    const discountBase = baseRaw + extrasTotal;
+    const selectedExtras = (Array.isArray(state.extras) ? state.extras : []).filter(item=>num(item.qty)>0 && (!extrasOnly || item.availableSeparately===true));
+    const active = area > 0 || (extrasOnly && selectedExtras.length > 0);
+    const extrasTotal = active ? rub(selectedExtras.reduce((sum,item)=>sum + num(item.qty)*num(item.price), 0)) : 0;
+    const minimumExtrasTotal = active ? rub(selectedExtras.filter(item=>item.countsTowardMinimum === true).reduce((sum,item)=>sum + num(item.qty)*num(item.price), 0)) : 0;
+    const minBase = extrasOnly ? 0 : rub(num(rate.min));
+    const minimumAdjustment = active ? Math.max(0, minBase - baseWithK - minimumExtrasTotal) : 0;
+    const minBaseApplied = minimumAdjustment > 0;
+    const baseRaw = baseWithK + minimumAdjustment;
+    const workSubtotal = baseWithK + extrasTotal;
+    const cleaningTotal = workSubtotal + minimumAdjustment;
+    const travel = travelCost(state, form, active);
+    const discountBase = cleaningTotal;
+    const discountPercent = Math.min(100, num(form.discount));
     const discountValue = rub(form.discountMode === 'amount'
       ? Math.min(num(form.discountAmount), discountBase)
-      : discountBase * (discountPercent / 100));
-    const subtotal = baseRaw + extrasTotal + travelTotal;
-    const marketPrice = Math.max(0, subtotal - discountValue);
+      : discountBase * discountPercent / 100);
+    const oneoffPrice = Math.max(0, cleaningTotal + travel.total - discountValue);
+    const isMaintenance = form.cleanType === 'maintenance';
+    const subscription = isMaintenance && form.maintenanceFormat === 'subscription';
+    const frequency = [2,4,8].includes(Number(form.maintenanceFrequency)) ? Number(form.maintenanceFrequency) : 4;
+    const term = [3,6,12].includes(Number(form.maintenanceTerm)) ? Number(form.maintenanceTerm) : 6;
+    const discounts = state.subscriptionDiscounts || {2:{3:.08,6:.10,12:.12},4:{3:.10,6:.12,12:.14},8:{3:.12,6:.14,12:.15}};
+    const subscriptionDiscount = num(discounts[frequency]?.[term]);
+    const visitPrice = Math.max(rub(oneoffPrice*(1-subscriptionDiscount)), 5400);
+    const totalVisits = frequency*term;
+    const marketPrice = subscription ? visitPrice*totalVisits : oneoffPrice;
 
-    // --- Время и размер бригады (бригада выводится из нормо-часов и лимита часов в день) ---
-    const baseHours = orderActive && num(rate.speed) > 0 ? area / num(rate.speed) : 0;
-    const extrasHours = orderActive ? extras.reduce((sum, item) => sum + num(item.qty) * num(item.time), 0) : 0;
-    const normHours = (baseHours + extrasHours) * timeK;
-    const labor = state.labor || {};
-    const maxHoursPerDay = num(labor.maxHoursPerDay) || 9;
-    const crewNeeded = normHours > 0 ? Math.max(1, Math.ceil(normHours / maxHoursPerDay)) : 0;
-    const brigadeHours = crewNeeded > 0 ? normHours / crewNeeded : 0;
-
-    // --- Себестоимость труда (дневные ставки + роль владельца на объекте) ---
-    const cleanerDay = num(labor.cleanerDay) || 5000;
-    const ownerManagerDay = num(labor.ownerManagerDay) || 5000;
-    const ownerCleanerManagerDay = num(labor.ownerCleanerManagerDay) || 7000;
-    const ownerRole = form.ownerRole || 'none';
-    let hiredCleaners, ownerCost, peopleOnSite;
-    if(crewNeeded === 0){
-      hiredCleaners = 0; ownerCost = 0; peopleOnSite = 0;
-    } else if(ownerRole === 'cleaner_manager'){
-      hiredCleaners = Math.max(0, crewNeeded - 1);
-      ownerCost = ownerCleanerManagerDay;
-      peopleOnSite = crewNeeded;
-    } else if(ownerRole === 'manager'){
-      hiredCleaners = crewNeeded;
-      ownerCost = ownerManagerDay;
-      peopleOnSite = crewNeeded + 1;
+    const baseHours = !extrasOnly && active && num(rate.speed)>0 ? area / num(rate.speed) : 0;
+    const extrasHours = active ? selectedExtras.reduce((sum,item)=>sum + num(item.qty)*num(item.time), 0) : 0;
+    const normHours = (baseHours + extrasHours) * clutterTimeK * dirtTimeK;
+    let crewNeeded, hiredCleaners, peopleOnSite, ownerCost, laborCost, brigadeHours, maintenancePayPerPerson=0, hoursPerPerson=0;
+    if(isMaintenance){
+      const labor = maintenanceLabor(state, normHours, form);
+      ({crewNeeded,hiredCleaners,peopleOnSite,ownerCost,laborCost,hoursPerPerson}=labor);
+      maintenancePayPerPerson=labor.payPerPerson; brigadeHours=hoursPerPerson;
     } else {
-      hiredCleaners = crewNeeded;
-      ownerCost = 0;
-      peopleOnSite = crewNeeded;
+      const labor = state.labor || {}, maxHoursPerDay=num(labor.maxHoursPerDay)||9;
+      crewNeeded = normHours>0 ? Math.max(1, Math.ceil(normHours/maxHoursPerDay)) : 0;
+      brigadeHours = crewNeeded ? normHours/crewNeeded : 0;
+      const ownerRole=form.ownerRole || 'none';
+      if(!crewNeeded){ hiredCleaners=0; ownerCost=0; peopleOnSite=0; }
+      else if(ownerRole==='cleaner_manager'){ hiredCleaners=Math.max(0,crewNeeded-1); ownerCost=num(labor.ownerCleanerManagerDay)||7000; peopleOnSite=crewNeeded; }
+      else if(ownerRole==='manager'){ hiredCleaners=crewNeeded; ownerCost=num(labor.ownerManagerDay)||5000; peopleOnSite=crewNeeded+1; }
+      else { hiredCleaners=crewNeeded; ownerCost=0; peopleOnSite=crewNeeded; }
+      laborCost=rub(hiredCleaners*(num(labor.cleanerDay)||5000)+ownerCost);
     }
-    const laborCost = rub(hiredCleaners * cleanerDay + ownerCost);
-
-    // --- Материалы (расходники на м²) ---
-    const materialPerM2 = num(state.materialPerM2 != null ? state.materialPerM2 : 15);
-    const materialsCost = rub(area * materialPerM2);
-
-    // --- Накладные на заказ (постоянные расходы в месяц / число заказов) ---
-    const overhead = state.overhead || {};
-    const overheadMonthly = num(overhead.monthly);
-    const jobsPerMonth = num(overhead.jobsPerMonth);
-    const overheadPerJob = jobsPerMonth > 0 ? rub(overheadMonthly / jobsPerMonth) : 0;
-
-    // --- Серия уборок (абонемент): накладные одного заказа делятся на все уборки серии ---
-    const seriesCount = Math.max(1, Math.round(num(form.seriesCount)) || 1);
-    const seriesMonths = Math.max(1, Math.round(num(form.seriesMonths)) || 1);
-    const overheadPerCleaning = orderActive ? rub(overheadPerJob / seriesCount) : 0;
-
-    // --- Налог с выручки (УСН/НПД). Целевая цена закладывает налог, чтобы заданная прибыль оставалась чистой ---
-    const taxPercent = Math.min(99, num(overhead.taxPercent));
-    const taxK = 1 - taxPercent / 100;
-
-    // --- Себестоимость и цены (за одну уборку) ---
-    const directCost = laborCost + materialsCost;              // жёсткий пол: ниже = прямой убыток
-    const fullCost = directCost + overheadPerCleaning;         // полная себестоимость одной уборки в серии
-    const targetPrice = rub(fullCost * (1 + profitPercent / 100) / taxK); // целевая цена (наценка на полную себестоимость + налог)
-
-    // --- Принудительная скидка: продаём строго по рыночной цене, без автоподъёма до себестоимости.
-    // Оператор берёт риск убытка на себя; интерфейс показывает предупреждение.
-    const forceDiscount = form.forceDiscount === true;
-    const priceBeforeSeriesDiscount = forceDiscount ? marketPrice : Math.max(marketPrice, targetPrice, directCost);
-
-    // --- Скидка за серию (абонемент): применяется к цене одной уборки, обычно не ниже прямых затрат ---
-    const seriesDiscountPercent = seriesCount > 1 ? Math.min(100, num(form.seriesDiscount)) : 0;
-    const seriesDiscountValue = seriesDiscountPercent > 0
-      ? (forceDiscount
-        ? rub(priceBeforeSeriesDiscount * seriesDiscountPercent / 100)
-        : Math.min(rub(priceBeforeSeriesDiscount * seriesDiscountPercent / 100), Math.max(0, priceBeforeSeriesDiscount - directCost)))
-      : 0;
-    const recommendedPrice = priceBeforeSeriesDiscount - seriesDiscountValue;
-
-    // --- Разовый заказ для сравнения (все накладные ложатся на одну уборку) ---
-    const singleFullCost = orderActive ? directCost + overheadPerJob : 0;
-    const singleTargetPrice = orderActive ? rub(singleFullCost * (1 + profitPercent / 100) / taxK) : 0;
-    const singleRecommendedPrice = orderActive ? Math.max(marketPrice, singleTargetPrice, directCost) : 0;
-    const seriesTotal = recommendedPrice * seriesCount;
-    const seriesSavingPerCleaning = Math.max(0, singleRecommendedPrice - recommendedPrice);
-    const seriesSavingTotal = seriesSavingPerCleaning * seriesCount;
-
-    const breakEvenPrice = taxK > 0 ? rub(fullCost / taxK) : fullCost; // цена без прибыли, но с учётом налога
-    const taxValue = rub(recommendedPrice * taxPercent / 100); // налог при рекомендованной цене
-    const netProfit = recommendedPrice - fullCost - taxValue;  // факт. прибыль при рекомендованной цене (после налога)
-    const marginPct = recommendedPrice > 0 ? (netProfit / recommendedPrice) * 100 : 0;
-    const contribution = recommendedPrice - directCost;        // вклад в накладные + прибыль
-    const marketTaxValue = rub(marketPrice * taxPercent / 100);
-    const marketNetProfit = marketPrice - fullCost - marketTaxValue; // прибыль, если продать строго по рынку
-    const belowDirect = area > 0 && marketPrice < directCost;
-    const belowFull = area > 0 && marketPrice < fullCost;
-    const belowBreakEven = area > 0 && marketPrice < breakEvenPrice;
-    const economyGap = Math.max(0, fullCost - marketPrice);
-    const breakEvenGap = Math.max(0, breakEvenPrice - marketPrice);
-
-    // --- Предупреждения для принудительной скидки: тут в убыток может уйти именно итоговая цена ---
-    const forcedBelowDirect = forceDiscount && area > 0 && recommendedPrice < directCost;
-    const forcedBelowFull = forceDiscount && area > 0 && !forcedBelowDirect && recommendedPrice < fullCost;
-    const forcedBelowBreakEven = forceDiscount && area > 0 && !forcedBelowDirect && !forcedBelowFull && recommendedPrice < breakEvenPrice;
-    const forcedLossValue = forcedBelowDirect ? rub(directCost - recommendedPrice) : 0;
-    const forcedGapValue = forcedBelowFull ? rub(fullCost - recommendedPrice) : 0;
-    const forcedBreakEvenGapValue = forcedBelowBreakEven ? rub(breakEvenPrice - recommendedPrice) : 0;
-
-    const selectedExtras = extras.filter(item => num(item.qty) > 0);
+    const materialsCost=rub(area*num(state.materialPerM2));
+    const overhead=state.overhead || {};
+    const fixedOverhead=isMaintenance ? num(overhead.maintenanceFixedPerVisit) : num(overhead.fixedPerOrder);
+    const overheadPerM2=isMaintenance ? num(overhead.maintenancePerM2) : num(overhead.perM2);
+    const overheadPerCleaning=active ? rub(fixedOverhead + area*overheadPerM2) : 0;
+    const directCost=laborCost+materialsCost, fullCost=directCost+overheadPerCleaning;
+    const taxPercent=Math.min(99,num(overhead.taxPercent)), taxK=1-taxPercent/100;
+    const profitPercent=num(state.pricing?.profitPercent ?? form.profitPercent);
+    const targetPrice=rub(fullCost*(1+profitPercent/100)/taxK);
+    const taxValue=rub(marketPrice*taxPercent/100), netProfit=marketPrice-fullCost-taxValue;
+    const costGap=Math.max(0, fullCost-marketPrice);
 
     return {
-      rate, clutter, dirt, clutterPriceK, dirtPriceK, clutterTimeK, dirtTimeK, priceK, timeK,
-      baseNoK, baseAfterClutter, baseWithK, minBase, minBaseApplied, baseRaw,
-      extrasTotal, travelTotal, travelBase, travelPerKm, subtotal,
-      discountValue, discountBase, discountPercent, marketPrice,
-      baseHours, extrasHours, normHours, brigadeHours, maxHoursPerDay,
-      crewNeeded, hiredCleaners, peopleOnSite, ownerRole, ownerCost,
-      cleanerDay, ownerManagerDay, ownerCleanerManagerDay,
-      laborCost, materialPerM2, materialsCost, overheadMonthly, jobsPerMonth, overheadPerJob,
-      taxPercent, taxValue, marketTaxValue, breakEvenPrice,
-      seriesCount, seriesMonths, overheadPerCleaning,
-      seriesDiscountPercent, seriesDiscountValue, priceBeforeSeriesDiscount,
-      singleFullCost, singleTargetPrice, singleRecommendedPrice,
-      seriesTotal, seriesSavingPerCleaning, seriesSavingTotal,
-      directCost, fullCost, profitPercent, targetPrice, recommendedPrice,
-      netProfit, marginPct, contribution, marketNetProfit, belowDirect, belowFull, belowBreakEven, economyGap, breakEvenGap,
-      forceDiscount, forcedBelowDirect, forcedBelowFull, forcedBelowBreakEven, forcedLossValue, forcedGapValue, forcedBreakEvenGapValue,
-      selectedExtras,
-      // алиасы для обратной совместимости со старым кодом отображения
-      payroll: laborCost,
-      costBasedPrice: fullCost,
-      directCostFloor: directCost,
-      breakEvenNoProfit: breakEvenPrice,
-      targetProfitValue: targetPrice - fullCost,
-      // Корректировка в смете считается до скидки за серию: рынок + корректировка − скидка за серию = итог.
-      economyTopup: Math.max(0, priceBeforeSeriesDiscount - marketPrice),
-      priceBeforeDiscount: Math.max(subtotal, targetPrice),
-      maxAllowedDiscount: subtotal > 0 ? Math.max(0, Math.min(100, (1 - fullCost / subtotal) * 100)) : 0
+      rate, clutter, dirt, clutterPriceK, dirtPriceK, clutterTimeK, dirtTimeK,
+      baseNoK, baseAfterClutter, baseWithK, baseRaw, minBase, minBaseApplied, minimumAdjustment, minimumExtrasTotal,
+      extrasTotal, selectedExtras, workSubtotal, cleaningTotal, travelTotal:travel.total, travelBase:travel.base, travelPerKm:travel.perKm, travelIncludedKm:travel.includedKm,
+      discountBase, discountPercent, discountValue, marketPrice, recommendedPrice:marketPrice,
+      subscription, frequency, term, totalVisits, subscriptionDiscount, oneoffPrice, visitPrice, subscriptionTotal:visitPrice*totalVisits,
+      baseHours, extrasHours, normHours, brigadeHours, crewNeeded, hiredCleaners, peopleOnSite, ownerRole:form.ownerRole||'none', ownerCost,
+      laborCost, maintenancePayPerPerson, hoursPerPerson, materialsCost, materialPerM2:num(state.materialPerM2),
+      fixedOverhead, overheadPerM2, overheadPerCleaning, directCost, fullCost, profitPercent, targetPrice,
+      taxPercent, taxValue, netProfit, marginPct:marketPrice ? netProfit/marketPrice*100 : 0,
+      belowDirect:active && marketPrice<directCost, belowFull:active && marketPrice<fullCost, costGap,
+      economyTopup:0, forceDiscount:false, seriesCount:1, seriesMonths:1, seriesDiscountPercent:0, seriesDiscountValue:0,
+      singleRecommendedPrice:marketPrice, seriesTotal:marketPrice, seriesSavingPerCleaning:0, seriesSavingTotal:0
     };
   }
 
   function validateOrder(state){
-    const errors = [];
-    const form = state.form || {};
-    if(num(form.area) <= 0) errors.push('Укажите площадь больше 0 м².');
-    const rateConf = getRateConf(state, form);
-    const clutterCollection = getClutterCollection(state, form) || {};
-    const dirtinessCollection = getDirtinessCollection(state, form) || {};
-    if(!rateConf) errors.push('Выберите корректный тип уборки.');
-    if(!hasOwn(clutterCollection, form.clutter)) errors.push('Выберите корректную заставленность.');
-    if(!hasOwn(dirtinessCollection, form.dirtiness)) errors.push('Выберите корректную загрязнённость.');
-    const travelKeys = state.travel ? Object.keys(state.travel) : ['kad', 'km15', 'km20plus'];
-    if(!travelKeys.includes(form.travelType)) errors.push('Выберите корректный тип выезда.');
-    if(form.discountMode && !['percent', 'amount'].includes(form.discountMode)) errors.push('Выберите корректный режим скидки.');
-    if(form.ownerRole && !['none', 'manager', 'cleaner_manager'].includes(form.ownerRole)) errors.push('Выберите корректную роль на объекте.');
+    const form=state.form||{}, errors=[];
+    if(num(form.area)<=0 && !(form.cleanType==='extras_only' && (state.extras||[]).some(item=>num(item.qty)>0 && item.availableSeparately===true))) errors.push('Укажите площадь больше 0 м² или выберите доп. услугу.');
+    const rate=cleanType(state,form.cleanType), clutter=(rate?.clutter||state.clutter||{}), dirt=(rate?.dirtiness||state.dirtiness||{});
+    if(!rate) errors.push('Выберите корректный тип уборки.');
+    if(!hasOwn(clutter,form.clutter)) errors.push('Выберите корректную заставленность.');
+    if(!hasOwn(dirt,form.dirtiness)) errors.push('Выберите корректную загрязнённость.');
     return errors;
   }
-
-  function validateBackup(data, defaults){
-    const payload = isRecord(data) && hasOwn(data, 'state') ? data.state : data;
-    if(!isRecord(payload)) return {ok:false, error:'Файл резервной копии должен содержать объект state.'};
-    if(isRecord(data) && data.type && data.type !== 'prochistka_full_backup'){
-      return {ok:false, error:'Выбран файл другого типа.'};
-    }
-    const form = isRecord(payload.form) ? payload.form : {};
-    const cleanTypes = isRecord(payload.cleaningTypes) ? payload.cleaningTypes : (isRecord(defaults.cleaningTypes) ? defaults.cleaningTypes : null);
-    const activeType = cleanTypes && form.cleanType ? cleanTypes[form.cleanType] : null;
-    const baseRates = isRecord(payload.baseRates) ? payload.baseRates : defaults.baseRates;
-    const clutter = activeType && isRecord(activeType.clutter) ? activeType.clutter : (isRecord(payload.clutter) ? payload.clutter : defaults.clutter);
-    const dirtiness = activeType && isRecord(activeType.dirtiness) ? activeType.dirtiness : (isRecord(payload.dirtiness) ? payload.dirtiness : defaults.dirtiness);
-    const checks = [
-      [form.cleanType, cleanTypes || baseRates, 'тип уборки'],
-      [form.clutter, clutter, 'заставленность'],
-      [form.dirtiness, dirtiness, 'загрязнённость']
-    ];
-    for(const [key, collection, label] of checks){
-      if(key !== undefined && !hasOwn(collection, key)){
-        return {ok:false, error:`Резервная копия содержит неизвестное значение: ${label}.`};
-      }
-    }
-    if(payload.extras !== undefined && !Array.isArray(payload.extras)){
-      return {ok:false, error:'Список дополнительных услуг повреждён.'};
-    }
-    if(payload.savedOrders !== undefined && !Array.isArray(payload.savedOrders)){
-      return {ok:false, error:'Список заказов повреждён.'};
-    }
-    return {ok:true, state:payload};
+  function validateBackup(data, _defaults){
+    const payload=isRecord(data)&&hasOwn(data,'state')?data.state:data;
+    if(!isRecord(payload)) return {ok:false,error:'Файл резервной копии должен содержать объект state.'};
+    if(isRecord(data)&&data.type&&data.type!=='prochistka_full_backup') return {ok:false,error:'Выбран файл другого типа.'};
+    if(payload.extras!==undefined&&!Array.isArray(payload.extras)) return {ok:false,error:'Список дополнительных услуг повреждён.'};
+    if(payload.savedOrders!==undefined&&!Array.isArray(payload.savedOrders)) return {ok:false,error:'Список заказов повреждён.'};
+    return {ok:true,state:payload};
   }
-
   return {calculateOrder, validateOrder, validateBackup, num, isRecord};
 });
