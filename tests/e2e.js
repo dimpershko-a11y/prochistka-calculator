@@ -54,6 +54,38 @@ function check(name, ok, detail) {
   await page.goto(base, {waitUntil: 'domcontentloaded'});
   await page.waitForTimeout(500);
 
+  // v4.11.15: дефолт, услуги и безопасное объединение config.js
+  const initialState = await page.evaluate(() => ({
+    cleanType: state.form.cleanType,
+    extrasTotal: state.extras.length,
+    extrasRendered: document.querySelectorAll('#extrasWrap input[data-extra]').length,
+    dirty: isConfigDirty()
+  }));
+  check('дефолтный вид уборки не «Только доп. услуги»', initialState.cleanType !== 'extras_only', initialState.cleanType);
+  check('в обычном режиме отображаются все услуги из config.js', initialState.extrasRendered === initialState.extrasTotal, JSON.stringify(initialState));
+  check('свежая конфигурация не помечена как локально изменённая', initialState.dirty === false, initialState.dirty);
+
+  const mergeCheck = await page.evaluate(() => {
+    const oldIds = (state.ui.syncedExtraIds || []).slice();
+    state.ui.syncedExtraIds = ['1'];
+    const merged = mergeConfiguredExtras(
+      [{id: 1, name: 'Системная', unit: 'шт', price: 100, qty: 0, time: 1, category: 'Другое', availableSeparately: true}],
+      [{id: 1, name: 'Системная старая', unit: 'шт', price: 90, qty: 3, time: 1, category: 'Другое'}, {id: 999, name: 'Локальная', unit: 'шт', price: 200, qty: 0, time: 1, category: 'Другое', builtIn: false}]
+    );
+    state.ui.syncedExtraIds = oldIds;
+    return {ids: merged.map(x => x.id), qty: merged.find(x => x.id === 1)?.qty};
+  });
+  check('обновление config.js сохраняет локально добавленную услугу', mergeCheck.ids.includes(999), JSON.stringify(mergeCheck));
+  check('обновление config.js сохраняет количество выбранной системной услуги', mergeCheck.qty === 3, JSON.stringify(mergeCheck));
+
+  await page.selectOption('#cleanType', 'general');
+  await page.waitForTimeout(100);
+  await page.click('#moreMenuBtn');
+  await page.click('#clearBtn');
+  await page.waitForTimeout(150);
+  const cleanTypeAfterClear = await page.$eval('#cleanType', el => el.value);
+  check('«Очистить форму» сохраняет выбранный вид уборки', cleanTypeAfterClear === 'general', cleanTypeAfterClear);
+
   // Демо-заказ и сходимость сметы
   await page.click('#moreMenuBtn');
   await page.click('#demoBtn');
