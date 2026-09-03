@@ -102,7 +102,7 @@ function responseHtml_(requestId, payload) {
     '<!doctype html><meta charset="utf-8"><script>' +
     'window.parent.postMessage(' + json + ', "*");' +
     '</script><body></body>'
-  );
+  ).setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
 function doGet() {
