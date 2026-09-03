@@ -5,8 +5,8 @@
 <title>PRO-CHISTKA — калькулятор стоимости уборки</title>
 <meta content="Рабочий калькулятор стоимости уборки PRO-CHISTKA: тарифы, доп. услуги, себестоимость, бригада, скидки, PDF-смета и сохранённые заказы." name="description"/>
 
-<link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="anonymous" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Orbitron:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/><link href="assets/style.css?v=4.11.14" rel="stylesheet"/><link href="manifest.json?v=4.11.14" rel="manifest"/><meta content="#0f172a" name="theme-color"/><script defer="defer" src="config.js?v=4.11.14"></script><script defer="defer" src="assets/vendor/html2pdf.bundle.min.js?v=4.11.14"></script><script defer="defer" src="assets/core.js?v=4.11.14"></script><script defer="defer" src="assets/js/state.js?v=4.11.14"></script><script defer="defer" src="assets/js/helpers.js?v=4.11.14"></script><script defer="defer" src="assets/js/settings.js?v=4.11.14"></script><script defer="defer" src="assets/js/estimate.js?v=4.11.14"></script><script defer="defer" src="assets/js/main.js?v=4.11.14"></script></head>
-<body><div class="version-badge" id="versionBadge">v4.11.14</div>
+<link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="anonymous" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Orbitron:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/><link href="assets/style.css?v=4.11.15" rel="stylesheet"/><link href="manifest.json?v=4.11.15" rel="manifest"/><meta content="#0f172a" name="theme-color"/><script defer="defer" src="config.js?v=4.11.15"></script><script defer="defer" src="assets/vendor/html2pdf.bundle.min.js?v=4.11.15"></script><script defer="defer" src="assets/core.js?v=4.11.15"></script><script defer="defer" src="assets/js/state.js?v=4.11.15"></script><script defer="defer" src="assets/js/helpers.js?v=4.11.15"></script><script defer="defer" src="assets/js/settings.js?v=4.11.15"></script><script defer="defer" src="assets/js/estimate.js?v=4.11.15"></script><script defer="defer" src="assets/js/main.js?v=4.11.15"></script></head>
+<body><div class="version-badge" id="versionBadge">v4.11.15</div>
 <div class="login-overlay hidden" id="loginOverlay">
 <div class="login-card">
 <div class="login-title">PRO-CHISTKA</div>
@@ -386,9 +386,21 @@
         <div class="btns"><button id="exportOrdersBtn" type="button">Экспорт заказов</button><button id="importOrdersBtn" type="button">Импорт заказов</button></div>
       </div>
       <div class="extra-card">
-        <div class="section-title" style="font-size:16px">Настройки для GitHub</div>
-        <div class="muted" style="font-size:13px;margin-bottom:10px">Скачивает готовый config.js с текущими тарифами, видами уборки, услугами, PDF-шапкой и текстами.</div>
-        <button class="primary" id="exportConfigBtn" type="button">Скачать config.js</button>
+        <div class="section-title" style="font-size:16px">Синхронизация настроек</div>
+        <div class="muted" style="font-size:13px;margin-bottom:10px">Публикует текущие тарифы, услуги, тексты и настройки PDF в config.js через Google Apps Script. GitHub-токен хранится только в Apps Script.</div>
+        <div class="notice" id="syncStatus" style="margin-bottom:10px">Проверяем состояние синхронизации…</div>
+        <label>URL Google Apps Script</label>
+        <input id="syncEndpoint" placeholder="https://script.google.com/macros/s/.../exec" type="url"/>
+        <label style="margin-top:10px">Ключ публикации</label>
+        <input autocomplete="off" id="syncSecret" placeholder="Не сохраняется в браузере" type="password"/>
+        <div class="btns" style="margin-top:10px">
+          <button id="saveSyncEndpointBtn" type="button">Сохранить URL</button>
+          <button id="checkRemoteConfigBtn" type="button">Проверить обновления</button>
+          <button class="primary" id="publishConfigBtn" type="button">Опубликовать настройки</button>
+          <button class="hidden" id="applyRemoteConfigBtn" type="button">Получить версию с GitHub</button>
+        </div>
+        <div class="muted" style="font-size:12px;margin-top:12px">Резервный способ: скачать config.js и загрузить его вручную.</div>
+        <button id="exportConfigBtn" style="margin-top:8px" type="button">Скачать config.js</button>
       </div>
     </div>
   </div>
