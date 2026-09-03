@@ -401,11 +401,18 @@ function migrateV415(){
 }
 function migrateV4115(){
   state.ui=state.ui||{};
+  const firstRun=state.ui.modelV4115 !== true;
+  if(firstRun && state.form?.cleanType==='extras_only'){
+    const preferred=defaults.form?.cleanType && defaults.form.cleanType!=='extras_only' && state.cleaningTypes?.[defaults.form.cleanType]
+      ? defaults.form.cleanType
+      : (state.cleaningTypes?.postreno ? 'postreno' : Object.keys(state.cleaningTypes||{}).find(k=>k!=='extras_only'));
+    if(preferred) state.form.cleanType=preferred;
+  }
   if(!Array.isArray(state.ui.syncedExtraIds)) state.ui.syncedExtraIds=(defaults.extras||[]).map(x=>String(x.id));
   if(!Array.isArray(state.ui.syncedExtraCategories)) state.ui.syncedExtraCategories=(defaults.extraCategories||[]).map(String);
   if(!Array.isArray(state.ui.syncedCleanTypeKeys)) state.ui.syncedCleanTypeKeys=Object.keys(defaults.cleaningTypes||{});
   if(!state.ui.configBaseline) setConfigBaselineFromDefaults();
-  if(state.ui.modelV4115 !== true){ state.ui.modelV4115=true; saveState(); }
+  if(firstRun){ state.ui.modelV4115=true; saveState(); }
 }
 migrateV43();
 migrateV46();
