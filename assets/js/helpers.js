@@ -95,7 +95,10 @@ function downloadText(text, filename, mimeType='text/plain;charset=utf-8'){
 }
 function buildConfigDefaultsFromState(){
   syncLegacyFromCleaningTypes(state);
-  const firstTypeKey = state.form.cleanType && state.cleaningTypes[state.form.cleanType] ? state.form.cleanType : getFirstCleanTypeKey();
+  const configuredDefault = defaults.form?.cleanType;
+  const firstTypeKey = configuredDefault && configuredDefault!=='extras_only' && state.cleaningTypes[configuredDefault]
+    ? configuredDefault
+    : (state.cleaningTypes.postreno ? 'postreno' : (Object.keys(state.cleaningTypes).find(k=>k!=='extras_only') || getFirstCleanTypeKey()));
   const type = state.cleaningTypes[firstTypeKey] || {};
   const firstClutter = Object.keys(type.clutter || {})[0] || 'low';
   const firstDirtiness = Object.keys(type.dirtiness || {})[0] || 'low';
@@ -104,7 +107,7 @@ function buildConfigDefaultsFromState(){
     ...(clone(defaults.form||{})),
     clientName:'',
     address:'',
-    objectType: state.form.objectType || (defaults.form && defaults.form.objectType) || 'Квартира',
+    objectType: (defaults.form && defaults.form.objectType) || 'Квартира',
     area:0,
     cleanType:firstTypeKey,
     discount:0,
@@ -113,12 +116,12 @@ function buildConfigDefaultsFromState(){
     forceDiscount:false,
     clutter:firstClutter,
     dirtiness:firstDirtiness,
-    travelType: state.form.travelType || (defaults.form && defaults.form.travelType) || 'kad',
-    travelKm: Number(state.form.travelKm)||20,
+    travelType: (defaults.form && defaults.form.travelType) || 'kad',
+    travelKm: Number(defaults.form && defaults.form.travelKm)||20,
     outsideKad:false,
     managerOnSite:false,
     ownerRole:'none',
-    profitPercent: Number(state.form.profitPercent) || Number(defaults.form && defaults.form.profitPercent) || 25,
+    profitPercent: Number(state.pricing?.profitPercent) || Number(defaults.pricing?.profitPercent) || 25,
     notes:'',
     showOnlySelected:false
   };
@@ -145,19 +148,202 @@ function buildConfigDefaultsFromState(){
     cleaningTypes: clone(state.cleaningTypes || defaults.cleaningTypes || {})
   };
 }
-function exportConfigFile(){
-  const nextRevision = Math.max(Number(APP_CONFIG.CONFIG_REVISION)||0, Number(state.ui && state.ui.configRevision)||0) + 1;
-  const payload = {
+function getSyncEndpoint(){
+  return String(state?.ui?.syncEndpoint || APP_CONFIG.SYNC_ENDPOINT || '').trim();
+}
+function buildConfigPayload(nextRevision){
+  return {
     APP_VERSION,
     APP_PASSWORD: APP_CONFIG.APP_PASSWORD || '',
-    CONFIG_REVISION: nextRevision,
+    CONFIG_REVISION: Number(nextRevision)||0,
     SYNC_BRAND_PDF_ON_REVISION: true,
+    SYNC_ENDPOINT: getSyncEndpoint(),
     WINDOW_CATEGORIES,
     defaults: buildConfigDefaultsFromState()
   };
-  const text = 'window.PROCHISTKA_CONFIG = ' + JSON.stringify(payload, null, 2) + ';\n';
-  downloadText(text, 'config.js', 'application/javascript;charset=utf-8');
+}
+function buildConfigText(nextRevision){
+  return 'window.PROCHISTKA_CONFIG = ' + JSON.stringify(buildConfigPayload(nextRevision), null, 2) + ';\n';
+}
+function exportConfigFile(){
+  const nextRevision = Math.max(Number(APP_CONFIG.CONFIG_REVISION)||0, Number(state.ui && state.ui.configRevision)||0, Number(state.ui && state.ui.pendingConfigRevision)||0) + 1;
+  downloadText(buildConfigText(nextRevision), 'config.js', 'application/javascript;charset=utf-8');
   toast(`config.js скачан. Ревизия: ${nextRevision}`);
+}
+function parseConfigJsText(text){
+  const raw=String(text||'').trim();
+  const match=raw.match(/^window\.PROCHISTKA_CONFIG\s*=\s*([\s\S]*?);?\s*$/);
+  if(!match) throw new Error('Не удалось распознать config.js');
+  const parsed=JSON.parse(match[1]);
+  if(!parsed || typeof parsed!=='object' || !parsed.defaults) throw new Error('В config.js нет defaults');
+  return parsed;
+}
+function normalizeSyncEndpoint(url){
+  const value=String(url||'').trim();
+  if(!value) return '';
+  let parsed;
+  try{ parsed=new URL(value); }catch(e){ throw new Error('Некорректный URL Apps Script'); }
+  if(parsed.protocol!=='https:' || parsed.hostname!=='script.google.com' || !/\/macros\/s\/[^/]+\/exec$/.test(parsed.pathname)){
+    throw new Error('Нужен URL опубликованного Apps Script, заканчивающийся на /exec');
+  }
+  return parsed.toString();
+}
+function saveSyncEndpointFromUi(){
+  const input=$('syncEndpoint');
+  try{
+    const endpoint=normalizeSyncEndpoint(input?.value||'');
+    state.ui=state.ui||{};
+    state.ui.syncEndpoint=endpoint;
+    saveState();
+    if(input) input.value=endpoint;
+    renderSyncStatus();
+    toast(endpoint?'URL синхронизации сохранён':'URL синхронизации очищен');
+    return endpoint;
+  }catch(e){ toast(e.message||'Некорректный URL'); return ''; }
+}
+function getSyncSecretFromUi(){
+  const input=$('syncSecret');
+  const typed=String(input?.value||'').trim();
+  if(typed) sessionStorage.setItem('prochistka_sync_secret',typed);
+  return typed || String(sessionStorage.getItem('prochistka_sync_secret')||'');
+}
+function renderSyncStatus(){
+  const status=$('syncStatus');
+  const endpointInput=$('syncEndpoint');
+  if(endpointInput && document.activeElement!==endpointInput) endpointInput.value=getSyncEndpoint();
+  const applied=Number(state?.ui?.configRevision||0);
+  const pending=Math.max(Number(state?.ui?.pendingConfigRevision||0), Number(APP_CONFIG.CONFIG_REVISION)||0);
+  const dirty=isConfigDirty();
+  let text='Синхронизация ещё не настроена.';
+  let kind='notice';
+  if(state?.ui?.configConflict && pending>applied){
+    text=`Конфликт: на GitHub доступна ревизия ${pending}, но на этом устройстве есть неопубликованные изменения.`;
+    kind='notice warning';
+  } else if(dirty){
+    text=`Есть неопубликованные изменения · применённая ревизия ${applied || '—'}.`;
+    kind='notice warning';
+  } else if(pending>applied){
+    text=`Доступно обновление настроек: ревизия ${pending} · локально ${applied || '—'}.`;
+    kind='notice warning';
+  } else if(applied){
+    text=`Синхронизировано · ревизия ${applied}.`;
+  }
+  if(state?.ui?.remoteAppVersion && state.ui.remoteAppVersion!==APP_VERSION){
+    text += ` Доступна новая версия приложения: ${state.ui.remoteAppVersion}.`;
+    kind='notice warning';
+  }
+  if(status){ status.className=kind; status.textContent=text; }
+  const applyBtn=$('applyRemoteConfigBtn');
+  if(applyBtn) applyBtn.classList.toggle('hidden', !(pending>applied));
+}
+function rerenderAfterConfigSync(){
+  ensureFormCleanTypeAndCoefs(false);
+  fillForm();
+  renderTariffs();
+  renderExtras();
+  renderSettingsPanel();
+  renderSelectedExtras();
+  recalc();
+  renderSyncStatus();
+}
+async function checkRemoteConfig(interactive=false, force=false){
+  try{
+    const response=await fetch(`config.js?sync=${Date.now()}`,{cache:'no-store'});
+    if(!response.ok) throw new Error(`HTTP ${response.status}`);
+    const remote=parseConfigJsText(await response.text());
+    if(remote.APP_VERSION && remote.APP_VERSION!==APP_VERSION){
+      state.ui=state.ui||{};
+      state.ui.remoteAppVersion=remote.APP_VERSION;
+      saveState();
+      renderSyncStatus();
+      if(interactive) toast(`Доступна версия ${remote.APP_VERSION}. Обновите страницу после публикации новой версии сайта.`);
+      return {status:'app_update',appVersion:remote.APP_VERSION,revision:Number(remote.CONFIG_REVISION)||0};
+    }
+    state.ui=state.ui||{};
+    delete state.ui.remoteAppVersion;
+    const result=applyRemoteConfigObject(remote,force);
+    if(result.status==='applied'){
+      rerenderAfterConfigSync();
+      if(interactive) toast(`Настройки обновлены до ревизии ${result.revision}`);
+    } else if(result.status==='conflict'){
+      renderSyncStatus();
+      if(interactive) toast('Новая конфигурация найдена, но есть неопубликованные локальные изменения');
+    } else {
+      renderSyncStatus();
+      if(interactive) toast('Установлена актуальная конфигурация');
+    }
+    return result;
+  }catch(e){
+    renderSyncStatus();
+    if(interactive) toast(`Не удалось проверить config.js: ${e.message||e}`);
+    return {status:'error',error:String(e.message||e)};
+  }
+}
+function postConfigToAppsScript(endpoint, fields){
+  return new Promise((resolve,reject)=>{
+    const requestId=`sync-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const frameName=`prochistkaSyncFrame_${Date.now()}`;
+    const iframe=document.createElement('iframe');
+    iframe.name=frameName; iframe.hidden=true; iframe.setAttribute('aria-hidden','true');
+    const form=document.createElement('form');
+    form.method='POST'; form.action=endpoint; form.target=frameName; form.hidden=true;
+    const add=(name,value)=>{ const input=document.createElement('input'); input.type='hidden'; input.name=name; input.value=String(value??''); form.appendChild(input); };
+    add('action','publishConfig'); add('requestId',requestId);
+    Object.entries(fields||{}).forEach(([name,value])=>add(name,value));
+    let timer=null;
+    const cleanup=()=>{ clearTimeout(timer); window.removeEventListener('message',onMessage); form.remove(); iframe.remove(); };
+    const onMessage=event=>{
+      let host='';
+      try{ host=new URL(event.origin).hostname; }catch(e){}
+      if(host!=='script.google.com' && !/(^|\.)googleusercontent\.com$/.test(host)) return;
+      const data=event.data||{};
+      if(data.type!=='prochistka-config-sync' || data.requestId!==requestId) return;
+      cleanup();
+      if(data.ok) resolve(data); else reject(new Error(data.error||'Apps Script вернул ошибку'));
+    };
+    window.addEventListener('message',onMessage);
+    document.body.appendChild(iframe); document.body.appendChild(form);
+    timer=setTimeout(()=>{ cleanup(); reject(new Error('Apps Script не ответил за 45 секунд')); },45000);
+    form.submit();
+  });
+}
+async function publishConfigToCloud(){
+  const btn=$('publishConfigBtn');
+  let endpoint='';
+  try{
+    endpoint=normalizeSyncEndpoint($('syncEndpoint')?.value || getSyncEndpoint());
+    if(!endpoint) throw new Error('Сначала укажите URL Apps Script');
+  }catch(e){ toast(e.message||'Не указан Apps Script'); return; }
+  const secret=getSyncSecretFromUi();
+  if(!secret){ toast('Введите ключ публикации Apps Script'); return; }
+  state.ui=state.ui||{};
+  state.ui.syncEndpoint=endpoint;
+  saveState();
+  const nextRevision=Math.max(Number(APP_CONFIG.CONFIG_REVISION)||0,Number(state.ui.configRevision)||0,Number(state.ui.pendingConfigRevision)||0)+1;
+  const payload=buildConfigPayload(nextRevision);
+  payload.SYNC_ENDPOINT=endpoint;
+  const configText='window.PROCHISTKA_CONFIG = '+JSON.stringify(payload,null,2)+';\n';
+  if(btn){ btn.disabled=true; btn.textContent='Публикуем…'; }
+  try{
+    const result=await postConfigToAppsScript(endpoint,{
+      secret,
+      revision:nextRevision,
+      appVersion:APP_VERSION,
+      configText
+    });
+    applyRemoteConfigObject(payload,true);
+    state.ui.syncEndpoint=endpoint;
+    state.ui.lastPublishedAt=Date.now();
+    state.ui.lastPublishedCommit=String(result.commitSha||'');
+    saveState();
+    rerenderAfterConfigSync();
+    toast(`Настройки опубликованы · ревизия ${nextRevision}`);
+  }catch(e){
+    toast(`Публикация не выполнена: ${e.message||e}`);
+  }finally{
+    if(btn){ btn.disabled=false; btn.textContent='Опубликовать настройки'; }
+    renderSyncStatus();
+  }
 }
 function readJsonFile(file, cb){
   if(!file) return;
