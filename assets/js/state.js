@@ -3,7 +3,7 @@
 const STORAGE_KEY = 'prochistka_calc_app_v4';
 const APP_CONFIG = window.PROCHISTKA_CONFIG || {};
 const CORE = window.PROCHISTKA_CORE;
-const APP_VERSION = APP_CONFIG.APP_VERSION || 'v4.10.0';
+const APP_VERSION = APP_CONFIG.APP_VERSION || 'v4.11.15';
 const defaults = APP_CONFIG.defaults || {};
 defaults.brand = defaults.brand || {name:'PRO-CHISTKA', phone:'', tagline:'Клининговые услуги', site:'', contactText:'', logoDataUrl:''};
 if(!defaults.brand.contactText){ defaults.brand.contactText = [defaults.brand.phone, defaults.brand.site].filter(Boolean).join('\n'); }
@@ -44,6 +44,52 @@ defaults.estimateValidityDays = defaults.estimateValidityDays != null ? defaults
 defaults.savedOrders = [];
 defaults.ui = defaults.ui || {showTariffs:false, showSettings:false, extraGroupsCollapsed:{}};
 function clone(x){return JSON.parse(JSON.stringify(x));}
+function stableSyncValue(value){
+  if(Array.isArray(value)) return value.map(stableSyncValue);
+  if(value && typeof value==='object'){
+    const out={};
+    Object.keys(value).sort().forEach(key=>{ out[key]=stableSyncValue(value[key]); });
+    return out;
+  }
+  return value;
+}
+function normalizeExtrasForSync(extras){
+  return (Array.isArray(extras)?extras:[]).map(item=>{ const copy=clone(item); copy.qty=0; return copy; });
+}
+function buildConfigSyncSnapshot(source){
+  const s=source||{};
+  return stableSyncValue({
+    brand:clone(s.brand||{}),
+    travel:clone(s.travel||{}),
+    pdfSettings:clone(s.pdfSettings||{}),
+    mainInfo:clone(s.mainInfo||{}),
+    extras:normalizeExtrasForSync(s.extras),
+    labor:clone(s.labor||{}),
+    materialPerM2:Number(s.materialPerM2)||0,
+    estimateValidityDays:Number(s.estimateValidityDays)||0,
+    overhead:clone(s.overhead||{}),
+    pricing:clone(s.pricing||{}),
+    serviceDescriptions:clone(s.serviceDescriptions||{}),
+    extraCategories:clone(s.extraCategories||[]),
+    pdfHeader:clone(s.pdfHeader||{}),
+    cleaningTypes:clone(s.cleaningTypes||{})
+  });
+}
+function configSnapshotString(source){ return JSON.stringify(buildConfigSyncSnapshot(source)); }
+function getConfigBaseline(){ return String(state?.ui?.configBaseline||''); }
+function isConfigDirty(){
+  const baseline=getConfigBaseline();
+  if(!baseline) return false;
+  return configSnapshotString(state)!==baseline;
+}
+function setConfigBaselineFromDefaults(){
+  state.ui=state.ui||{};
+  state.ui.configBaseline=configSnapshotString(defaults);
+}
+function setConfigBaselineFromState(){
+  state.ui=state.ui||{};
+  state.ui.configBaseline=configSnapshotString(state);
+}
 function buildCleaningTypesFromLegacy(target){
   const baseRates = (target && target.baseRates) || {};
   const includedByType = (target && target.includedByType) || {};
@@ -138,11 +184,50 @@ function ensureBrandContactText(obj){
   if(!obj.brand.contactText) obj.brand.contactText=[obj.brand.phone,obj.brand.site].filter(Boolean).join('\n') || getDefaultContactText();
 }
 function mergeConfiguredExtras(configExtras, currentExtras){
-  const qtyById = new Map((Array.isArray(currentExtras)?currentExtras:[]).map(x=>[String(x.id), Math.max(0, Number(x.qty)||0)]));
-  return (Array.isArray(configExtras)?configExtras:[]).map(x=>({...clone(x), availableSeparately:x.availableSeparately !== false, qty: qtyById.has(String(x.id)) ? qtyById.get(String(x.id)) : Math.max(0, Number(x.qty)||0)}));
+  const current=Array.isArray(currentExtras)?currentExtras:[];
+  const currentById=new Map(current.map(x=>[String(x.id),x]));
+  const previouslySynced=new Set((state?.ui?.syncedExtraIds||[]).map(String));
+  const configured=Array.isArray(configExtras)?configExtras:[];
+  const configuredIds=new Set(configured.map(x=>String(x.id)));
+  const merged=configured.map(x=>{
+    const local=currentById.get(String(x.id));
+    return {...clone(x), availableSeparately:x.availableSeparately !== false, qty:local ? Math.max(0, Number(local.qty)||0) : Math.max(0, Number(x.qty)||0)};
+  });
+  current.forEach(item=>{
+    const id=String(item.id);
+    if(!configuredIds.has(id) && !previouslySynced.has(id)) merged.push(clone(item));
+  });
+  return merged;
+}
+function mergeConfiguredCategories(configCategories, currentCategories){
+  const configured=(Array.isArray(configCategories)?configCategories:[]).map(x=>String(x||'').trim()).filter(Boolean);
+  const current=(Array.isArray(currentCategories)?currentCategories:[]).map(x=>String(x||'').trim()).filter(Boolean);
+  const previouslySynced=new Set((state?.ui?.syncedExtraCategories||[]).map(String));
+  const out=[]; const seen=new Set();
+  const add=x=>{ if(x && !seen.has(x)){ seen.add(x); out.push(x); } };
+  configured.forEach(add);
+  current.forEach(cat=>{ if(!seen.has(cat) && !previouslySynced.has(cat)) add(cat); });
+  add('Другое');
+  return out;
+}
+function mergeConfiguredCleaningTypes(configTypes, currentTypes){
+  const configured=(configTypes && typeof configTypes==='object')?configTypes:{};
+  const current=(currentTypes && typeof currentTypes==='object')?currentTypes:{};
+  const previouslySynced=new Set((state?.ui?.syncedCleanTypeKeys||[]).map(String));
+  const merged=clone(configured);
+  Object.entries(current).forEach(([key,value])=>{
+    if(!Object.prototype.hasOwnProperty.call(configured,key) && !previouslySynced.has(String(key))) merged[key]=clone(value);
+  });
+  return merged;
+}
+function updateSyncedConfigIndexes(){
+  state.ui=state.ui||{};
+  state.ui.syncedExtraIds=(defaults.extras||[]).map(x=>String(x.id));
+  state.ui.syncedExtraCategories=(defaults.extraCategories||[]).map(String);
+  state.ui.syncedCleanTypeKeys=Object.keys(defaults.cleaningTypes||{});
 }
 function applyConfigRevisionData(){
-  state.cleaningTypes = clone(defaults.cleaningTypes);
+  state.cleaningTypes = mergeConfiguredCleaningTypes(defaults.cleaningTypes, state.cleaningTypes);
   syncLegacyFromCleaningTypes(state);
   state.travel = clone(defaults.travel);
   state.labor = clone(defaults.labor);
@@ -150,18 +235,50 @@ function applyConfigRevisionData(){
   state.overhead = clone(defaults.overhead);
   state.pricing = clone(defaults.pricing);
   state.extras = mergeConfiguredExtras(defaults.extras, state.extras);
-  state.extraCategories = clone(defaults.extraCategories || state.extraCategories || []);
-  state.includedByType = clone(state.includedByType || defaults.includedByType);
+  state.extraCategories = mergeConfiguredCategories(defaults.extraCategories, state.extraCategories);
   state.serviceDescriptions = clone(defaults.serviceDescriptions);
   state.mainInfo = {...(state.mainInfo||{}), ...(clone(defaults.mainInfo)||{})};
-  // Шапка PDF и контакты часто настраиваются вручную в браузере.
-  // По умолчанию повышение CONFIG_REVISION не перезаписывает их, чтобы обновления цен не сбивали оформление сметы.
-  // Для принудительной раздачи шапки из config.js можно поставить SYNC_BRAND_PDF_ON_REVISION: true.
   if(APP_CONFIG.SYNC_BRAND_PDF_ON_REVISION === true){
     state.brand = {...(state.brand||{}), ...(clone(defaults.brand)||{})};
     state.pdfHeader = {...(state.pdfHeader||{}), ...(clone(defaults.pdfHeader)||{})};
   }
   ensureBrandContactText(state);
+  updateSyncedConfigIndexes();
+}
+function adoptRemoteDefaults(remoteConfig){
+  const incoming=clone(remoteConfig?.defaults||{});
+  if(!incoming || typeof incoming!=='object' || Array.isArray(incoming)) throw new Error('Некорректный defaults в удалённом config.js');
+  incoming.cleaningTypes=normalizeCleaningTypes(incoming.cleaningTypes, incoming);
+  syncLegacyFromCleaningTypes(incoming);
+  Object.keys(defaults).forEach(key=>delete defaults[key]);
+  Object.assign(defaults,incoming);
+  APP_CONFIG.defaults=defaults;
+  APP_CONFIG.CONFIG_REVISION=Number(remoteConfig.CONFIG_REVISION)||0;
+  if(remoteConfig.SYNC_ENDPOINT !== undefined) APP_CONFIG.SYNC_ENDPOINT=String(remoteConfig.SYNC_ENDPOINT||'');
+  if(remoteConfig.SYNC_BRAND_PDF_ON_REVISION !== undefined) APP_CONFIG.SYNC_BRAND_PDF_ON_REVISION=remoteConfig.SYNC_BRAND_PDF_ON_REVISION===true;
+}
+function applyRemoteConfigObject(remoteConfig, force=false){
+  const revision=Number(remoteConfig?.CONFIG_REVISION)||0;
+  const current=Number(state?.ui?.configRevision||0);
+  if(!remoteConfig?.defaults || revision<=current) return {status:'noop',revision};
+  if(remoteConfig.APP_VERSION && remoteConfig.APP_VERSION!==APP_VERSION) return {status:'app_update',revision,appVersion:remoteConfig.APP_VERSION};
+  if(isConfigDirty() && !force){
+    window.__pendingRemoteConfig=clone(remoteConfig);
+    state.ui=state.ui||{};
+    state.ui.pendingConfigRevision=revision;
+    state.ui.configConflict=true;
+    saveState();
+    return {status:'conflict',revision};
+  }
+  adoptRemoteDefaults(remoteConfig);
+  applyConfigRevisionData();
+  state.ui=state.ui||{};
+  state.ui.configRevision=revision;
+  state.ui.pendingConfigRevision=0;
+  state.ui.configConflict=false;
+  setConfigBaselineFromDefaults();
+  saveState();
+  return {status:'applied',revision};
 }
 function mergeState(parsed){
   const d=clone(defaults);
@@ -282,6 +399,14 @@ function migrateV415(){
   (state.extras||[]).forEach(item=>{ if(item.availableSeparately === undefined) item.availableSeparately = true; });
   state.ui = state.ui || {}; state.ui.modelV415 = true; saveState();
 }
+function migrateV4115(){
+  state.ui=state.ui||{};
+  if(!Array.isArray(state.ui.syncedExtraIds)) state.ui.syncedExtraIds=(defaults.extras||[]).map(x=>String(x.id));
+  if(!Array.isArray(state.ui.syncedExtraCategories)) state.ui.syncedExtraCategories=(defaults.extraCategories||[]).map(String);
+  if(!Array.isArray(state.ui.syncedCleanTypeKeys)) state.ui.syncedCleanTypeKeys=Object.keys(defaults.cleaningTypes||{});
+  if(!state.ui.configBaseline) setConfigBaselineFromDefaults();
+  if(state.ui.modelV4115 !== true){ state.ui.modelV4115=true; saveState(); }
+}
 migrateV43();
 migrateV46();
 migrateV411();
@@ -289,6 +414,7 @@ migrateV412();
 migrateV413();
 migrateV414();
 migrateV415();
+migrateV4115();
 syncConfigRevision();
 
 // === Защита от потери данных ===
@@ -309,7 +435,7 @@ function attemptIdbRecovery(){
     const hasOrders = Array.isArray(saved.savedOrders) && saved.savedOrders.length>0;
     const hasExtras = Array.isArray(saved.extras) && saved.extras.length>0;
     if(!hasOrders && !hasExtras) return;
-    state=mergeState(saved); migrateV43(); migrateV46(); migrateV411(); migrateV412(); migrateV413(); migrateV414(); migrateV415(); syncConfigRevision();
+    state=mergeState(saved); migrateV43(); migrateV46(); migrateV411(); migrateV412(); migrateV413(); migrateV414(); migrateV415(); migrateV4115(); syncConfigRevision();
     fillForm(); renderTariffs(); renderExtras(); renderSettingsPanel(); recalc(); updateBackupReminder();
     toast('Данные восстановлены из резервного хранилища');
   }).catch(()=>{});
@@ -324,13 +450,25 @@ function syncConfigRevision(){
   state.ui = state.ui || {};
   const currentRev = Number(state.ui.configRevision || 0);
   if(rev > currentRev){
+    if(isConfigDirty()){
+      state.ui.pendingConfigRevision=rev;
+      state.ui.configConflict=true;
+      saveState();
+      if(typeof toast==='function') setTimeout(()=>toast('Есть новая конфигурация, но локальные настройки изменены. Откройте «Данные» для синхронизации.'),300);
+      return false;
+    }
     applyConfigRevisionData();
     state.ui.configRevision = rev;
+    state.ui.pendingConfigRevision=0;
+    state.ui.configConflict=false;
+    setConfigBaselineFromDefaults();
     saveState();
     if(typeof toast==='function') setTimeout(()=>toast('Настройки и экономика обновлены из config.js'),300);
-  } else {
-    ensureBrandContactText(state);
+    return true;
   }
+  ensureBrandContactText(state);
+  if(!state.ui.configBaseline) setConfigBaselineFromDefaults();
+  return false;
 }
 
 var __idbTimer=null;
