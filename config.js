@@ -1,8 +1,9 @@
 window.PROCHISTKA_CONFIG = {
-  "APP_VERSION": "v4.11.14",
+  "APP_VERSION": "v4.11.15",
   "APP_PASSWORD": "",
-  "CONFIG_REVISION": 16,
+  "CONFIG_REVISION": 17,
   "SYNC_BRAND_PDF_ON_REVISION": true,
+  "SYNC_ENDPOINT": "",
   "WINDOW_CATEGORIES": [
     "Окна"
   ],
@@ -510,7 +511,7 @@ window.PROCHISTKA_CONFIG = {
       "address": "",
       "objectType": "Квартира",
       "area": 0,
-      "cleanType": "extras_only",
+      "cleanType": "postreno",
       "discount": 0,
       "discountMode": "percent",
       "discountAmount": 0,
