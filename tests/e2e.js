@@ -81,6 +81,14 @@ function check(name, ok, detail) {
   });
   check('собственная опубликованная конфигурация распознаётся как совпадающая с локальной', sameConfigCheck.matches === true, JSON.stringify(sameConfigCheck));
 
+  const remoteSourceCheck = await page.evaluate(() => ({
+    raw: CONFIG_PUBLISH_RAW_URL,
+    api: CONFIG_PUBLISH_API_URL,
+    usesRelativeConfig: checkRemoteConfig.toString().includes('config.js?sync=')
+  }));
+  check('получение версии использует абсолютный GitHub source', remoteSourceCheck.raw.includes('raw.githubusercontent.com') && remoteSourceCheck.api.includes('api.github.com'), JSON.stringify(remoteSourceCheck));
+  check('получение версии не использует относительный config.js', remoteSourceCheck.usesRelativeConfig === false, JSON.stringify(remoteSourceCheck));
+
   const mergeCheck = await page.evaluate(() => {
     const oldIds = (state.ui.syncedExtraIds || []).slice();
     state.ui.syncedExtraIds = ['1'];
