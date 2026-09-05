@@ -248,9 +248,8 @@ function rerenderAfterConfigSync(){
 }
 async function checkRemoteConfig(interactive=false, force=false){
   try{
-    const response=await fetch(`config.js?sync=${Date.now()}`,{cache:'no-store'});
-    if(!response.ok) throw new Error(`HTTP ${response.status}`);
-    const remote=parseConfigJsText(await response.text());
+    const remote=await fetchPublishedConfig();
+    if(!remote) throw new Error('GitHub не вернул корректный config.js');
     if(remote.APP_VERSION && remote.APP_VERSION!==APP_VERSION){
       state.ui=state.ui||{};
       state.ui.remoteAppVersion=remote.APP_VERSION;
@@ -283,22 +282,34 @@ const CONFIG_PUBLISH_API_URL='https://api.github.com/repos/dimpershko-a11y/proch
 const CONFIG_PUBLISH_RAW_URL='https://raw.githubusercontent.com/dimpershko-a11y/prochistka-calculator/production/config.js';
 async function fetchPublishedConfig(){
   try{
+    const response=await fetch(`${CONFIG_PUBLISH_RAW_URL}?sync=${Date.now()}`,{cache:'no-store'});
+    if(response.ok){
+      const text=await response.text();
+      if(text && text.trim()) return parseConfigJsText(text);
+    }
+  }catch(e){}
+  try{
     const response=await fetch(`${CONFIG_PUBLISH_API_URL}&sync=${Date.now()}`,{
       cache:'no-store',
       headers:{Accept:'application/vnd.github+json'}
     });
     if(response.ok){
-      const data=await response.json();
-      const compact=String(data.content||'').replace(/\s/g,'');
-      if(compact){
-        const bytes=Uint8Array.from(atob(compact),ch=>ch.charCodeAt(0));
-        return parseConfigJsText(new TextDecoder('utf-8').decode(bytes));
+      const body=await response.text();
+      if(!body || !body.trim()) return null;
+      const data=JSON.parse(body);
+      const compact=String(data?.content||'').replace(/\s/g,'');
+      if(!compact) return null;
+      const binary=atob(compact);
+      let decoded='';
+      if(typeof TextDecoder==='function'){
+        const bytes=Uint8Array.from(binary,ch=>ch.charCodeAt(0));
+        decoded=new TextDecoder('utf-8').decode(bytes);
+      }else{
+        const escaped=Array.from(binary,ch=>'%'+ch.charCodeAt(0).toString(16).padStart(2,'0')).join('');
+        decoded=decodeURIComponent(escaped);
       }
+      return parseConfigJsText(decoded);
     }
-  }catch(e){}
-  try{
-    const response=await fetch(`${CONFIG_PUBLISH_RAW_URL}?sync=${Date.now()}`,{cache:'no-store'});
-    if(response.ok) return parseConfigJsText(await response.text());
   }catch(e){}
   return null;
 }
