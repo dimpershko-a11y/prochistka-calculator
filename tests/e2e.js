@@ -54,7 +54,7 @@ function check(name, ok, detail) {
   await page.goto(base, {waitUntil: 'domcontentloaded'});
   await page.waitForTimeout(500);
 
-  // v4.11.15: дефолт, услуги и безопасное объединение config.js
+  // v4.11.16: дефолт, услуги, уведомления и безопасное объединение config.js
   const initialState = await page.evaluate(() => ({
     cleanType: state.form.cleanType,
     extrasTotal: state.extras.length,
@@ -64,6 +64,13 @@ function check(name, ok, detail) {
   check('дефолтный вид уборки не «Только доп. услуги»', initialState.cleanType !== 'extras_only', initialState.cleanType);
   check('в обычном режиме отображаются все услуги из config.js', initialState.extrasRendered === initialState.extrasTotal, JSON.stringify(initialState));
   check('свежая конфигурация не помечена как локально изменённая', initialState.dirty === false, initialState.dirty);
+
+  const v41116Ui = await page.evaluate(() => ({
+    extraQty: extraQtyLabel({qty: 2, unit: 'шт'}),
+    toastZ: Number(getComputedStyle(document.getElementById('toast')).zIndex)
+  }));
+  check('доп. услуги показывают количество с единицей измерения', v41116Ui.extraQty === '2 шт', JSON.stringify(v41116Ui));
+  check('уведомления находятся выше модальных окон', v41116Ui.toastZ > 100, JSON.stringify(v41116Ui));
 
   const mergeCheck = await page.evaluate(() => {
     const oldIds = (state.ui.syncedExtraIds || []).slice();
