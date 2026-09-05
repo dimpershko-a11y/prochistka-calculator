@@ -78,9 +78,17 @@ function buildConfigSyncSnapshot(source){
 function configSnapshotString(source){ return JSON.stringify(buildConfigSyncSnapshot(source)); }
 function getConfigBaseline(){ return String(state?.ui?.configBaseline||''); }
 function isConfigDirty(){
-  const baseline=getConfigBaseline();
-  if(!baseline) return false;
-  return configSnapshotString(state)!==baseline;
+  if(!state || !defaults) return false;
+  return configSnapshotString(state)!==configSnapshotString(defaults);
+}
+function keepConfiguredObjectKeys(current, configured){
+  const source=(current && typeof current==='object' && !Array.isArray(current)) ? current : {};
+  const template=(configured && typeof configured==='object' && !Array.isArray(configured)) ? configured : {};
+  const out={};
+  Object.keys(template).forEach(key=>{
+    out[key]=Object.prototype.hasOwnProperty.call(source,key) ? clone(source[key]) : clone(template[key]);
+  });
+  return out;
 }
 function setConfigBaselineFromDefaults(){
   state.ui=state.ui||{};
@@ -237,10 +245,10 @@ function applyConfigRevisionData(){
   state.extras = mergeConfiguredExtras(defaults.extras, state.extras);
   state.extraCategories = mergeConfiguredCategories(defaults.extraCategories, state.extraCategories);
   state.serviceDescriptions = clone(defaults.serviceDescriptions);
-  state.mainInfo = {...(state.mainInfo||{}), ...(clone(defaults.mainInfo)||{})};
+  state.mainInfo = clone(defaults.mainInfo);
   if(APP_CONFIG.SYNC_BRAND_PDF_ON_REVISION === true){
-    state.brand = {...(state.brand||{}), ...(clone(defaults.brand)||{})};
-    state.pdfHeader = {...(state.pdfHeader||{}), ...(clone(defaults.pdfHeader)||{})};
+    state.brand = clone(defaults.brand);
+    state.pdfHeader = clone(defaults.pdfHeader);
   }
   ensureBrandContactText(state);
   updateSyncedConfigIndexes();
@@ -312,6 +320,9 @@ let __rawLocal=null; try{ __rawLocal=localStorage.getItem(STORAGE_KEY); }catch(e
 const hadLocalState = !!__rawLocal;
 let state; try{ state=__rawLocal?mergeState(JSON.parse(__rawLocal)):mergeState(clone(defaults)); }catch(e){state=mergeState(clone(defaults))}
 syncLegacyFromCleaningTypes(state);
+state.brand=keepConfiguredObjectKeys(state.brand, defaults.brand);
+state.mainInfo=keepConfiguredObjectKeys(state.mainInfo, defaults.mainInfo);
+state.pdfHeader=keepConfiguredObjectKeys(state.pdfHeader, defaults.pdfHeader);
 ensureBrandContactText(state);
 // Миграция: новая шапка PDF по умолчанию текстовая, старый тяжёлый base64-логотип удаляем из локального состояния.
 if(state.pdfHeader && state.pdfHeader.useLogo === false && state.brand && state.brand.logoDataUrl && String(state.brand.logoDataUrl).length > 10000){ state.brand.logoDataUrl=''; try{saveState();}catch(e){} }
