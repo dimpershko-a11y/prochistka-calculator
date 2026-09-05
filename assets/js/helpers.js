@@ -234,7 +234,7 @@ function renderSyncStatus(){
   }
   if(status){ status.className=kind; status.textContent=text; }
   const applyBtn=$('applyRemoteConfigBtn');
-  if(applyBtn) applyBtn.classList.toggle('hidden', !(pending>applied));
+  if(applyBtn) applyBtn.classList.toggle('hidden', !(dirty || pending>applied || state?.ui?.configConflict));
 }
 function rerenderAfterConfigSync(){
   ensureFormCleanTypeAndCoefs(false);
