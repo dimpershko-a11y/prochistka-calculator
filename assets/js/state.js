@@ -234,16 +234,30 @@ function updateSyncedConfigIndexes(){
   state.ui.syncedExtraCategories=(defaults.extraCategories||[]).map(String);
   state.ui.syncedCleanTypeKeys=Object.keys(defaults.cleaningTypes||{});
 }
-function applyConfigRevisionData(){
-  state.cleaningTypes = mergeConfiguredCleaningTypes(defaults.cleaningTypes, state.cleaningTypes);
+function applyConfigRevisionData(forceReplace=false){
+  if(forceReplace){
+    state.cleaningTypes = clone(defaults.cleaningTypes);
+  }else{
+    state.cleaningTypes = mergeConfiguredCleaningTypes(defaults.cleaningTypes, state.cleaningTypes);
+  }
   syncLegacyFromCleaningTypes(state);
   state.travel = clone(defaults.travel);
   state.labor = clone(defaults.labor);
   state.materialPerM2 = defaults.materialPerM2;
   state.overhead = clone(defaults.overhead);
   state.pricing = clone(defaults.pricing);
-  state.extras = mergeConfiguredExtras(defaults.extras, state.extras);
-  state.extraCategories = mergeConfiguredCategories(defaults.extraCategories, state.extraCategories);
+  if(forceReplace){
+    const currentById=new Map((Array.isArray(state.extras)?state.extras:[]).map(x=>[String(x.id),x]));
+    state.extras=(Array.isArray(defaults.extras)?defaults.extras:[]).map(item=>{
+      const local=currentById.get(String(item.id));
+      return {...clone(item), availableSeparately:item.availableSeparately !== false, qty:local ? Math.max(0,Number(local.qty)||0) : Math.max(0,Number(item.qty)||0)};
+    });
+    state.extraCategories=(Array.isArray(defaults.extraCategories)?defaults.extraCategories:[]).map(String);
+    if(!state.extraCategories.includes('Другое')) state.extraCategories.push('Другое');
+  }else{
+    state.extras = mergeConfiguredExtras(defaults.extras, state.extras);
+    state.extraCategories = mergeConfiguredCategories(defaults.extraCategories, state.extraCategories);
+  }
   state.serviceDescriptions = clone(defaults.serviceDescriptions);
   state.mainInfo = clone(defaults.mainInfo);
   if(APP_CONFIG.SYNC_BRAND_PDF_ON_REVISION === true){
@@ -268,7 +282,7 @@ function adoptRemoteDefaults(remoteConfig){
 function applyRemoteConfigObject(remoteConfig, force=false){
   const revision=Number(remoteConfig?.CONFIG_REVISION)||0;
   const current=Number(state?.ui?.configRevision||0);
-  if(!remoteConfig?.defaults || revision<=current) return {status:'noop',revision};
+  if(!remoteConfig?.defaults || (!force && revision<=current)) return {status:'noop',revision};
   if(remoteConfig.APP_VERSION && remoteConfig.APP_VERSION!==APP_VERSION) return {status:'app_update',revision,appVersion:remoteConfig.APP_VERSION};
   const remoteMatchesLocal=configSnapshotString(remoteConfig.defaults)===configSnapshotString(state);
   if(isConfigDirty() && !force && !remoteMatchesLocal){
@@ -280,7 +294,7 @@ function applyRemoteConfigObject(remoteConfig, force=false){
     return {status:'conflict',revision};
   }
   adoptRemoteDefaults(remoteConfig);
-  applyConfigRevisionData();
+  applyConfigRevisionData(force);
   state.ui=state.ui||{};
   state.ui.configRevision=revision;
   state.ui.pendingConfigRevision=0;
