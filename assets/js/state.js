@@ -43,7 +43,7 @@ if(defaults.form.maintenanceTerm == null) defaults.form.maintenanceTerm = 6;
 defaults.estimateValidityDays = defaults.estimateValidityDays != null ? defaults.estimateValidityDays : 14;
 defaults.savedOrders = [];
 defaults.ui = defaults.ui || {showTariffs:false, showSettings:false, extraGroupsCollapsed:{}};
-function clone(x){return JSON.parse(JSON.stringify(x));}
+function clone(x){ if(x===undefined || x===null) return x; const serialized=JSON.stringify(x); if(serialized===undefined) return undefined; return JSON.parse(serialized); }
 function stableSyncValue(value){
   if(Array.isArray(value)) return value.map(stableSyncValue);
   if(value && typeof value==='object'){
