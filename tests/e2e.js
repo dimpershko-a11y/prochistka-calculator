@@ -146,6 +146,15 @@ function check(name, ok, detail) {
   });
   check('кнопка GitHub доступна при dirty и той же ревизии', dirtyButtonCheck.visibleWhileDirty === true, JSON.stringify(dirtyButtonCheck));
 
+  const versionCompareCheck = await page.evaluate(() => ({
+    older: compareAppVersions('v4.11.21','v4.11.22'),
+    equal: compareAppVersions('v4.11.22','v4.11.22'),
+    newer: compareAppVersions('v4.11.23','v4.11.22')
+  }));
+  check('сравнение версий: старая версия определяется как старая', versionCompareCheck.older < 0, JSON.stringify(versionCompareCheck));
+  check('сравнение версий: одинаковые версии равны', versionCompareCheck.equal === 0, JSON.stringify(versionCompareCheck));
+  check('сравнение версий: новая версия определяется как новая', versionCompareCheck.newer > 0, JSON.stringify(versionCompareCheck));
+
   const mergeCheck = await page.evaluate(() => {
     const oldIds = (state.ui.syncedExtraIds || []).slice();
     state.ui.syncedExtraIds = ['1'];
