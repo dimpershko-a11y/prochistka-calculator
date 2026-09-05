@@ -1,7 +1,7 @@
 window.PROCHISTKA_CONFIG = {
   "APP_VERSION": "v4.11.15",
   "APP_PASSWORD": "",
-  "CONFIG_REVISION": 19,
+  "CONFIG_REVISION": 20,
   "SYNC_BRAND_PDF_ON_REVISION": true,
   "SYNC_ENDPOINT": "https://script.google.com/macros/s/AKfycbxz6n695ajVr8QJfDFxj6gED2Szoc7rtjQpWca-tUccTGEHyt5OzjrtG9OYxn6tac83CA/exec",
   "WINDOW_CATEGORIES": [
