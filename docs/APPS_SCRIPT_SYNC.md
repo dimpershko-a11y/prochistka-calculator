@@ -28,7 +28,7 @@ Apps Script → Project Settings → Script Properties → Add script property.
 - `GITHUB_TOKEN` — fine-grained token GitHub.
 - `GITHUB_OWNER` — `dimpershko-a11y`.
 - `GITHUB_REPO` — `prochistka-calculator`.
-- `GITHUB_BRANCH` — ветка, из которой работает веб-калькулятор. Для этого релиза: `v4.11.15`.
+- `GITHUB_BRANCH` — постоянная production-ветка: `production`. Поле можно не задавать: Apps Script использует `production` по умолчанию.
 - `GITHUB_PATH` — `config.js` (необязательно, это значение используется по умолчанию).
 - `SYNC_SECRET` — отдельный длинный случайный ключ публикации. Не используйте здесь GitHub-токен.
 
@@ -77,4 +77,4 @@ Deploy → New deployment → тип **Web app**.
 - Не помещайте `GITHUB_TOKEN` в `config.js`, Google Drive, JavaScript калькулятора или резервные копии.
 - При утечке токена отзовите его в GitHub и создайте новый, затем замените только Script Property `GITHUB_TOKEN`.
 - При утечке `SYNC_SECRET` замените его в Script Properties. GitHub-токен при этом менять не требуется.
-- При переходе на другую production-ветку обновите `GITHUB_BRANCH` в Script Properties.
+- Версионные ветки (`v4.11.15`, `v4.11.16` и т. д.) используются для релизов и отката. Apps Script всегда публикует `config.js` в постоянную ветку `production`.
