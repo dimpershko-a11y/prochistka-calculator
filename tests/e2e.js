@@ -134,6 +134,18 @@ function check(name, ok, detail) {
   check('принудительная синхронизация удаляет локальные хвосты', !forcedSyncCheck.hasLegacyExtra && !forcedSyncCheck.hasLegacyCategory && !forcedSyncCheck.hasLegacyType, JSON.stringify(forcedSyncCheck));
   check('принудительная синхронизация сохраняет количество выбранной услуги', forcedSyncCheck.preservedQty === 4, JSON.stringify(forcedSyncCheck));
 
+  const dirtyButtonCheck = await page.evaluate(() => {
+    const btn=document.getElementById('applyRemoteConfigBtn');
+    const originalBrand=clone(state.brand);
+    state.brand={...state.brand,name:(state.brand?.name||'PRO-CHISTKA')+' test'};
+    renderSyncStatus();
+    const visibleWhileDirty=!btn.classList.contains('hidden');
+    state.brand=originalBrand;
+    renderSyncStatus();
+    return {visibleWhileDirty};
+  });
+  check('кнопка GitHub доступна при dirty и той же ревизии', dirtyButtonCheck.visibleWhileDirty === true, JSON.stringify(dirtyButtonCheck));
+
   const mergeCheck = await page.evaluate(() => {
     const oldIds = (state.ui.syncedExtraIds || []).slice();
     state.ui.syncedExtraIds = ['1'];
