@@ -279,20 +279,36 @@ async function checkRemoteConfig(interactive=false, force=false){
     return {status:'error',error:String(e.message||e)};
   }
 }
-const CONFIG_PUBLISH_VERIFY_URL='https://raw.githubusercontent.com/dimpershko-a11y/prochistka-calculator/production/config.js';
+const CONFIG_PUBLISH_API_URL='https://api.github.com/repos/dimpershko-a11y/prochistka-calculator/contents/config.js?ref=production';
+const CONFIG_PUBLISH_RAW_URL='https://raw.githubusercontent.com/dimpershko-a11y/prochistka-calculator/production/config.js';
+async function fetchPublishedConfig(){
+  try{
+    const response=await fetch(`${CONFIG_PUBLISH_API_URL}&sync=${Date.now()}`,{
+      cache:'no-store',
+      headers:{Accept:'application/vnd.github+json'}
+    });
+    if(response.ok){
+      const data=await response.json();
+      const compact=String(data.content||'').replace(/\s/g,'');
+      if(compact){
+        const bytes=Uint8Array.from(atob(compact),ch=>ch.charCodeAt(0));
+        return parseConfigJsText(new TextDecoder('utf-8').decode(bytes));
+      }
+    }
+  }catch(e){}
+  try{
+    const response=await fetch(`${CONFIG_PUBLISH_RAW_URL}?sync=${Date.now()}`,{cache:'no-store'});
+    if(response.ok) return parseConfigJsText(await response.text());
+  }catch(e){}
+  return null;
+}
 async function verifyPublishedConfigRevision(expectedRevision){
   const expected=Number(expectedRevision)||0;
   if(!expected) return null;
-  try{
-    const response=await fetch(`${CONFIG_PUBLISH_VERIFY_URL}?sync=${Date.now()}`,{cache:'no-store'});
-    if(!response.ok) return null;
-    const remote=parseConfigJsText(await response.text());
-    const revision=Number(remote.CONFIG_REVISION)||0;
-    if(revision<expected) return null;
-    return {ok:true,revision,commitSha:'',verifiedVia:'github'};
-  }catch(e){
-    return null;
-  }
+  const remote=await fetchPublishedConfig();
+  const revision=Number(remote?.CONFIG_REVISION)||0;
+  if(revision<expected) return null;
+  return {ok:true,revision,commitSha:'',verifiedVia:'github'};
 }
 function postConfigToAppsScript(endpoint, fields){
   return new Promise((resolve,reject)=>{
