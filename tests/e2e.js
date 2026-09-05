@@ -110,6 +110,30 @@ function check(name, ok, detail) {
   check('старый baseline сам по себе не создаёт dirty-флаг', staleBaselineCheck.dirtyAfterCleanup === false, JSON.stringify(staleBaselineCheck));
   check('устаревшее лишнее поле определяется как отличие до очистки', staleBaselineCheck.dirtyWithLegacy === true, JSON.stringify(staleBaselineCheck));
 
+  const forcedSyncCheck = await page.evaluate(() => {
+    const originalExtras = clone(state.extras);
+    const originalCategories = clone(state.extraCategories);
+    const originalTypes = clone(state.cleaningTypes);
+    const first = state.extras[0];
+    if(first) first.qty = 4;
+    state.extras.push({id:999999,name:'Старый локальный хвост',unit:'шт',price:1,qty:0,time:0,category:'Другое'});
+    state.extraCategories.push('Старая категория');
+    state.cleaningTypes.__legacy = {label:'Старый тип',rate:0,min:0,speed:1,included:'',clutter:{low:{label:'Обычная',priceK:1,timeK:1}},dirtiness:{low:{label:'Обычная',priceK:1,timeK:1}}};
+    applyConfigRevisionData(true);
+    const result = {
+      hasLegacyExtra: state.extras.some(x=>String(x.id)==='999999'),
+      hasLegacyCategory: state.extraCategories.includes('Старая категория'),
+      hasLegacyType: !!state.cleaningTypes.__legacy,
+      preservedQty: first ? state.extras.find(x=>String(x.id)===String(first.id))?.qty : 0
+    };
+    state.extras=originalExtras;
+    state.extraCategories=originalCategories;
+    state.cleaningTypes=originalTypes;
+    return result;
+  });
+  check('принудительная синхронизация удаляет локальные хвосты', !forcedSyncCheck.hasLegacyExtra && !forcedSyncCheck.hasLegacyCategory && !forcedSyncCheck.hasLegacyType, JSON.stringify(forcedSyncCheck));
+  check('принудительная синхронизация сохраняет количество выбранной услуги', forcedSyncCheck.preservedQty === 4, JSON.stringify(forcedSyncCheck));
+
   const mergeCheck = await page.evaluate(() => {
     const oldIds = (state.ui.syncedExtraIds || []).slice();
     state.ui.syncedExtraIds = ['1'];
