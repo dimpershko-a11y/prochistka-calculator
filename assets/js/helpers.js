@@ -279,6 +279,21 @@ async function checkRemoteConfig(interactive=false, force=false){
     return {status:'error',error:String(e.message||e)};
   }
 }
+const CONFIG_PUBLISH_VERIFY_URL='https://raw.githubusercontent.com/dimpershko-a11y/prochistka-calculator/production/config.js';
+async function verifyPublishedConfigRevision(expectedRevision){
+  const expected=Number(expectedRevision)||0;
+  if(!expected) return null;
+  try{
+    const response=await fetch(`${CONFIG_PUBLISH_VERIFY_URL}?sync=${Date.now()}`,{cache:'no-store'});
+    if(!response.ok) return null;
+    const remote=parseConfigJsText(await response.text());
+    const revision=Number(remote.CONFIG_REVISION)||0;
+    if(revision<expected) return null;
+    return {ok:true,revision,commitSha:'',verifiedVia:'github'};
+  }catch(e){
+    return null;
+  }
+}
 function postConfigToAppsScript(endpoint, fields){
   return new Promise((resolve,reject)=>{
     const requestId=`sync-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -290,21 +305,37 @@ function postConfigToAppsScript(endpoint, fields){
     const add=(name,value)=>{ const input=document.createElement('input'); input.type='hidden'; input.name=name; input.value=String(value??''); form.appendChild(input); };
     add('action','publishConfig'); add('requestId',requestId);
     Object.entries(fields||{}).forEach(([name,value])=>add(name,value));
-    let timer=null;
-    const cleanup=()=>{ clearTimeout(timer); window.removeEventListener('message',onMessage); form.remove(); iframe.remove(); };
+    const expectedRevision=Number(fields?.revision)||0;
+    let timer=null, verifyTimer=null, settled=false, verifying=false;
+    const cleanup=()=>{ clearTimeout(timer); clearInterval(verifyTimer); window.removeEventListener('message',onMessage); form.remove(); iframe.remove(); };
+    const finish=(fn,value)=>{ if(settled) return; settled=true; cleanup(); fn(value); };
     const onMessage=event=>{
       let host='';
       try{ host=new URL(event.origin).hostname; }catch(e){}
       if(host!=='script.google.com' && !/(^|\.)googleusercontent\.com$/.test(host)) return;
       const data=event.data||{};
       if(data.type!=='prochistka-config-sync' || data.requestId!==requestId) return;
-      cleanup();
-      if(data.ok) resolve(data); else reject(new Error(data.error||'Apps Script вернул ошибку'));
+      if(data.ok) finish(resolve,data); else finish(reject,new Error(data.error||'Apps Script вернул ошибку'));
+    };
+    const verify=async()=>{
+      if(settled || verifying || !expectedRevision) return;
+      verifying=true;
+      try{
+        const verified=await verifyPublishedConfigRevision(expectedRevision);
+        if(verified) finish(resolve,verified);
+      }finally{
+        verifying=false;
+      }
     };
     window.addEventListener('message',onMessage);
     document.body.appendChild(iframe); document.body.appendChild(form);
-    timer=setTimeout(()=>{ cleanup(); reject(new Error('Apps Script не ответил за 45 секунд')); },45000);
+    timer=setTimeout(async()=>{
+      await verify();
+      if(!settled) finish(reject,new Error('Не удалось подтвердить публикацию через Apps Script и GitHub за 30 секунд'));
+    },30000);
+    if(expectedRevision) verifyTimer=setInterval(verify,2000);
     form.submit();
+    if(expectedRevision) setTimeout(verify,2500);
   });
 }
 async function publishConfigToCloud(){
