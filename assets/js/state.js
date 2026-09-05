@@ -262,7 +262,8 @@ function applyRemoteConfigObject(remoteConfig, force=false){
   const current=Number(state?.ui?.configRevision||0);
   if(!remoteConfig?.defaults || revision<=current) return {status:'noop',revision};
   if(remoteConfig.APP_VERSION && remoteConfig.APP_VERSION!==APP_VERSION) return {status:'app_update',revision,appVersion:remoteConfig.APP_VERSION};
-  if(isConfigDirty() && !force){
+  const remoteMatchesLocal=configSnapshotString(remoteConfig.defaults)===configSnapshotString(state);
+  if(isConfigDirty() && !force && !remoteMatchesLocal){
     window.__pendingRemoteConfig=clone(remoteConfig);
     state.ui=state.ui||{};
     state.ui.pendingConfigRevision=revision;
@@ -457,7 +458,8 @@ function syncConfigRevision(){
   state.ui = state.ui || {};
   const currentRev = Number(state.ui.configRevision || 0);
   if(rev > currentRev){
-    if(isConfigDirty()){
+    const configuredMatchesLocal=configSnapshotString(defaults)===configSnapshotString(state);
+    if(isConfigDirty() && !configuredMatchesLocal){
       state.ui.pendingConfigRevision=rev;
       state.ui.configConflict=true;
       saveState();
