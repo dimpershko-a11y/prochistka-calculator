@@ -207,6 +207,12 @@ function getSyncSecretFromUi(){
   if(typed) sessionStorage.setItem('prochistka_sync_secret',typed);
   return typed || String(sessionStorage.getItem('prochistka_sync_secret')||'');
 }
+function compareAppVersions(a,b){
+  const parse=v=>String(v||'').replace(/^v/i,'').split('.').map(x=>Number.parseInt(x,10)||0);
+  const av=parse(a), bv=parse(b), len=Math.max(av.length,bv.length,3);
+  for(let i=0;i<len;i++){ const diff=(av[i]||0)-(bv[i]||0); if(diff) return diff>0?1:-1; }
+  return 0;
+}
 function renderSyncStatus(){
   const status=$('syncStatus');
   const endpointInput=$('syncEndpoint');
@@ -228,9 +234,11 @@ function renderSyncStatus(){
   } else if(applied){
     text=`Синхронизировано · ревизия ${applied}.`;
   }
-  if(state?.ui?.remoteAppVersion && state.ui.remoteAppVersion!==APP_VERSION){
+  if(state?.ui?.remoteAppVersion && compareAppVersions(state.ui.remoteAppVersion,APP_VERSION)>0){
     text += ` Доступна новая версия приложения: ${state.ui.remoteAppVersion}.`;
     kind='notice warning';
+  }else if(state?.ui?.remoteAppVersion && compareAppVersions(state.ui.remoteAppVersion,APP_VERSION)<=0){
+    delete state.ui.remoteAppVersion;
   }
   if(status){ status.className=kind; status.textContent=text; }
   const applyBtn=$('applyRemoteConfigBtn');
@@ -252,7 +260,8 @@ async function checkRemoteConfig(interactive=false, force=false){
     const remote=await fetchPublishedConfig();
     if(!remote) throw new Error('GitHub не вернул корректный config.js');
     stage='проверка версии';
-    if(remote.APP_VERSION && remote.APP_VERSION!==APP_VERSION){
+    const versionCmp=remote.APP_VERSION ? compareAppVersions(remote.APP_VERSION,APP_VERSION) : 0;
+    if(versionCmp>0){
       state.ui=state.ui||{};
       state.ui.remoteAppVersion=remote.APP_VERSION;
       saveState();
@@ -262,6 +271,12 @@ async function checkRemoteConfig(interactive=false, force=false){
     }
     state.ui=state.ui||{};
     delete state.ui.remoteAppVersion;
+    if(versionCmp<0){
+      saveState();
+      renderSyncStatus();
+      if(interactive) toast(`Удалённая версия ${remote.APP_VERSION} старее текущей ${APP_VERSION}. Обновление не применяется.`);
+      return {status:'stale_remote',appVersion:remote.APP_VERSION,revision:Number(remote.CONFIG_REVISION)||0};
+    }
     stage='применение настроек';
     const result=applyRemoteConfigObject(remote,force);
     if(result.status==='applied'){
