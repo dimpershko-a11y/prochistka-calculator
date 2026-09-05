@@ -14,6 +14,7 @@ function getSettings_() {
     owner: props.getProperty('GITHUB_OWNER') || '',
     repo: props.getProperty('GITHUB_REPO') || '',
     branch: props.getProperty('GITHUB_BRANCH') || 'production',
+    pagesBranch: props.getProperty('GITHUB_PAGES_BRANCH') || 'work-v4.10.1',
     secret: props.getProperty('SYNC_SECRET') || '',
     path: props.getProperty('GITHUB_PATH') || 'config.js'
   };
@@ -53,8 +54,9 @@ function parseConfig_(text) {
   return config;
 }
 
-function readRemoteConfig_(s) {
-  var url = configApiUrl_(s) + '?ref=' + encodeURIComponent(s.branch);
+function readRemoteConfig_(s, branch) {
+  var targetBranch = branch || s.branch;
+  var url = configApiUrl_(s) + '?ref=' + encodeURIComponent(targetBranch);
   var response = UrlFetchApp.fetch(url, {
     method: 'get',
     headers: githubHeaders_(s.token),
@@ -71,12 +73,12 @@ function readRemoteConfig_(s) {
   };
 }
 
-function writeRemoteConfig_(s, configText, sha, revision) {
+function writeRemoteConfig_(s, configText, sha, revision, branch) {
   var payload = {
     message: 'Update calculator config revision ' + revision,
     content: Utilities.base64Encode(configText, Utilities.Charset.UTF_8),
     sha: sha,
-    branch: s.branch
+    branch: branch || s.branch
   };
   var response = UrlFetchApp.fetch(configApiUrl_(s), {
     method: 'put',
@@ -129,18 +131,32 @@ function doPost(e) {
     var requestedRevision = Number(e.parameter.revision || 0);
     if (Number(incoming.CONFIG_REVISION) !== requestedRevision) throw new Error('Ревизия запроса не совпадает с config.js');
 
-    var remote = readRemoteConfig_(s);
+    var remote = readRemoteConfig_(s, s.branch);
     var remoteRevision = Number(remote.config.CONFIG_REVISION || 0);
     if (requestedRevision <= remoteRevision) {
       throw new Error('На GitHub уже есть ревизия ' + remoteRevision + '. Обновите калькулятор и повторите публикацию.');
     }
 
-    var commitSha = writeRemoteConfig_(s, configText, remote.sha, requestedRevision);
+    var commitSha = writeRemoteConfig_(s, configText, remote.sha, requestedRevision, s.branch);
+    var pagesCommitSha = '';
+    var pagesPreviousRevision = null;
+
+    if (s.pagesBranch && s.pagesBranch !== s.branch) {
+      var pagesRemote = readRemoteConfig_(s, s.pagesBranch);
+      pagesPreviousRevision = Number(pagesRemote.config.CONFIG_REVISION || 0);
+      if (requestedRevision > pagesPreviousRevision) {
+        pagesCommitSha = writeRemoteConfig_(s, configText, pagesRemote.sha, requestedRevision, s.pagesBranch);
+      }
+    }
+
     return responseHtml_(requestId, {
       ok: true,
       revision: requestedRevision,
       previousRevision: remoteRevision,
-      commitSha: commitSha
+      commitSha: commitSha,
+      pagesBranch: s.pagesBranch,
+      pagesPreviousRevision: pagesPreviousRevision,
+      pagesCommitSha: pagesCommitSha
     });
   } catch (err) {
     return responseHtml_(requestId, {
@@ -154,7 +170,7 @@ function doPost(e) {
 
 function testGitHubConnection() {
   var s = getSettings_();
-  var remote = readRemoteConfig_(s);
+  var remote = readRemoteConfig_(s, s.branch);
   Logger.log('GitHub OK. Branch: %s, revision: %s, sha: %s', s.branch, remote.config.CONFIG_REVISION, remote.sha);
   return {
     ok: true,
