@@ -247,9 +247,11 @@ function rerenderAfterConfigSync(){
   renderSyncStatus();
 }
 async function checkRemoteConfig(interactive=false, force=false){
+  let stage='загрузка из GitHub';
   try{
     const remote=await fetchPublishedConfig();
     if(!remote) throw new Error('GitHub не вернул корректный config.js');
+    stage='проверка версии';
     if(remote.APP_VERSION && remote.APP_VERSION!==APP_VERSION){
       state.ui=state.ui||{};
       state.ui.remoteAppVersion=remote.APP_VERSION;
@@ -260,6 +262,7 @@ async function checkRemoteConfig(interactive=false, force=false){
     }
     state.ui=state.ui||{};
     delete state.ui.remoteAppVersion;
+    stage='применение настроек';
     const result=applyRemoteConfigObject(remote,force);
     if(result.status==='applied'){
       rerenderAfterConfigSync();
@@ -274,8 +277,9 @@ async function checkRemoteConfig(interactive=false, force=false){
     return result;
   }catch(e){
     renderSyncStatus();
-    if(interactive) toast(`Не удалось проверить config.js: ${e.message||e}`);
-    return {status:'error',error:String(e.message||e)};
+    const message=String(e?.message||e||'неизвестная ошибка');
+    if(interactive) toast(`Не удалось проверить config.js (${stage}): ${message}`);
+    return {status:'error',stage,error:message};
   }
 }
 const CONFIG_PUBLISH_API_URL='https://api.github.com/repos/dimpershko-a11y/prochistka-calculator/contents/config.js?ref=production';
