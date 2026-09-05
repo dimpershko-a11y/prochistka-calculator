@@ -95,6 +95,21 @@ function check(name, ok, detail) {
   }));
   check('клонирование старого состояния не падает на undefined', cloneSafety.undefinedClone === undefined && cloneSafety.nullClone === null, JSON.stringify(cloneSafety));
 
+  const staleBaselineCheck = await page.evaluate(() => {
+    const originalBaseline = state.ui.configBaseline;
+    const originalBrand = clone(state.brand);
+    state.ui.configBaseline = JSON.stringify({stale:true});
+    state.brand = {...state.brand, __legacyField:'old'};
+    const dirtyWithLegacy = isConfigDirty();
+    state.brand = keepConfiguredObjectKeys(state.brand, defaults.brand);
+    const dirtyAfterCleanup = isConfigDirty();
+    state.brand = originalBrand;
+    state.ui.configBaseline = originalBaseline;
+    return {dirtyWithLegacy, dirtyAfterCleanup};
+  });
+  check('старый baseline сам по себе не создаёт dirty-флаг', staleBaselineCheck.dirtyAfterCleanup === false, JSON.stringify(staleBaselineCheck));
+  check('устаревшее лишнее поле определяется как отличие до очистки', staleBaselineCheck.dirtyWithLegacy === true, JSON.stringify(staleBaselineCheck));
+
   const mergeCheck = await page.evaluate(() => {
     const oldIds = (state.ui.syncedExtraIds || []).slice();
     state.ui.syncedExtraIds = ['1'];
