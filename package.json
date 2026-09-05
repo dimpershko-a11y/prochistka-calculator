@@ -1,6 +1,6 @@
 {
   "name": "prochistka-calculator",
-  "version": "4.11.20",
+  "version": "4.11.21",
   "description": "Мини-приложение калькулятора стоимости уборки PRO-CHISTKA.",
   "private": true,
   "type": "commonjs",
