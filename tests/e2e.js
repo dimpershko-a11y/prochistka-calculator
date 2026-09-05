@@ -89,6 +89,12 @@ function check(name, ok, detail) {
   check('получение версии использует абсолютный GitHub source', remoteSourceCheck.raw.includes('raw.githubusercontent.com') && remoteSourceCheck.api.includes('api.github.com'), JSON.stringify(remoteSourceCheck));
   check('получение версии не использует относительный config.js', remoteSourceCheck.usesRelativeConfig === false, JSON.stringify(remoteSourceCheck));
 
+  const cloneSafety = await page.evaluate(() => ({
+    undefinedClone: clone(undefined),
+    nullClone: clone(null)
+  }));
+  check('клонирование старого состояния не падает на undefined', cloneSafety.undefinedClone === undefined && cloneSafety.nullClone === null, JSON.stringify(cloneSafety));
+
   const mergeCheck = await page.evaluate(() => {
     const oldIds = (state.ui.syncedExtraIds || []).slice();
     state.ui.syncedExtraIds = ['1'];
