@@ -29,6 +29,7 @@ Apps Script → Project Settings → Script Properties → Add script property.
 - `GITHUB_OWNER` — `dimpershko-a11y`.
 - `GITHUB_REPO` — `prochistka-calculator`.
 - `GITHUB_BRANCH` — постоянная production-ветка: `production`. Поле можно не задавать: Apps Script использует `production` по умолчанию.
+- `GITHUB_PAGES_BRANCH` — текущая ветка-источник GitHub Pages. Пока используем `work-v4.10.1` для совместимости со старой схемой; Apps Script зеркалирует туда `config.js`.
 - `GITHUB_PATH` — `config.js` (необязательно, это значение используется по умолчанию).
 - `SYNC_SECRET` — отдельный длинный случайный ключ публикации. Не используйте здесь GitHub-токен.
 
@@ -77,4 +78,4 @@ Deploy → New deployment → тип **Web app**.
 - Не помещайте `GITHUB_TOKEN` в `config.js`, Google Drive, JavaScript калькулятора или резервные копии.
 - При утечке токена отзовите его в GitHub и создайте новый, затем замените только Script Property `GITHUB_TOKEN`.
 - При утечке `SYNC_SECRET` замените его в Script Properties. GitHub-токен при этом менять не требуется.
-- Версионные ветки (`v4.11.15`, `v4.11.16` и т. д.) используются для релизов и отката. Apps Script всегда публикует `config.js` в постоянную ветку `production`.
+- Версионные ветки (`v4.11.15`, `v4.11.16` и т. д.) используются для релизов и отката. Apps Script публикует `config.js` в `production` и временно зеркалирует его в `work-v4.10.1`, чтобы текущий GitHub Pages продолжал обновляться автоматически. После окончательного перевода Pages на `production` зеркало можно отключить, задав `GITHUB_PAGES_BRANCH=production`.
