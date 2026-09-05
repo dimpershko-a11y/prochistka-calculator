@@ -2,6 +2,7 @@
 // Файлы assets/js/*.js загружаются последовательно (см. index.html) и разделяют общую глобальную область.
 function populateMainSelects(){ ensureFormCleanTypeAndCoefs(false); const types=getCleaningTypes(); fillSelect('cleanType', types, state.form.cleanType); const active=getActiveCleaningType(); const clutter=getTypeClutter(state.form.cleanType); const dirtiness=getTypeDirtiness(state.form.cleanType); fillSelect('clutter', clutter, state.form.clutter); fillSelect('dirtiness', dirtiness, state.form.dirtiness); if($('includedTypeLabel')) $('includedTypeLabel').textContent=active ? active.label : '—'; if($('includedServices')) $('includedServices').value=getTypeIncluded(state.form.cleanType)||''; }
 let extrasQuery='';
+function extraQtyLabel(item){ const unit=String(item?.unit||'').trim(); return `${num(item?.qty)}${unit?` ${unit}`:''}`; }
 function getGroupedExtras(){
   let arr=state.extras.filter(x=>state.form.cleanType!=='extras_only' || x.availableSeparately===true);
   if(state.form.showOnlySelected) arr=arr.filter(x=>num(x.qty)>0);
@@ -74,7 +75,7 @@ function bindPdfHeaderInputs(){
   };
   Object.entries(fields).forEach(([id,[key,type]])=>{ const el=$(id); if(!el || el.dataset.boundPdfHeader) return; el.dataset.boundPdfHeader='1'; const handler=e=>{ state.pdfHeader=state.pdfHeader||{}; let v=e.target.value; if(type==='number') v=Number(v)||0; if(type==='bool') v=String(v)==='true'; state.pdfHeader[key]=v; if(key==='useLogo') renderBrandLogoPreview(); saveState(); }; el.oninput=handler; el.onchange=handler; });
 }
-function renderSelectedExtras(){ const {selectedExtras}=calc(); const wrap=$('selectedExtrasWrap'); wrap.innerHTML=''; if(!selectedExtras.length){ wrap.innerHTML='<div class="notice">Пока ничего не выбрано.</div>'; return; } selectedExtras.forEach(x=>{ const div=document.createElement('div'); div.className='selected-item'; div.innerHTML=`<div style="display:flex;justify-content:space-between;gap:8px"><span>${esc(x.name)} × ${num(x.qty)}</span><span>${money(num(x.qty)*num(x.price))}</span></div>`; wrap.appendChild(div); }); }
+function renderSelectedExtras(){ const {selectedExtras}=calc(); const wrap=$('selectedExtrasWrap'); wrap.innerHTML=''; if(!selectedExtras.length){ wrap.innerHTML='<div class="notice">Пока ничего не выбрано.</div>'; return; } selectedExtras.forEach(x=>{ const div=document.createElement('div'); div.className='selected-item'; div.innerHTML=`<div style="display:flex;justify-content:space-between;gap:8px"><span>${esc(x.name)} × ${esc(extraQtyLabel(x))}</span><span>${money(num(x.qty)*num(x.price))}</span></div>`; wrap.appendChild(div); }); }
 function renderSavedOrders(){ const wrap=$('savedOrdersWrap'); wrap.innerHTML=''; if(!state.savedOrders.length){ wrap.innerHTML='<div class="notice">Пока нет сохранённых заказов.</div>'; return; }
   state.savedOrders.forEach(o=>{
     const isSeries=Number(o.seriesCount)>1;
@@ -257,7 +258,7 @@ function formatCleanDate(){
   return isNaN(d.getTime()) ? v : d.toLocaleDateString('ru-RU');
 }
 function estimateText(){
-  const r=calc(); const included=getIncludedText()||'Не заполнено'; const notIncluded=getActiveCleaningType()?.notIncluded||'Не заполнено'; const extras=r.selectedExtras.length?r.selectedExtras.map(x=>`• ${x.name} × ${num(x.qty)} — ${money(num(x.qty)*num(x.price))}`).join('\n'):'• Без доп. услуг';
+  const r=calc(); const included=getIncludedText()||'Не заполнено'; const notIncluded=getActiveCleaningType()?.notIncluded||'Не заполнено'; const extras=r.selectedExtras.length?r.selectedExtras.map(x=>`• ${x.name} × ${extraQtyLabel(x)} — ${money(num(x.qty)*num(x.price))}`).join('\n'):'• Без доп. услуг';
   const lines=r.subscription ? [
     'Абонемент поддерживающей уборки',
     `Разовая стоимость визита: ${money(r.oneoffPrice)}`,
@@ -327,7 +328,7 @@ function buildPrintHtml(){
     </table>`,
     included: `${sectionTitle('В услуги входят')}<div style="border:1px solid #cbd5e1;border-radius:14px;padding:14px;margin-bottom:18px">${included.length?included.map(x=>`<div style="${AVOID};margin:0 0 6px">• ${esc(x)}</div>`).join(''):'<div>—</div>'}</div>`,
     not_included: `${sectionTitle('В услуги не входят')}<div style="border:1px solid #cbd5e1;border-radius:14px;padding:14px;margin-bottom:18px">${String(getActiveCleaningType()?.notIncluded||'').split(/\n+/).map(x=>x.trim()).filter(Boolean).map(x=>`<div style="${AVOID};margin:0 0 6px">• ${esc(x)}</div>`).join('')||'<div>—</div>'}</div>`,
-    extras: `${sectionTitle('Дополнительные услуги')}<div style="border:1px solid #cbd5e1;border-radius:14px;padding:14px;margin-bottom:18px">${extras.length?extras.map(x=>`<div style="${AVOID};display:flex;justify-content:space-between;gap:12px;margin:0 0 7px;align-items:flex-start"><span><span style="display:inline-block;font-size:10px;line-height:1;padding:4px 7px;border-radius:999px;background:#eef2f7;color:#475569;font-weight:700;margin-right:7px;vertical-align:middle;text-transform:uppercase;letter-spacing:.2px">${esc(x.category||'Другое')}</span>${esc(x.name)} × ${num(x.qty)}</span><span style="white-space:nowrap">${money(num(x.qty)*num(x.price))}</span></div>`).join(''):'<div>Без доп. услуг</div>'}</div>`,
+    extras: `${sectionTitle('Дополнительные услуги')}<div style="border:1px solid #cbd5e1;border-radius:14px;padding:14px;margin-bottom:18px">${extras.length?extras.map(x=>`<div style="${AVOID};display:flex;justify-content:space-between;gap:12px;margin:0 0 7px;align-items:flex-start"><span><span style="display:inline-block;font-size:10px;line-height:1;padding:4px 7px;border-radius:999px;background:#eef2f7;color:#475569;font-weight:700;margin-right:7px;vertical-align:middle;text-transform:uppercase;letter-spacing:.2px">${esc(x.category||'Другое')}</span>${esc(x.name)} × ${esc(extraQtyLabel(x))}</span><span style="white-space:nowrap">${money(num(x.qty)*num(x.price))}</span></div>`).join(''):'<div>Без доп. услуг</div>'}</div>`,
     pricing: (()=>{
       const rows=[];
       if(r.subscription){
