@@ -72,6 +72,15 @@ function check(name, ok, detail) {
   check('доп. услуги показывают количество с единицей измерения', v41116Ui.extraQty === '2 шт', JSON.stringify(v41116Ui));
   check('уведомления находятся выше модальных окон', v41116Ui.toastZ > 100, JSON.stringify(v41116Ui));
 
+  const sameConfigCheck = await page.evaluate(() => {
+    const remoteDefaults = buildConfigDefaultsFromState();
+    return {
+      matches: configSnapshotString(remoteDefaults) === configSnapshotString(state),
+      dirty: isConfigDirty()
+    };
+  });
+  check('собственная опубликованная конфигурация распознаётся как совпадающая с локальной', sameConfigCheck.matches === true, JSON.stringify(sameConfigCheck));
+
   const mergeCheck = await page.evaluate(() => {
     const oldIds = (state.ui.syncedExtraIds || []).slice();
     state.ui.syncedExtraIds = ['1'];
