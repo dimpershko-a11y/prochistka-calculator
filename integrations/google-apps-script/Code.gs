@@ -101,7 +101,9 @@ function responseHtml_(requestId, payload) {
   var json = JSON.stringify(data).replace(/</g, '\\u003c');
   return HtmlService.createHtmlOutput(
     '<!doctype html><meta charset="utf-8"><script>' +
-    'window.parent.postMessage(' + json + ', "*");' +
+    'var data=' + json + ';' +
+    'try{window.parent.postMessage(data, "*");}catch(e){}' +
+    'try{window.top.postMessage(data, "*");}catch(e){}' +
     '</script><body></body>'
   ).setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
