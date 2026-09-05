@@ -1,5 +1,5 @@
 window.PROCHISTKA_CONFIG = {
-  APP_VERSION: 'v4.11.18',
+  APP_VERSION: 'v4.11.19',
   APP_PASSWORD: '',
   // Повышайте число при изменении цен, чтобы они применились на всех устройствах.
   CONFIG_REVISION: 1,
