@@ -13,7 +13,7 @@ function getSettings_() {
     token: props.getProperty('GITHUB_TOKEN') || '',
     owner: props.getProperty('GITHUB_OWNER') || '',
     repo: props.getProperty('GITHUB_REPO') || '',
-    branch: props.getProperty('GITHUB_BRANCH') || '',
+    branch: props.getProperty('GITHUB_BRANCH') || 'production',
     secret: props.getProperty('SYNC_SECRET') || '',
     path: props.getProperty('GITHUB_PATH') || 'config.js'
   };
@@ -21,7 +21,6 @@ function getSettings_() {
   if (!settings.token) missing.push('GITHUB_TOKEN');
   if (!settings.owner) missing.push('GITHUB_OWNER');
   if (!settings.repo) missing.push('GITHUB_REPO');
-  if (!settings.branch) missing.push('GITHUB_BRANCH');
   if (!settings.secret) missing.push('SYNC_SECRET');
   if (missing.length) throw new Error('Не заданы Script Properties: ' + missing.join(', '));
   return settings;
