@@ -14,7 +14,7 @@
     "lint:html": "htmlhint index.html tilda_iframe_example.html",
     "format": "prettier --write \"**/*.{html,css,js,json,md}\" --ignore-path .gitignore",
     "format:check": "prettier --check \"**/*.{html,css,js,json,md}\" --ignore-path .gitignore",
-    "test:e2e": "node tests/e2e.js"
+    "test:e2e": "node tests/e2e.js && node tests/contracts.e2e.js"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
