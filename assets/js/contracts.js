@@ -81,7 +81,7 @@ function contractMainHtml(order,d){
   const q=snapshotForOrder(order);
   const keysA=['2.1.1','2.1.2','2.1.3','2.1.4','2.1.5'];
   const keysB=['2.2.1','2.2.2','2.2.3','2.2.4','2.2.5'];
-  const keysPay=['3.1','3.3','3.4','3.5','3.6','3.6.1','3.6.2','3.7','3.8','3.9'];
+  const keysPay=['3.3','3.4','3.5','3.6','3.6.1','3.6.2','3.7','3.8','3.9'];
   const total=contractSafeNumber(d.price),numArea=contractSafeNumber(d.objectArea);
   const cust=d.customerType==='legal_entity'?'организация '+d.customerName:d.customerName;
   const details=d.customerType==='legal_entity' && d.customerRepresentative?' в лице '+d.customerRepresentative+(d.customerAuthority?', действующего на основании '+d.customerAuthority:''):'';
