@@ -390,7 +390,8 @@ function buildPdfFileName(){
 // Ждём именно локальный Orbitron до снятия html2canvas-снимка для PDF.
 async function ensurePdfHeaderFont(){
   const fontFamily=String(state.pdfHeader?.fontFamily||'Orbitron, Arial, sans-serif');
-  if(!/(^|[,'"\\s])Orbitron([,'"\\s]|$)/i.test(fontFamily)) return;
+  const families=fontFamily.split(',').map(name=>name.trim().replace(/^['"]|['"]$/g,'').toLowerCase());
+  if(!families.includes('orbitron')) return;
   if(!document.fonts || typeof document.fonts.load!=='function') return;
   const weight=Math.min(900,Math.max(400,Number(state.pdfHeader?.nameWeight)||800));
   const size=Math.max(1,Number(state.pdfHeader?.nameFontSize)||30);
