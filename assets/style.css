@@ -292,7 +292,7 @@ button{white-space:normal;line-height:1.25}
 .contract-editor{max-height:76vh;overflow:auto;padding:4px}
 .contract-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .contract-form-grid label{display:flex;flex-direction:column;gap:4px;font-weight:600;font-size:12px;min-width:0}
-.contract-form-grid input:not([type=checkbox]),.contract-form-grid select,.contract-form-grid textarea{max-width:100%;width:100%;min-width:0;box-sizing:border-box}
+.contract-form-grid input:not([type="checkbox"]),.contract-form-grid select,.contract-form-grid textarea{max-width:100%;width:100%;min-width:0;box-sizing:border-box}
 .contract-form-grid .contract-span{grid-column:1/-1}
 .contract-form-grid .contract-check{flex-direction:row;align-items:center;gap:8px}
 .contract-check input{width:auto;flex-shrink:0}
@@ -326,7 +326,7 @@ button{white-space:normal;line-height:1.25}
 .contract-unfilled{border:1px dashed #a94442;padding:6px}
 .contract-export-host{position:absolute;top:0;left:0;width:694px;z-index:-1;pointer-events:none;background:white}
 .contract-export-host .contract-document{width:694px;box-shadow:none;padding:0;margin:0 auto}
-.contract-page-break{break-before:page;page-break-before:always;height:0}
+.contract-page-break{break-before:page;height:0}
 @media(max-width:820px){
  .contract-modal-card{padding:10px!important;margin:4px auto!important;max-height:97vh}
  .contract-columns{grid-template-columns:minmax(0,1fr)}
