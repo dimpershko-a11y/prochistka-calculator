@@ -77,27 +77,53 @@ function openContractEditor(id){
  modal.querySelector('#contractPreviewArea').classList.add('hidden');
  modal.classList.remove('hidden');contractUpdateWarning();
 }
+
 async function contractDownload(actOnly){
  const order=contractOrder(),d=contractActiveDraft();if(!order||!d)return;
  const error=contractValidate(order,d);if(error){toast(error);return;}
  if(typeof html2pdf!=='function'){toast('Не загружена библиотека PDF');return;}
- const host=document.createElement('div');host.className='contract-pdf-host';
- host.innerHTML=actOnly?contractActHtml(order,d):contractDocumentHtml(order,d);
+ const host=document.createElement('div');
+ host.className='contract-pdf-host';host.style.left='-1200px';host.style.width='184.6mm';
+ const documentRoot=document.createElement('div');
+ documentRoot.innerHTML=actOnly?contractActHtml(order,d):contractDocumentHtml(order,d);
+ const original=documentRoot.firstElementChild;
  document.body.appendChild(host);
  try{
   if(document.fonts?.load)await document.fonts.load('900 24px Orbitron','PRO-CHISTKA');
-  const blob=await html2pdf().set({
-    margin:[12.7,12.7,12.7,12.7],
-    html2canvas:{scale:1.5,useCORS:true,backgroundColor:'#ffffff'},
-    jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},
-    pagebreak:{mode:['css','legacy'],avoid:['.document-brand','.contract-signatures','.contract-sign-line']}
-  }).from(host.firstElementChild).outputPdf('blob');
-  if(!blob || blob.size<1000)throw new Error('Пустой PDF');
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');a.href=url;
-  a.download=(actOnly?'Акт-':'Договор-')+String(d.documentNo||'').replace(/[^\wа-яА-Я-]/g,'_')+'.pdf';
-  document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),10000);
-  toast('PDF сформирован');
+  const createPage=()=>{
+   const page=document.createElement('div');page.className='contract-page';
+   page.style.cssText='width:184.6mm;box-sizing:border-box;background:white;';
+   host.appendChild(page);return page;
+  };
+  const pages=[];let current=createPage();pages.push(current);
+  const maxContentHeight=960;
+  for(const source of Array.from(original.children)){
+   const el=source.cloneNode(true);
+   current.appendChild(el);
+   if(current.scrollHeight>maxContentHeight&&current.children.length>1){
+    current.removeChild(el);
+    current=createPage();pages.push(current);current.appendChild(el);
+   }
+  }
+  // Each worker only rasterizes one page; avoid a single huge canvas.
+  const options={margin:[12.7,12.7,12.7,12.7],html2canvas:{scale:1,useCORS:true,backgroundColor:'#fff'},
+   jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}};
+  const firstWorker=html2pdf().set(options).from(pages[0]).toPdf();
+  const pdf=await firstWorker.get('pdf');
+  for(let i=1;i<pages.length;i++){
+   const worker=html2pdf().set({html2canvas:{scale:1,useCORS:true,backgroundColor:'#fff'}}).from(pages[i]).toCanvas();
+   const canvas=await worker.get('canvas');
+   const pageHeight=Math.min(271.6,canvas.height/canvas.width*184.6);
+   pdf.addPage('a4','portrait');
+   pdf.addImage(canvas.toDataURL('image/jpeg',0.88),'JPEG',12.7,12.7,184.6,pageHeight);
+  }
+  const blob=pdf.output('blob');
+  if(!blob||blob.size<1000)throw new Error('Пустой PDF');
+  const url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download=(actOnly?'Акт-':'Договор-')+String(d.documentNo||'').replace(/[^\wа-яА-Я-]/g,'_')+'.pdf';
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),10000);
+  toast('PDF сформирован ('+pages.length+' стр.)');
  }catch(e){toast('Ошибка PDF: '+String(e?.message||e));}
  finally{host.remove();}
 }
