@@ -1,7 +1,7 @@
 
 function contractSnapshot(order){
  const q=order.quoteSnapshot||{}, f=q.form||order.form||{};
- return {form:f,label:q.service?.label||order.cleanType||'',included:q.service?.included||'',extras:(q.extras||order.extras||[]).filter(x=>Number(x.qty)>0),price:Number(q.pricing?.total??order.recommendedPrice)};
+ return {form:f,label:q.service?.label||order.cleanType||'',included:q.service?.included||'',extras:(q.extras||order.extras||[]).filter(x=>Number(x.qty)>0),price:Number(q.pricing?.total??(Number(order.seriesCount)>1?order.seriesTotal:order.recommendedPrice))};
 }
 function contractDraft(order){
  state.contractDrafts=Array.isArray(state.contractDrafts)?state.contractDrafts:[];
