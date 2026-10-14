@@ -130,7 +130,7 @@
     if(!validNumber(form.discount,100)) errors.push('Скидка должна быть от 0 до 100%.');
     if(!validNumber(form.discountAmount,1e9)) errors.push('Некорректная скидка в рублях.');
     if(!validNumber(form.maintenanceCrewSize,1000)) errors.push('Некорректный размер бригады.');
-    if(form.cleanStartTime && !/^([01]\\d|2[0-3]):[0-5]\\d$/.test(String(form.cleanStartTime))) errors.push('Время начала должно иметь формат ЧЧ:ММ.');
+    if(form.cleanStartTime && !/^([01]\d|2[0-3]):[0-5]\d$/.test(String(form.cleanStartTime))) errors.push('Время начала должно иметь формат ЧЧ:ММ.');
     for(const x of (Array.isArray(state.extras)?state.extras:[])){
       if(!validNumber(x.qty,1e6) || !validNumber(x.price,1e9) || !validNumber(x.time,1e6)){
         errors.push('Некорректное количество, цена или время доп. услуги.');
@@ -154,7 +154,7 @@
       for(const [key,max] of Object.entries({area:1e6,discount:100,discountAmount:1e9,travelKm:1e6,maintenanceCrewSize:1000})){
         if(!validNumber(payload.form[key],max)) return {ok:false,error:'Недопустимое значение поля '+key+'.'};
       }
-      if(payload.form.cleanStartTime && !/^([01]\\d|2[0-3]):[0-5]\\d$/.test(String(payload.form.cleanStartTime))) return {ok:false,error:'Некорректное время начала.'};
+      if(payload.form.cleanStartTime && !/^([01]\d|2[0-3]):[0-5]\d$/.test(String(payload.form.cleanStartTime))) return {ok:false,error:'Некорректное время начала.'};
       if(payload.form.cleanType!==undefined && _defaults?.cleaningTypes && !_defaults.cleaningTypes[payload.form.cleanType]
         && !(isRecord(payload.cleaningTypes) && payload.cleaningTypes[payload.form.cleanType]))
         return {ok:false,error:'Неизвестный тип уборки в резервной копии.'};
