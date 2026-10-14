@@ -121,7 +121,15 @@
 
   function validateOrder(state){
     const form=state.form||{}, errors=[];
+    const area=Number(form.area);
+    if(!Number.isFinite(area) || area<0 || area>100000) errors.push('Некорректная площадь: укажите значение от 0 до 100 000 м².');
     if(num(form.area)<=0 && !(form.cleanType==='extras_only' && (state.extras||[]).some(item=>num(item.qty)>0 && item.availableSeparately===true))) errors.push('Укажите площадь больше 0 м² или выберите доп. услугу.');
+    for(const field of ['discount','discountAmount','travelKm','maintenanceCrewSize']){
+      const value=Number(form[field]||0);
+      if(!Number.isFinite(value) || value<0 || value>100000000) errors.push('Некорректное значение поля '+field+'.');
+    }
+    if(form.cleanStartTime && !/^(?:[01]\\d|2[0-3]):[0-5]\\d$/.test(String(form.cleanStartTime))) errors.push('Время начала должно быть в формате ЧЧ:ММ.');
+    if((state.extras||[]).some(item=> !Number.isFinite(Number(item.qty)) || Number(item.qty)<0 || Number(item.qty)>100000 || !Number.isFinite(Number(item.price)) || Number(item.price)<0 || Number(item.price)>100000000)) errors.push('Некорректные количество или цена допуслуги.');
     const rate=cleanType(state,form.cleanType), clutter=(rate?.clutter||state.clutter||{}), dirt=(rate?.dirtiness||state.dirtiness||{});
     if(!rate) errors.push('Выберите корректный тип уборки.');
     if(!hasOwn(clutter,form.clutter)) errors.push('Выберите корректную заставленность.');
@@ -134,6 +142,11 @@
     if(isRecord(data)&&data.type&&data.type!=='prochistka_full_backup') return {ok:false,error:'Выбран файл другого типа.'};
     if(payload.extras!==undefined&&!Array.isArray(payload.extras)) return {ok:false,error:'Список дополнительных услуг повреждён.'};
     if(payload.savedOrders!==undefined&&!Array.isArray(payload.savedOrders)) return {ok:false,error:'Список заказов повреждён.'};
+    if(payload.form!==undefined && !isRecord(payload.form)) return {ok:false,error:'Форма резервной копии повреждена.'};
+    if(payload.form?.area!==undefined && (!Number.isFinite(Number(payload.form.area)) || Number(payload.form.area)<0 || Number(payload.form.area)>100000)) return {ok:false,error:'В резервной копии некорректная площадь.'};
+    if(payload.form?.cleanStartTime && !/^(?:[01]\\d|2[0-3]):[0-5]\\d$/.test(String(payload.form.cleanStartTime))) return {ok:false,error:'Некорректное время в резервной копии.'};
+    if(payload.extras?.some(item=>!isRecord(item) || !Number.isFinite(Number(item.qty||0)) || !Number.isFinite(Number(item.price||0)))) return {ok:false,error:'В резервной копии есть повреждённые допуслуги.'};
+    if(payload.savedOrders?.some(order=>!isRecord(order)||!Number.isFinite(Number(order.recommendedPrice||0))||Number(order.recommendedPrice||0)<0)) return {ok:false,error:'В резервной копии повреждены сохранённые заказы.'};
     return {ok:true,state:payload};
   }
   return {calculateOrder, validateOrder, validateBackup, num, isRecord};
