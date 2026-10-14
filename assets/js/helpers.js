@@ -299,8 +299,8 @@ async function checkRemoteConfig(interactive=false, force=false){
 }
 const CONFIG_PUBLISH_API_URL='https://api.github.com/repos/dimpershko-a11y/prochistka-calculator/contents/config.js?ref=production';
 const CONFIG_PUBLISH_RAW_URL='https://raw.githubusercontent.com/dimpershko-a11y/prochistka-calculator/production/config.js';
-async function fetchPublishedConfig(){
-  try{
+async function fetchPublishedConfig(preferApi=false){
+  if(!preferApi) try{
     const response=await fetch(`${CONFIG_PUBLISH_RAW_URL}?sync=${Date.now()}`,{cache:'no-store'});
     if(response.ok){
       const text=await response.text();
@@ -330,15 +330,26 @@ async function fetchPublishedConfig(){
       return parseConfigJsText(decoded);
     }
   }catch(e){}
+  if(preferApi) try{
+    const response=await fetch(`${CONFIG_PUBLISH_RAW_URL}?sync=${Date.now()}`,{cache:'no-store'});
+    if(response.ok){
+      const source=await response.text();
+      if(source&&source.trim()) return parseConfigJsText(source);
+    }
+  }catch(e){}
   return null;
 }
-async function verifyPublishedConfigRevision(expectedRevision){
+async function verifyPublishedConfigRevision(expectedRevision, expectedConfigText){
   const expected=Number(expectedRevision)||0;
   if(!expected) return null;
-  const remote=await fetchPublishedConfig();
+  const remote=await fetchPublishedConfig(true);
   const revision=Number(remote?.CONFIG_REVISION)||0;
-  if(revision<expected) return null;
-  return {ok:true,revision,commitSha:'',verifiedVia:'github'};
+  if(revision!==expected) return null;
+  if(expectedConfigText){
+    const submitted=parseConfigJsText(expectedConfigText);
+    if(JSON.stringify(remote.defaults)!==JSON.stringify(submitted.defaults)) return null;
+  }
+  return {ok:true,revision,commitSha:'',verifiedVia:'github-contents'};
 }
 function postConfigToAppsScript(endpoint, fields){
   return new Promise((resolve,reject)=>{
@@ -367,7 +378,7 @@ function postConfigToAppsScript(endpoint, fields){
       if(settled || verifying || !expectedRevision) return;
       verifying=true;
       try{
-        const verified=await verifyPublishedConfigRevision(expectedRevision);
+        const verified=await verifyPublishedConfigRevision(expectedRevision,fields?.configText);
         if(verified) finish(resolve,verified);
       }finally{
         verifying=false;
