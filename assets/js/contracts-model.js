@@ -37,7 +37,7 @@ function contractDocumentHtml(order,d){
  const extras=q.extras.map(x=>`${x.name} (${x.qty} ${x.unit||'шт'})`);
  const manual=String(d.additionalWorks||'').split(/\n+/).map(x=>x.trim()).filter(Boolean);
  const works=[...listed,...extras,...manual];
- const importantNote=order.quoteSnapshot?'':'<p><b>Исторический заказ:</b> проверьте перечень работ по ранее согласованной смете. Он не был полностью зафиксирован в старой версии калькулятора.</p>';
+ const importantNote=''; // Manager-only warning is shown in editor, not in a client contract.
  const legal=CONTRACT_LEGAL.map(line=>{
    if(/^[234]\.\s/.test(line))return '<h3>'+contractSafe(line)+'</h3>';
    return '<p>'+contractSafe(line)+'</p>';
