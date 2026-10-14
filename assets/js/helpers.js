@@ -299,46 +299,42 @@ async function checkRemoteConfig(interactive=false, force=false){
 }
 const CONFIG_PUBLISH_API_URL='https://api.github.com/repos/dimpershko-a11y/prochistka-calculator/contents/config.js?ref=production';
 const CONFIG_PUBLISH_RAW_URL='https://raw.githubusercontent.com/dimpershko-a11y/prochistka-calculator/production/config.js';
-async function fetchPublishedConfig(){
+async function fetchGitHubApiConfig(){
+  const response=await fetch(`${CONFIG_PUBLISH_API_URL}&sync=${Date.now()}`,{
+    cache:'no-store',headers:{Accept:'application/vnd.github+json'}
+  });
+  if(!response.ok) throw new Error('GitHub API: '+response.status);
+  const data=await response.json();
+  const compact=String(data?.content||'').replace(/\s/g,'');
+  if(!compact) throw new Error('В ответе GitHub нет config.js');
+  const binary=atob(compact);
+  const bytes=Uint8Array.from(binary,ch=>ch.charCodeAt(0));
+  const decoded=typeof TextDecoder==='function'?new TextDecoder('utf-8').decode(bytes)
+    :decodeURIComponent(Array.from(bytes,b=>'%'+b.toString(16).padStart(2,'0')).join(''));
+  return parseConfigJsText(decoded);
+}
+async function fetchPublishedConfig(apiFirst=false){
+  if(apiFirst){
+    try{ return await fetchGitHubApiConfig(); }catch(e){}
+  }
   try{
     const response=await fetch(`${CONFIG_PUBLISH_RAW_URL}?sync=${Date.now()}`,{cache:'no-store'});
-    if(response.ok){
-      const text=await response.text();
-      if(text && text.trim()) return parseConfigJsText(text);
-    }
+    if(response.ok){const raw=await response.text();if(raw.trim()) return parseConfigJsText(raw);}
   }catch(e){}
-  try{
-    const response=await fetch(`${CONFIG_PUBLISH_API_URL}&sync=${Date.now()}`,{
-      cache:'no-store',
-      headers:{Accept:'application/vnd.github+json'}
-    });
-    if(response.ok){
-      const body=await response.text();
-      if(!body || !body.trim()) return null;
-      const data=JSON.parse(body);
-      const compact=String(data?.content||'').replace(/\s/g,'');
-      if(!compact) return null;
-      const binary=atob(compact);
-      let decoded='';
-      if(typeof TextDecoder==='function'){
-        const bytes=Uint8Array.from(binary,ch=>ch.charCodeAt(0));
-        decoded=new TextDecoder('utf-8').decode(bytes);
-      }else{
-        const escaped=Array.from(binary,ch=>'%'+ch.charCodeAt(0).toString(16).padStart(2,'0')).join('');
-        decoded=decodeURIComponent(escaped);
-      }
-      return parseConfigJsText(decoded);
-    }
-  }catch(e){}
+  if(!apiFirst){try{return await fetchGitHubApiConfig();}catch(e){}}
   return null;
 }
-async function verifyPublishedConfigRevision(expectedRevision){
+async function verifyPublishedConfigRevision(expectedRevision, expectedText=''){
   const expected=Number(expectedRevision)||0;
   if(!expected) return null;
-  const remote=await fetchPublishedConfig();
-  const revision=Number(remote?.CONFIG_REVISION)||0;
-  if(revision<expected) return null;
-  return {ok:true,revision,commitSha:'',verifiedVia:'github'};
+  const remote=await fetchPublishedConfig(true);
+  if(Number(remote?.CONFIG_REVISION)!==expected) return null;
+  if(expectedText){
+    const target=parseConfigJsText(expectedText);
+    if(JSON.stringify(remote.defaults)!==JSON.stringify(target.defaults)
+      || String(remote.APP_VERSION)!==String(target.APP_VERSION)) return null;
+  }
+  return {ok:true,revision:expected,commitSha:'',verifiedVia:'github-content'};
 }
 function postConfigToAppsScript(endpoint, fields){
   return new Promise((resolve,reject)=>{
@@ -367,7 +363,7 @@ function postConfigToAppsScript(endpoint, fields){
       if(settled || verifying || !expectedRevision) return;
       verifying=true;
       try{
-        const verified=await verifyPublishedConfigRevision(expectedRevision);
+        const verified=await verifyPublishedConfigRevision(expectedRevision,String(fields?.configText||''));
         if(verified) finish(resolve,verified);
       }finally{
         verifying=false;
