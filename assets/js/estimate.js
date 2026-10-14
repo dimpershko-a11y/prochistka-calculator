@@ -387,6 +387,19 @@ function buildPdfFileName(){
   const date=new Date().toISOString().slice(0,10);
   return `Смета${no}${client?'_'+client:''}_${date}.pdf`;
 }
+// Ждём именно локальный Orbitron до снятия html2canvas-снимка для PDF.
+async function ensurePdfHeaderFont(){
+  const fontFamily=String(state.pdfHeader?.fontFamily||'Orbitron, Arial, sans-serif');
+  if(!/(^|[,'"\\s])Orbitron([,'"\\s]|$)/i.test(fontFamily)) return;
+  if(!document.fonts || typeof document.fonts.load!=='function') return;
+  const weight=Math.min(900,Math.max(400,Number(state.pdfHeader?.nameWeight)||800));
+  const size=Math.max(1,Number(state.pdfHeader?.nameFontSize)||30);
+  const fontSpec=`${weight} ${size}px Orbitron`;
+  const loaded=await document.fonts.load(fontSpec,String(state.brand?.name||'PRO-CHISTKA'));
+  if(!loaded.length || !document.fonts.check(fontSpec,String(state.brand?.name||'PRO-CHISTKA'))){
+    throw new Error('Не удалось загрузить локальный шрифт Orbitron для PDF');
+  }
+}
 // Генерирует PDF-файл из той же вёрстки, что печать и превью. Требует локальную библиотеку html2pdf.
 // Файл для «Поделиться» и «Скачать PDF» делается одной длинной страницей по высоте содержимого:
 // на телефоне клиент просто прокручивает смету, и никакие строки не рвутся между страницами.
@@ -397,6 +410,7 @@ async function generatePdfBlob(){
   host.innerHTML=buildPrintHtml();
   document.body.appendChild(host);
   try{
+    await ensurePdfHeaderFont();
     const el=host.firstElementChild;
     const heightPx=Math.max(el.scrollHeight, el.offsetHeight, 1123);
     const pageHeightMm=Math.ceil(heightPx * 210 / 794) + 2; // 794px = 210мм при ширине A4
