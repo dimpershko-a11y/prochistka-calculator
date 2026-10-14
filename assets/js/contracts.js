@@ -237,7 +237,7 @@ function contractCheckExport(order,d){
   if(!Number.isFinite(Number(d.price))||Number(d.price)<0||Number(d.price)>1e12){
     toast('Некорректная сумма договора');return false;
   }
-  if(d.startTime && !/^([01]\\d|2[0-3]):[0-5]\\d$/.test(d.startTime)){
+  if(d.startTime && !/^([01]\d|2[0-3]):[0-5]\d$/.test(d.startTime)){
     toast('Некорректное время начала уборки');return false;
   }
   const q=snapshotForOrder(order);
