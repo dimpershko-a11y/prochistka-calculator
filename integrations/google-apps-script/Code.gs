@@ -14,7 +14,7 @@ function getSettings_() {
     owner: props.getProperty('GITHUB_OWNER') || '',
     repo: props.getProperty('GITHUB_REPO') || '',
     branch: props.getProperty('GITHUB_BRANCH') || 'production',
-    pagesBranch: props.getProperty('GITHUB_PAGES_BRANCH') || 'work-v4.10.1',
+    pagesBranch: props.getProperty('GITHUB_PAGES_BRANCH') || '',
     secret: props.getProperty('SYNC_SECRET') || '',
     path: props.getProperty('GITHUB_PATH') || 'config.js'
   };
@@ -135,6 +135,9 @@ function doPost(e) {
 
     var remote = readRemoteConfig_(s, s.branch);
     var remoteRevision = Number(remote.config.CONFIG_REVISION || 0);
+    if (String(incoming.APP_VERSION) !== String(remote.config.APP_VERSION)) {
+      throw new Error('Версия калькулятора не совпадает с production. Обновите страницу приложения.');
+    }
     if (requestedRevision <= remoteRevision) {
       throw new Error('На GitHub уже есть ревизия ' + remoteRevision + '. Обновите калькулятор и повторите публикацию.');
     }
@@ -142,12 +145,18 @@ function doPost(e) {
     var commitSha = writeRemoteConfig_(s, configText, remote.sha, requestedRevision, s.branch);
     var pagesCommitSha = '';
     var pagesPreviousRevision = null;
+    var mirrorWarning = '';
 
     if (s.pagesBranch && s.pagesBranch !== s.branch) {
-      var pagesRemote = readRemoteConfig_(s, s.pagesBranch);
-      pagesPreviousRevision = Number(pagesRemote.config.CONFIG_REVISION || 0);
-      if (requestedRevision > pagesPreviousRevision) {
-        pagesCommitSha = writeRemoteConfig_(s, configText, pagesRemote.sha, requestedRevision, s.pagesBranch);
+      try {
+        var pagesRemote = readRemoteConfig_(s, s.pagesBranch);
+        pagesPreviousRevision = Number(pagesRemote.config.CONFIG_REVISION || 0);
+        if (requestedRevision > pagesPreviousRevision) {
+          pagesCommitSha = writeRemoteConfig_(s, configText, pagesRemote.sha, requestedRevision, s.pagesBranch);
+        }
+      } catch (mirrorError) {
+        // Основная публикация уже завершена: ошибка необязательного зеркала не отменяет её.
+        mirrorWarning = String(mirrorError && mirrorError.message || mirrorError);
       }
     }
 
@@ -158,7 +167,8 @@ function doPost(e) {
       commitSha: commitSha,
       pagesBranch: s.pagesBranch,
       pagesPreviousRevision: pagesPreviousRevision,
-      pagesCommitSha: pagesCommitSha
+      pagesCommitSha: pagesCommitSha,
+      mirrorWarning: mirrorWarning
     });
   } catch (err) {
     return responseHtml_(requestId, {
