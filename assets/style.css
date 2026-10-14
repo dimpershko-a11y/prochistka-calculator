@@ -299,13 +299,13 @@ button{white-space:normal;line-height:1.25}
 .contract-page h3{font:bold 10pt Arial,sans-serif;margin:12pt 0 6pt}
 .contract-page p{margin:6pt 0}
 .contract-page li{margin-bottom:6pt}
-.document-brand{display:flex;justify-content:space-between;align-items:start;border-bottom:1px solid #111;padding-bottom:8pt;margin-bottom:18pt;gap:10pt;break-inside:avoid;page-break-inside:avoid}
+.document-brand{display:flex;justify-content:space-between;align-items:start;border-bottom:1px solid #111;padding-bottom:8pt;margin-bottom:18pt;gap:10pt;break-inside:avoid}
 .document-brand-name{font-family:Orbitron,Arial,sans-serif;font-weight:900;font-size:24pt;letter-spacing:0}
 .document-brand-tag{font-size:12pt;letter-spacing:2px}
 .document-brand-contact{font-family:Arial,sans-serif;font-size:10pt;font-weight:700;text-align:right;line-height:1.35}
 .contract-place{display:flex;justify-content:space-between;margin:12pt 0}
 .contract-sign-heading{text-align:center;margin-top:30pt!important;break-after:avoid}
-.contract-signatures{width:100%;table-layout:fixed;border-collapse:collapse;break-inside:avoid;page-break-inside:avoid}
+.contract-signatures{width:100%;table-layout:fixed;border-collapse:collapse;break-inside:avoid}
 .contract-signatures td{border:1px solid #444;width:50%;padding:9pt;vertical-align:top;min-height:55mm}
 .contract-act-heading{text-align:right}
 .contract-center{text-align:center}
