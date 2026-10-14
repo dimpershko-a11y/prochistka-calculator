@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const {calculateOrder, validateOrder} = require('../assets/core.js');
+const {calculateOrder, validateOrder, validateBackup} = require('../assets/core.js');
 
 function makeState(overrides={}){
   return {
@@ -81,4 +81,28 @@ test('недоступная отдельно услуга не попадает
 test('недоступная отдельно услуга остаётся допуслугой обычной уборки',()=>{
   const state=makeState({extras:[{id:1,qty:1,price:500,time:0,availableSeparately:false}]});
   assert.equal(calculateOrder(state).extrasTotal,500);
+});
+
+test('числовой ввод 1e308 не даёт неконечный итог и блокируется валидацией',()=>{
+  const s=makeState();s.form.area=1e308;
+  assert.equal(Number.isFinite(calculateOrder(s).recommendedPrice),true);
+  assert.ok(validateOrder(s).some(x=>x.includes('Площадь')));
+});
+test('площадь вне диапазона или скидка больше 100 отклоняется',()=>{
+  const s=makeState();s.form.area=1000001;s.form.discount=105;
+  assert.ok(validateOrder(s).length>=2);
+});
+test('некорректное время начала блокируется, HH:MM принимается',()=>{
+  const s=makeState();s.form.cleanStartTime='25:99';
+  assert.ok(validateOrder(s).some(x=>x.includes('Время')));
+  s.form.cleanStartTime='09:30';
+  assert.equal(validateOrder(s).length,0);
+});
+test('испорченный backup не принимается',()=>{
+  const bad={type:'prochistka_full_backup',state:{form:{area:'Infinity',cleanType:'general'},extras:[],savedOrders:[]}};
+  assert.equal(validateBackup(bad,makeState()).ok,false);
+});
+test('backup с черновиками договора проверяет коллекцию',()=>{
+  assert.equal(validateBackup({type:'prochistka_full_backup',state:{contractDrafts:'corrupt'}}).ok,false);
+  assert.equal(validateBackup({type:'prochistka_full_backup',state:{contractDrafts:[{orderId:'1'}],savedOrders:[]}}).ok,true);
 });
