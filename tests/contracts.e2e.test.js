@@ -1,3 +1,4 @@
+/* global state, ensureFormCleanTypeAndCoefs, calc, APP_VERSION, clone, getTypeIncluded, saveState, renderSavedOrders */
 const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),http=require('node:http'),path=require('node:path');
 const {chromium}=require('playwright');
@@ -10,7 +11,9 @@ test('contract editor, first-page letterhead, price lock, PDF and act',async()=>
   res.setHeader('Content-Type',mime[path.extname(dest)]||'application/octet-stream');fs.createReadStream(dest).pipe(res);
  });
  await new Promise(r=>server.listen(0,'127.0.0.1',r));
- const browser=await chromium.launch(process.env.CHROME_PATH?{executablePath:process.env.CHROME_PATH,headless:true}:{headless:true});
+ const chromeFromWindows=process.platform==='win32'?'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe':'';
+ const exe=process.env.CHROME_PATH||(chromeFromWindows&&fs.existsSync(chromeFromWindows)?chromeFromWindows:'');
+ const browser=await chromium.launch(exe?{executablePath:exe,headless:true}:{headless:true});
  try {
   const page=await browser.newPage({acceptDownloads:true,viewport:{width:390,height:844}});
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
