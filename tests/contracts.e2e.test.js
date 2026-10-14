@@ -15,7 +15,8 @@ test('contract editor, first-page letterhead, price lock, PDF and act',async()=>
  const exe=process.env.CHROME_PATH||(chromeFromWindows&&fs.existsSync(chromeFromWindows)?chromeFromWindows:'');
  const browser=await chromium.launch(exe?{executablePath:exe,headless:true}:{headless:true});
  try {
-  const page=await browser.newPage({acceptDownloads:true,viewport:{width:390,height:844}});
+  const context=await browser.newContext({acceptDownloads:true,viewport:{width:390,height:844},serviceWorkers:'block'});
+  const page=await context.newPage();
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.goto('http://127.0.0.1:'+server.address().port+'/index.html',{waitUntil:'domcontentloaded'});
   await page.waitForTimeout(350);
