@@ -66,7 +66,7 @@ function contractLegalHtml(keys){
   return keys.map(key=>clauses[key]?'<p class="contract-clause">'+contractEsc(clauses[key])+'</p>':'').join('');
 }
 function documentBrandHeader(){
-  const contact=contractLines(state.brand?.contactText || [state.brand?.phone,state.brand?.site].filter(Boolean).join('\n'));
+  const contact=[state.brand?.phone||'+7 993 635 60 64',state.brand?.email||'info@pro-chistka.pro',state.brand?.site||'pro-chistka.pro'];
   return '<header class="contract-brand"><div class="contract-brand-left"><div class="contract-brand-name">'+contractEsc(state.brand?.name||'PRO-CHISTKA')+'</div><div class="contract-brand-tagline">'+contractEsc(state.brand?.tagline||'клининговые услуги')+'</div></div><div class="contract-brand-contact">'+contact.map(contractEsc).join('<br>')+'</div></header>';
 }
 function contractPartiesHtml(d){
