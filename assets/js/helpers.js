@@ -182,7 +182,7 @@ function normalizeSyncEndpoint(url){
   const value=String(url||'').trim();
   if(!value) return '';
   let parsed;
-  try{ parsed=new URL(value); }catch(e){ throw new Error('Некорректный URL Apps Script'); }
+  try{ parsed=new URL(value); }catch(e){ throw new Error('Некорректный URL Apps Script', {cause:e}); }
   if(parsed.protocol!=='https:' || parsed.hostname!=='script.google.com' || !/\/macros\/s\/[^/]+\/exec$/.test(parsed.pathname)){
     throw new Error('Нужен URL опубликованного Apps Script, заканчивающийся на /exec');
   }
@@ -386,7 +386,7 @@ function postConfigToAppsScript(endpoint, fields){
 }
 async function publishConfigToCloud(){
   const btn=$('publishConfigBtn');
-  let endpoint='';
+  let endpoint;
   try{
     endpoint=normalizeSyncEndpoint($('syncEndpoint')?.value || getSyncEndpoint());
     if(!endpoint) throw new Error('Сначала укажите URL Apps Script');
