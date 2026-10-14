@@ -33,7 +33,7 @@ function contractActHtml(order,d){
 function contractDocumentHtml(order,d){
  const q=contractSnapshot(order),total=Number(d.total);
  const customer=d.customerType==='legal_entity'?'Организация '+contractSafe(d.customerName):contractSafe(d.customerName);
- const listed=String(q.included||'').split(/\n+/).map(x=>x.replace(/^[•\s\-]+/,'').trim()).filter(Boolean);
+ const listed=String(q.included||'').split(/\n+/).map(x=>x.replace(/^[•\s-]+/,'').trim()).filter(Boolean);
  const extras=q.extras.map(x=>`${x.name} (${x.qty} ${x.unit||'шт'})`);
  const manual=String(d.additionalWorks||'').split(/\n+/).map(x=>x.trim()).filter(Boolean);
  const works=[...listed,...extras,...manual];
