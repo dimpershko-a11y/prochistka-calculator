@@ -257,9 +257,10 @@ async function contractDownloadPdf(which){
     await document.fonts.load('900 24px Orbitron','PRO-CHISTKA');
     const host=document.createElement('div');
     host.className='contract-export-host';
+    host.style.cssText='position:fixed;left:-10000px;top:0;width:694px;background:white;';
     let html=which==='act'?contractActHtml(order,d):contractMainHtml(order,d);
     if(which==='both')html+='<div class="contract-page-break"></div>'+contractActHtml(order,d);
-    host.innerHTML=html;
+    host.innerHTML='<div class="contract-export-content">'+html+'</div>';
     document.body.appendChild(host);
     try{
       const opts={
@@ -269,7 +270,7 @@ async function contractDownloadPdf(which){
         jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},
         pagebreak:{mode:['css','legacy'],before:'.contract-page-break'}
       };
-      await html2pdf().set(opts).from(host).save();
+      await html2pdf().set(opts).from(host.firstElementChild).save();
     }finally{host.remove();}
     toast('PDF сформирован');
   }catch(e){toast('Не удалось создать PDF: '+String(e.message||e));}
