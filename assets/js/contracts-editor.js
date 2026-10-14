@@ -76,6 +76,7 @@ function openContractEditor(id){
  modal.querySelector('#contractApprovePrice').checked=!!d.changeApproved;
  modal.querySelector('#contractPreviewArea').classList.add('hidden');
  modal.classList.remove('hidden');contractUpdateWarning();
+ if(!order.quoteSnapshot)toast('Старый заказ: проверьте перечень работ по согласованной смете перед договором.');
 }
 
 
