@@ -14,7 +14,7 @@ function getSettings_() {
     owner: props.getProperty('GITHUB_OWNER') || '',
     repo: props.getProperty('GITHUB_REPO') || '',
     branch: props.getProperty('GITHUB_BRANCH') || 'production',
-    pagesBranch: props.getProperty('GITHUB_PAGES_BRANCH') || 'work-v4.10.1',
+    pagesBranch: props.getProperty('GITHUB_PAGES_BRANCH') || 'production',
     secret: props.getProperty('SYNC_SECRET') || '',
     path: props.getProperty('GITHUB_PATH') || 'config.js'
   };
@@ -142,12 +142,17 @@ function doPost(e) {
     var commitSha = writeRemoteConfig_(s, configText, remote.sha, requestedRevision, s.branch);
     var pagesCommitSha = '';
     var pagesPreviousRevision = null;
+    var mirrorError = '';
 
     if (s.pagesBranch && s.pagesBranch !== s.branch) {
-      var pagesRemote = readRemoteConfig_(s, s.pagesBranch);
-      pagesPreviousRevision = Number(pagesRemote.config.CONFIG_REVISION || 0);
-      if (requestedRevision > pagesPreviousRevision) {
-        pagesCommitSha = writeRemoteConfig_(s, configText, pagesRemote.sha, requestedRevision, s.pagesBranch);
+      try {
+        var pagesRemote = readRemoteConfig_(s, s.pagesBranch);
+        pagesPreviousRevision = Number(pagesRemote.config.CONFIG_REVISION || 0);
+        if (requestedRevision > pagesPreviousRevision) {
+          pagesCommitSha = writeRemoteConfig_(s, configText, pagesRemote.sha, requestedRevision, s.pagesBranch);
+        }
+      } catch (mirrorFailure) {
+        mirrorError = String(mirrorFailure && mirrorFailure.message || mirrorFailure);
       }
     }
 
@@ -158,7 +163,8 @@ function doPost(e) {
       commitSha: commitSha,
       pagesBranch: s.pagesBranch,
       pagesPreviousRevision: pagesPreviousRevision,
-      pagesCommitSha: pagesCommitSha
+      pagesCommitSha: pagesCommitSha,
+      mirrorError: mirrorError
     });
   } catch (err) {
     return responseHtml_(requestId, {
