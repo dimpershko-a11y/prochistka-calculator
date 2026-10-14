@@ -46,7 +46,7 @@ function check(name, ok, detail) {
   const playwright = loadPlaywright();
   const server = await startServer();
   const base = `http://127.0.0.1:${server.address().port}/index.html`;
-  const browser = await playwright.chromium.launch();
+  const browser = await playwright.chromium.launch(process.platform === 'win32' ? {channel:'chrome'} : {});
   const page = await browser.newPage({viewport: {width: 1280, height: 900}, acceptDownloads: true});
   const pageErrors = [];
   page.on('pageerror', e => pageErrors.push(e.message));
@@ -199,16 +199,23 @@ function check(name, ok, detail) {
     JSON.stringify({base: r1.baseRaw, extras: r1.extrasTotal, travel: r1.travelTotal, disc: r1.discountValue, topup: r1.economyTopup, total: r1.recommendedPrice}));
   check('все суммы целые', ['baseRaw','extrasTotal','travelTotal','discountValue','marketPrice','recommendedPrice','fullCost','targetPrice'].every(k => Number.isInteger(r1[k])));
 
-  // Серия уборок
-  await page.evaluate(() => { state.form.seriesCount = 4; state.form.seriesDiscount = 5; recalc(); });
-  await page.waitForTimeout(200);
-  const r2 = await page.evaluate(() => calc());
-  check('серия: итог = цена × количество', r2.seriesTotal === r2.recommendedPrice * 4);
-  check('серия: накладные делятся', r2.overheadPerCleaning === Math.round(r2.overheadPerJob / 4));
-  check('серия: скидка не уводит ниже прямых затрат', r2.recommendedPrice >= r2.directCost);
-  const seriesRowsShown = await page.$eval('#seriesRows', el => !el.classList.contains('hidden'));
-  check('серия: блок в итоге виден', seriesRowsShown);
-  await page.evaluate(() => { state.form.seriesCount = 1; state.form.seriesDiscount = 0; recalc(); });
+  // Действующая модель: абонемент поддерживающей уборки.
+  const subscriptionCheck=await page.evaluate(()=>{
+    const original=clone(state.form);
+    state.form.cleanType='maintenance';
+    ensureFormCleanTypeAndCoefs(true);
+    state.form.maintenanceFormat='subscription';
+    state.form.maintenanceFrequency=4;
+    state.form.maintenanceTerm=3;
+    const r=calc();
+    state.form=original;
+    ensureFormCleanTypeAndCoefs(false);
+    recalc();
+    return {subscription:r.subscription,totalVisits:r.totalVisits,price:r.recommendedPrice,visitPrice:r.visitPrice,frequency:r.frequency,term:r.term};
+  });
+  check('абонемент: 4 уборки × 3 месяца = 12',subscriptionCheck.subscription&&subscriptionCheck.totalVisits===12,JSON.stringify(subscriptionCheck));
+  check('абонемент: сумма = цена визита × число визитов',subscriptionCheck.price===subscriptionCheck.visitPrice*12,JSON.stringify(subscriptionCheck));
+  check('абонемент: стоимость визита не ниже 5400 ₽',subscriptionCheck.visitPrice>=5400,JSON.stringify(subscriptionCheck));
 
   // PDF-файл
   const pdf = await page.evaluate(async () => {
@@ -267,24 +274,17 @@ function check(name, ok, detail) {
   });
   check('перестановка коэффициентов меняет порядок', orderChanged);
 
-  // Принудительная скидка
-  await page.click('[data-tariff-inner-tab="main"]').catch(() => {});
+  // Текущая логика скидки не использует удалённый #forceDiscount.
+  await page.click('[data-tariff-inner-tab="main"]').catch(()=>{});
   await page.click('#closeSettingsBtn');
   await page.waitForTimeout(150);
-  await page.fill('#discount', '80');
-  await page.dispatchEvent('#discount', 'input');
-  await page.waitForTimeout(150);
-  const beforeForce = await page.evaluate(() => calc());
-  check('без принудительной скидки цена поднимается выше рынка', beforeForce.recommendedPrice > beforeForce.marketPrice, JSON.stringify(beforeForce.recommendedPrice));
-  await page.check('#forceDiscount');
-  await page.waitForTimeout(150);
-  const afterForce = await page.evaluate(() => calc());
-  check('принудительная скидка держит цену на уровне рынка', afterForce.recommendedPrice === afterForce.marketPrice, JSON.stringify(afterForce));
-  const warningShown = await page.$eval('#economyWarning', el => !el.classList.contains('hidden'));
-  check('предупреждение об убытке показывается при принудительной скидке', warningShown || afterForce.recommendedPrice >= afterForce.fullCost);
-  await page.uncheck('#forceDiscount');
-  await page.fill('#discount', '0');
-  await page.dispatchEvent('#discount', 'input');
+  await page.fill('#discount','80');
+  await page.dispatchEvent('#discount','input');
+  const rDiscount=await page.evaluate(()=>calc());
+  check('скидка 80% учитывается при расчёте',rDiscount.discountPercent===80 && Number.isFinite(rDiscount.recommendedPrice),JSON.stringify({discount:rDiscount.discountPercent,price:rDiscount.recommendedPrice}));
+  check('рекомендованная цена равна рассчитанной рыночной',rDiscount.recommendedPrice===rDiscount.marketPrice);
+  await page.fill('#discount','0');
+  await page.dispatchEvent('#discount','input');
 
   check('нет ошибок JS на странице', pageErrors.length === 0, pageErrors.join('; '));
 
