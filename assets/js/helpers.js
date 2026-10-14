@@ -137,6 +137,7 @@ function buildConfigDefaultsFromState(){
     extras: cleanExtras,
     form: formDefaults,
     labor: clone(state.labor || defaults.labor || {}),
+    pricing: clone(state.pricing || defaults.pricing || {}),
     materialPerM2: state.materialPerM2 != null ? Number(state.materialPerM2) : defaults.materialPerM2,
     estimateValidityDays: state.estimateValidityDays != null ? Number(state.estimateValidityDays) : defaults.estimateValidityDays,
     overhead: clone(state.overhead || defaults.overhead || {}),
