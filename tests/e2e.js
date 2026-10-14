@@ -8,7 +8,7 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.join(__dirname, '..');
-const MIME = {'.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png'};
+const MIME = {'.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.ttf': 'font/ttf'};
 
 function startServer() {
   return new Promise(resolve => {
@@ -64,6 +64,16 @@ function check(name, ok, detail) {
   check('дефолтный вид уборки не «Только доп. услуги»', initialState.cleanType !== 'extras_only', initialState.cleanType);
   check('в обычном режиме отображаются все услуги из config.js', initialState.extrasRendered === initialState.extrasTotal, JSON.stringify(initialState));
   check('свежая конфигурация не помечена как локально изменённая', initialState.dirty === false, initialState.dirty);
+
+  // v4.11.24: шрифт Orbitron хранится локально, не ждём Google Fonts в PDF.
+  const orbitronLoad = await page.evaluate(async () => {
+    const spec='900 30px Orbitron';
+    const faces=await document.fonts.load(spec,'PRO-CHISTKA');
+    const importedFromGoogle=!!document.querySelector('link[href*="fonts.googleapis.com"][href*="Orbitron"]');
+    return {faces:faces.length,ready:document.fonts.check(spec,'PRO-CHISTKA'),importedFromGoogle};
+  });
+  check('Orbitron грузится локально до PDF', orbitronLoad.faces>0 && orbitronLoad.ready, JSON.stringify(orbitronLoad));
+  check('Orbitron не импортируется из Google Fonts', !orbitronLoad.importedFromGoogle, JSON.stringify(orbitronLoad));
 
   const v41116Ui = await page.evaluate(() => ({
     extraQty: extraQtyLabel({qty: 2, unit: 'шт'}),
