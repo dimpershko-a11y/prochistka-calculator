@@ -1,4 +1,4 @@
-/* global state, ensureFormCleanTypeAndCoefs, calc, APP_VERSION, clone, getTypeIncluded, saveState, renderSavedOrders */
+/* global state, ensureFormCleanTypeAndCoefs, calc, APP_VERSION, clone, getTypeIncluded, saveState, renderSavedOrders, STORAGE_KEY */
 const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),http=require('node:http'),path=require('node:path');
 const {chromium}=require('playwright');
@@ -45,10 +45,20 @@ test('contract editor, first-page letterhead, price lock, PDF and act',async()=>
   assert.ok(download.suggestedFilename().startsWith('Договор-'));
   const actDownload=page.waitForEvent('download',{timeout:45000});
   await page.locator('#contractDownloadAct').click();
-  assert.ok((await actDownload).suggestedFilename().startsWith('Акт-'));
-  await page.locator('#contractClose').click();
-  await page.locator('[data-order-contract="919191"]').click();
-  assert.equal(await page.locator('[data-contract-field="changeReason"]').inputValue(),'Согласована дополнительная уборка');
+  const act=await actDownload;
+  assert.ok(act.suggestedFilename().startsWith('Акт-'));
+  const persisted=await page.evaluate(()=>{
+    const raw=localStorage.getItem(STORAGE_KEY);
+    const saved=JSON.parse(raw||'{}').contractDrafts||[];
+    return saved.find(x=>String(x.orderId)==='919191')?.changeReason;
+  });
+  assert.equal(persisted,'Согласована дополнительная уборка');
+  const pdfPath=await download.path(),actPath=await act.path();
+  for(const file of [pdfPath,actPath]){
+    const bytes=fs.readFileSync(file);
+    assert.ok(bytes.subarray(0,5).toString('ascii')==='%PDF-','not PDF');
+    assert.ok(bytes.byteLength>1500,'PDF file too small');
+  }
   assert.deepEqual(errors,[]);
  } finally{await browser.close();await new Promise(r=>server.close(r));}
 },{timeout:180000});
