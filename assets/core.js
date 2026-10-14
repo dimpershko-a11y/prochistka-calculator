@@ -3,7 +3,10 @@
   if(typeof module === 'object' && module.exports) module.exports = api;
   if(root) root.PROCHISTKA_CORE = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this, function(){
-  const num = value => Math.max(0, Number(value) || 0);
+  // Keep calculations finite even while a user is typing an invalid large number.
+  // Validation below blocks such orders from being saved or exported.
+  const num = value => { const n=Number(value); return Number.isFinite(n) ? Math.min(1e9,Math.max(0,n)) : 0; };
+  const validNumber = (value,max=1e9) => value==='' || value===null || value===undefined || (Number.isFinite(Number(value)) && Number(value)>=0 && Number(value)<=max);
   const rub = value => Math.round(value);
   const isRecord = value => !!value && typeof value === 'object' && !Array.isArray(value);
   const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(object || {}, key);
@@ -122,6 +125,18 @@
   function validateOrder(state){
     const form=state.form||{}, errors=[];
     if(num(form.area)<=0 && !(form.cleanType==='extras_only' && (state.extras||[]).some(item=>num(item.qty)>0 && item.availableSeparately===true))) errors.push('Укажите площадь больше 0 м² или выберите доп. услугу.');
+    if(!validNumber(form.area,1e6)) errors.push('Площадь должна быть конечным числом не более 1 000 000 м².');
+    if(!validNumber(form.travelKm,1e6)) errors.push('Некорректный километраж.');
+    if(!validNumber(form.discount,100)) errors.push('Скидка должна быть от 0 до 100%.');
+    if(!validNumber(form.discountAmount,1e9)) errors.push('Некорректная скидка в рублях.');
+    if(!validNumber(form.maintenanceCrewSize,1000)) errors.push('Некорректный размер бригады.');
+    if(form.cleanStartTime && !/^([01]\\d|2[0-3]):[0-5]\\d$/.test(String(form.cleanStartTime))) errors.push('Время начала должно иметь формат ЧЧ:ММ.');
+    for(const x of (Array.isArray(state.extras)?state.extras:[])){
+      if(!validNumber(x.qty,1e6) || !validNumber(x.price,1e9) || !validNumber(x.time,1e6)){
+        errors.push('Некорректное количество, цена или время доп. услуги.');
+        break;
+      }
+    }
     const rate=cleanType(state,form.cleanType), clutter=(rate?.clutter||state.clutter||{}), dirt=(rate?.dirtiness||state.dirtiness||{});
     if(!rate) errors.push('Выберите корректный тип уборки.');
     if(!hasOwn(clutter,form.clutter)) errors.push('Выберите корректную заставленность.');
@@ -134,6 +149,22 @@
     if(isRecord(data)&&data.type&&data.type!=='prochistka_full_backup') return {ok:false,error:'Выбран файл другого типа.'};
     if(payload.extras!==undefined&&!Array.isArray(payload.extras)) return {ok:false,error:'Список дополнительных услуг повреждён.'};
     if(payload.savedOrders!==undefined&&!Array.isArray(payload.savedOrders)) return {ok:false,error:'Список заказов повреждён.'};
+    if(payload.form!==undefined&&!isRecord(payload.form)) return {ok:false,error:'Форма заказа повреждена.'};
+    if(payload.form){
+      for(const [key,max] of Object.entries({area:1e6,discount:100,discountAmount:1e9,travelKm:1e6,maintenanceCrewSize:1000})){
+        if(!validNumber(payload.form[key],max)) return {ok:false,error:'Недопустимое значение поля '+key+'.'};
+      }
+      if(payload.form.cleanStartTime && !/^([01]\\d|2[0-3]):[0-5]\\d$/.test(String(payload.form.cleanStartTime))) return {ok:false,error:'Некорректное время начала.'};
+      if(payload.form.cleanType!==undefined && _defaults?.cleaningTypes && !_defaults.cleaningTypes[payload.form.cleanType]
+        && !(isRecord(payload.cleaningTypes) && payload.cleaningTypes[payload.form.cleanType]))
+        return {ok:false,error:'Неизвестный тип уборки в резервной копии.'};
+    }
+    if(Array.isArray(payload.extras) && payload.extras.some(x=>!isRecord(x)||!validNumber(x.qty,1e6)||!validNumber(x.price,1e9)||!validNumber(x.time,1e6)))
+      return {ok:false,error:'Некорректные допуслуги в резервной копии.'};
+    if(Array.isArray(payload.savedOrders) && payload.savedOrders.some(x=>!isRecord(x)||!validNumber(x.recommendedPrice,1e12)))
+      return {ok:false,error:'Некорректные сохранённые заказы.'};
+    if(payload.contractDrafts!==undefined && (!Array.isArray(payload.contractDrafts)||payload.contractDrafts.some(x=>!isRecord(x))))
+      return {ok:false,error:'Список черновиков договоров повреждён.'};
     return {ok:true,state:payload};
   }
   return {calculateOrder, validateOrder, validateBackup, num, isRecord};
