@@ -29,6 +29,7 @@ if(defaults.form.seriesDiscount == null) defaults.form.seriesDiscount = 0;
 if(defaults.form.seriesSchedule == null) defaults.form.seriesSchedule = '';
 if(defaults.form.clientPhone == null) defaults.form.clientPhone = '';
 if(defaults.form.cleanDate == null) defaults.form.cleanDate = '';
+if(defaults.form.cleanStartTime == null) defaults.form.cleanStartTime = '';
 if(defaults.form.address == null) defaults.form.address = '';
 if(defaults.form.managerOnSite == null) defaults.form.managerOnSite = false;
 if(defaults.form.estimateNo == null) defaults.form.estimateNo = '';
