@@ -29,6 +29,7 @@ if(defaults.form.seriesDiscount == null) defaults.form.seriesDiscount = 0;
 if(defaults.form.seriesSchedule == null) defaults.form.seriesSchedule = '';
 if(defaults.form.clientPhone == null) defaults.form.clientPhone = '';
 if(defaults.form.cleanDate == null) defaults.form.cleanDate = '';
+if(defaults.form.cleanStartTime == null) defaults.form.cleanStartTime = '';
 if(defaults.form.address == null) defaults.form.address = '';
 if(defaults.form.managerOnSite == null) defaults.form.managerOnSite = false;
 if(defaults.form.estimateNo == null) defaults.form.estimateNo = '';
@@ -42,6 +43,7 @@ if(defaults.form.maintenanceFrequency == null) defaults.form.maintenanceFrequenc
 if(defaults.form.maintenanceTerm == null) defaults.form.maintenanceTerm = 6;
 defaults.estimateValidityDays = defaults.estimateValidityDays != null ? defaults.estimateValidityDays : 14;
 defaults.savedOrders = [];
+defaults.contractDrafts = [];
 defaults.ui = defaults.ui || {showTariffs:false, showSettings:false, extraGroupsCollapsed:{}};
 function clone(x){ if(x===undefined || x===null) return x; const serialized=JSON.stringify(x); if(serialized===undefined) return undefined; return JSON.parse(serialized); }
 function stableSyncValue(value){
@@ -325,6 +327,7 @@ function mergeState(parsed){
     mainInfo:{...d.mainInfo,...(parsed.mainInfo||{})},
     form:{...d.form,...(parsed.form||{})},
     savedOrders:Array.isArray(parsed.savedOrders)?parsed.savedOrders:[],
+    contractDrafts:Array.isArray(parsed.contractDrafts)?parsed.contractDrafts:[],
     extras:Array.isArray(parsed.extras)?parsed.extras:d.extras,
     extraCategories:Array.isArray(parsed.extraCategories)?parsed.extraCategories:(Array.isArray(d.extraCategories)?d.extraCategories:[]),
     ui:{...d.ui,...(parsed.ui||{})}
@@ -506,10 +509,20 @@ function syncConfigRevision(){
 }
 
 var __idbTimer=null;
+let __storageWarningShown=false;
 function saveState(){
-  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){}
+  let stored=true;
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+  catch(e){
+    stored=false;
+    if(!__storageWarningShown && typeof toast==='function'){
+      __storageWarningShown=true;
+      toast('Не удалось сохранить данные в браузере. Скачайте резервную копию!');
+    }
+  }
   clearTimeout(__idbTimer);
   __idbTimer=setTimeout(()=>idbSave(state),800);
+  return stored;
 }
 
 const BACKUP_REMIND_AFTER = 3;   // показать напоминание после N новых заказов без копии
