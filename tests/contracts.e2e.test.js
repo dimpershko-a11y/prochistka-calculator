@@ -20,6 +20,26 @@ test('contract editor, first-page letterhead, price lock, PDF and act',async()=>
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.goto('http://127.0.0.1:'+server.address().port+'/index.html',{waitUntil:'domcontentloaded'});
   await page.waitForTimeout(350);
+  // Новое действие видно без прокрутки к сохранённым заказам.
+  assert.equal(await page.locator('#saveAndContractBtn').isVisible(),true);
+  await page.evaluate(()=>{
+   state.form.area=70;state.form.cleanType='general';state.form.clientName='Заказ для договора';
+   state.form.address='Тестовый адрес';ensureFormCleanTypeAndCoefs(true);
+  });
+  const ordersBefore=await page.evaluate(()=>state.savedOrders.length);
+  await page.locator('#saveAndContractBtn').click();
+  assert.equal(await page.locator('#contractModal').isVisible(),true,'contract modal opens after saving');
+  const directFlow=await page.evaluate(()=>({
+   orders:state.savedOrders.length,
+   latestId:state.savedOrders[0]?.id,
+   draftOrderId:state.contractDrafts?.[state.contractDrafts.length-1]?.orderId,
+   amount:state.savedOrders[0]?.recommendedPrice
+  }));
+  assert.equal(directFlow.orders,ordersBefore+1,'new order was saved');
+  assert.equal(String(directFlow.draftOrderId),String(directFlow.latestId),'contract draft linked to new order');
+  assert.ok(directFlow.amount>0,'saved quote has a price');
+  await page.locator('#contractClose').click();
+  assert.equal(await page.locator('#contractModal').isVisible(),false);
   assert.equal(await page.locator('#cleanStartTime option').count(),25,'hourly slots + optional blank');
   assert.equal(await page.locator('#cleanStartTime option').nth(1).getAttribute('value'),'00:00–01:00');
   assert.equal(await page.locator('#cleanStartTime option').last().getAttribute('value'),'23:00–00:00');
