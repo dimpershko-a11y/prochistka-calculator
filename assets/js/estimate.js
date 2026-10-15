@@ -288,7 +288,8 @@ function estimateText(){
   const meta=estimateMetaLine();
   const phone=String(state.form.clientPhone||'').trim();
   const cleanDateText=formatCleanDate();
-  return `Смета на уборку${meta?`\n${meta}`:''}\n\nКлиент: ${state.form.clientName||'—'}${phone?`\nТелефон: ${phone}`:''}\nОбъект: ${state.form.objectType}${state.form.address?`\nАдрес: ${state.form.address}`:''}${cleanDateText?`\nДата уборки: ${cleanDateText}`:''}\nПлощадь: ${num(state.form.area)} м²\nТип уборки: ${r.rate.label}\nЗаставленность: ${r.clutter.label} (коэф. × ${r.clutterPriceK.toFixed(2)})\nЗагрязнённость: ${r.dirt.label} (коэф. × ${r.dirtPriceK.toFixed(2)})\n\nВ услуги входят:\n${included}\n\nНе входят:\n${notIncluded}\n\nДоп. услуги:\n${extras}\n\n${lines.join('\n')}\n\nДополнительная информация:\n${state.mainInfo.usefulInfo||'—'}\n\nЗаметки: ${state.form.notes||'—'}`;
+  const arrivalTime=String(state.form.cleanStartTime||'').trim();
+  return `Смета на уборку${meta?`\n${meta}`:''}\n\nКлиент: ${state.form.clientName||'—'}${phone?`\nТелефон: ${phone}`:''}\nОбъект: ${state.form.objectType}${state.form.address?`\nАдрес: ${state.form.address}`:''}${cleanDateText?`\nДата уборки: ${cleanDateText}`:''}${arrivalTime?`\nВремя прибытия бригады: ${arrivalTime}`:''}\nПлощадь: ${num(state.form.area)} м²\nТип уборки: ${r.rate.label}\nЗаставленность: ${r.clutter.label} (коэф. × ${r.clutterPriceK.toFixed(2)})\nЗагрязнённость: ${r.dirt.label} (коэф. × ${r.dirtPriceK.toFixed(2)})\n\nВ услуги входят:\n${included}\n\nНе входят:\n${notIncluded}\n\nДоп. услуги:\n${extras}\n\n${lines.join('\n')}\n\nДополнительная информация:\n${state.mainInfo.usefulInfo||'—'}\n\nЗаметки: ${state.form.notes||'—'}`;
 }
 async function copyEstimate(){ if(validateCurrentOrder().length) return; ensureEstimateNo(); const text=estimateText(); try{ await navigator.clipboard.writeText(text); toast('Смета скопирована'); }catch(e){ $('shareText').value=text; $('shareModal').classList.remove('hidden'); toast('Открыл смету для ручного копирования'); } }
 function buildPrintHtml(){
@@ -310,6 +311,7 @@ function buildPrintHtml(){
   const headerStyle=`display:flex;justify-content:space-between;gap:24px;border-bottom:${num(h.borderWidth)}px solid ${cleanCss(h.borderColor,'#0f172a')};padding-bottom:${num(h.paddingBottom)||16}px;margin-bottom:${num(h.marginBottom)||22}px`;
   const clientPhone=String(state.form.clientPhone||'').trim();
   const cleanDateText=formatCleanDate();
+  const arrivalTime=String(state.form.cleanStartTime||'').trim();
   // Запрет разрыва страницы внутри строки: html2pdf режет лист по высоте,
   // поэтому каждая строка текста должна быть отдельным элементом с break-inside:avoid.
   const AVOID='break-inside:avoid;page-break-inside:avoid';
@@ -322,6 +324,7 @@ function buildPrintHtml(){
       <tr style="break-inside:avoid;page-break-inside:avoid"><td style="padding:6px 0;font-weight:700">Объект</td><td style="padding:6px 0">${esc(state.form.objectType)}</td></tr>
       ${state.form.address?`<tr style="break-inside:avoid;page-break-inside:avoid"><td style="padding:6px 0;font-weight:700">Адрес</td><td style="padding:6px 0">${esc(state.form.address)}</td></tr>`:''}
       ${cleanDateText?`<tr style="break-inside:avoid;page-break-inside:avoid"><td style="padding:6px 0;font-weight:700">Дата уборки</td><td style="padding:6px 0">${esc(cleanDateText)}</td></tr>`:''}
+      ${arrivalTime?`<tr style="break-inside:avoid;page-break-inside:avoid"><td style="padding:6px 0;font-weight:700">Время прибытия бригады</td><td style="padding:6px 0">${esc(arrivalTime)}</td></tr>`:''}
       <tr style="break-inside:avoid;page-break-inside:avoid"><td style="padding:6px 0;font-weight:700">Площадь</td><td style="padding:6px 0">${num(state.form.area)} м²</td></tr>
       <tr style="break-inside:avoid;page-break-inside:avoid"><td style="padding:6px 0;font-weight:700">Тип уборки</td><td style="padding:6px 0">${esc(r.rate.label)}</td></tr>
       <tr style="break-inside:avoid;page-break-inside:avoid"><td style="padding:6px 0;font-weight:700">Заставленность</td><td style="padding:6px 0">${esc(r.clutter.label)} (коэф. × ${r.clutterPriceK.toFixed(2)})</td></tr>
