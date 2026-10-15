@@ -1,4 +1,4 @@
-/* global state, ensureFormCleanTypeAndCoefs, calc, APP_VERSION, clone, getTypeIncluded, saveState, renderSavedOrders, STORAGE_KEY */
+/* global state, ensureFormCleanTypeAndCoefs, calc, APP_VERSION, clone, getTypeIncluded, saveState, renderSavedOrders, STORAGE_KEY, estimateText, buildPrintHtml */
 const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),http=require('node:http'),path=require('node:path');
 const {chromium}=require('playwright');
@@ -21,8 +21,8 @@ test('contract editor, first-page letterhead, price lock, PDF and act',async()=>
   await page.goto('http://127.0.0.1:'+server.address().port+'/index.html',{waitUntil:'domcontentloaded'});
   await page.waitForTimeout(350);
   assert.equal(await page.locator('#cleanStartTime option').count(),25,'hourly slots + optional blank');
-  assert.equal(await page.locator('#cleanStartTime option').nth(1).inputValue(),'00:00–01:00');
-  assert.equal(await page.locator('#cleanStartTime option').last().inputValue(),'23:00–00:00');
+  assert.equal(await page.locator('#cleanStartTime option').nth(1).getAttribute('value'),'00:00–01:00');
+  assert.equal(await page.locator('#cleanStartTime option').last().getAttribute('value'),'23:00–00:00');
   assert.ok(!(await page.evaluate(()=>estimateText())).includes('Время прибытия бригады:'),'empty slot must not appear in estimate');
   await page.locator('#cleanStartTime').selectOption('09:00–10:00');
   const estimateChecks=await page.evaluate(()=>({text:estimateText(),html:buildPrintHtml(),value:state.form.cleanStartTime}));
