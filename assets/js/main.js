@@ -1,5 +1,23 @@
 // Привязка событий и инициализация приложения.
 // Файлы assets/js/*.js загружаются последовательно (см. index.html) и разделяют общую глобальную область.
+// Часовые интервалы прибытия, без автоматического выбора времени.
+function fillArrivalSlots(select,selectedValue=''){
+  if(!select)return;
+  const selected=String(selectedValue||'');
+  const options=['<option value="">Не указано</option>'];
+  for(let hour=0;hour<24;hour++){
+    const from=String(hour).padStart(2,'0')+':00';
+    const to=String((hour+1)%24).padStart(2,'0')+':00';
+    const slot=from+'–'+to;
+    options.push(`<option value="${slot}">${slot}</option>`);
+  }
+  // Историческое время (например, 09:30) оставляем без округления.
+  if(selected && PROCHISTKA_CORE.isValidArrivalTime(selected) && !options.some(x=>x.includes(`value="${selected}"`))){
+    options.push(`<option value="${selected}">${selected} (ранее указанное время)</option>`);
+  }
+  select.innerHTML=options.join('');
+  select.value=selected;
+}
 function bind(){
   if($('settingsBtn')) $('settingsBtn').onclick=()=>requestEditAccess(openSettingsModal);
   document.querySelectorAll('[data-settings-tab]').forEach(btn=>{
@@ -84,7 +102,7 @@ function bind(){
   if($('addExtraBtn')) $('addExtraBtn').onclick=()=>requestEditAccess(()=>{ const name=$('newExtraName').value.trim(), unit=$('newExtraUnit').value.trim()||'шт', price=num($('newExtraPrice').value), time=num($('newExtraTime').value); let category=($('newExtraCategoryCustom')&&$('newExtraCategoryCustom').value.trim()) || ($('newExtraCategory')&&$('newExtraCategory').value) || 'Другое'; if($('newExtraCategoryCustom')&&$('newExtraCategoryCustom').value.trim()){ addExtraCategory(category); $('newExtraCategoryCustom').value=''; } if(!name||!price){ toast('Заполни название и цену'); return; } state.extras.push({id:Date.now(), name, unit, price, qty:0, time, category, builtIn:false, availableSeparately:true}); ensureExtraCategories(); if(!state.extraCategories.includes(category)) state.extraCategories.push(category); $('newExtraName').value=''; $('newExtraPrice').value=''; $('newExtraTime').value=''; saveState(); renderCategoryOptions(category); renderCategoryManager(); renderExtras(); renderExtrasEditor(); recalc(); toast('Услуга добавлена'); });
 }
 function updateDiscountInputs(){ const mode=state.form.discountMode==='amount'?'amount':'percent'; const sel=$('discountMode'); if(sel) sel.value=mode; const pct=$('discount'), amt=$('discountAmount'); if(pct) pct.classList.toggle('hidden', mode!=='percent'); if(amt) amt.classList.toggle('hidden', mode!=='amount'); }
-function fillForm(){ if(!isEditUnlocked()){ state.ui.showTariffs=false; state.ui.showSettings=false; } $('clientName').value=state.form.clientName; if($('clientPhone')) $('clientPhone').value=state.form.clientPhone||'+7'; if($('cleanDate')) $('cleanDate').value=state.form.cleanDate||''; if($('cleanStartTime')) $('cleanStartTime').value=state.form.cleanStartTime||''; if($('address')) $('address').value=state.form.address||''; $('objectType').value=state.form.objectType; $('area').value=state.form.area; $('discount').value=state.form.discount; if($('discountAmount')) $('discountAmount').value=state.form.discountAmount||0; updateDiscountInputs(); $('travelKm').value=state.form.travelKm; if($('outsideKad')) $('outsideKad').checked=!!state.form.outsideKad; if($('managerOnSite')) $('managerOnSite').checked=!!state.form.managerOnSite; if($('ownerRoleBox')) $('ownerRoleBox').classList.toggle('hidden', !state.form.managerOnSite); if($('ownerRole')) $('ownerRole').value=state.form.ownerRole==='cleaner_manager'?'cleaner_manager':'manager'; if($('maintenanceCrewSize')) $('maintenanceCrewSize').value=state.form.maintenanceCrewSize||1; if($('maintenanceFormat')) $('maintenanceFormat').value=state.form.maintenanceFormat||'oneoff'; if($('maintenanceFrequency')) $('maintenanceFrequency').value=state.form.maintenanceFrequency||4; if($('maintenanceTerm')) $('maintenanceTerm').value=state.form.maintenanceTerm||6; $('notes').value=state.form.notes; $('showOnlySelected').checked=!!state.form.showOnlySelected; $('settingsModal')?.classList.toggle('hidden', !state.ui.showSettings); populateMainSelects(); if($('includedServices')) $('includedServices').value=getTypeIncluded(state.form.cleanType)||''; renderSettingsPanel(); setSettingsTab(state.ui.settingsTab); }
+function fillForm(){ if(!isEditUnlocked()){ state.ui.showTariffs=false; state.ui.showSettings=false; } $('clientName').value=state.form.clientName; if($('clientPhone')) $('clientPhone').value=state.form.clientPhone||'+7'; if($('cleanDate')) $('cleanDate').value=state.form.cleanDate||''; if($('cleanStartTime')) fillArrivalSlots($('cleanStartTime'),state.form.cleanStartTime||''); if($('address')) $('address').value=state.form.address||''; $('objectType').value=state.form.objectType; $('area').value=state.form.area; $('discount').value=state.form.discount; if($('discountAmount')) $('discountAmount').value=state.form.discountAmount||0; updateDiscountInputs(); $('travelKm').value=state.form.travelKm; if($('outsideKad')) $('outsideKad').checked=!!state.form.outsideKad; if($('managerOnSite')) $('managerOnSite').checked=!!state.form.managerOnSite; if($('ownerRoleBox')) $('ownerRoleBox').classList.toggle('hidden', !state.form.managerOnSite); if($('ownerRole')) $('ownerRole').value=state.form.ownerRole==='cleaner_manager'?'cleaner_manager':'manager'; if($('maintenanceCrewSize')) $('maintenanceCrewSize').value=state.form.maintenanceCrewSize||1; if($('maintenanceFormat')) $('maintenanceFormat').value=state.form.maintenanceFormat||'oneoff'; if($('maintenanceFrequency')) $('maintenanceFrequency').value=state.form.maintenanceFrequency||4; if($('maintenanceTerm')) $('maintenanceTerm').value=state.form.maintenanceTerm||6; $('notes').value=state.form.notes; $('showOnlySelected').checked=!!state.form.showOnlySelected; $('settingsModal')?.classList.toggle('hidden', !state.ui.showSettings); populateMainSelects(); if($('includedServices')) $('includedServices').value=getTypeIncluded(state.form.cleanType)||''; renderSettingsPanel(); setSettingsTab(state.ui.settingsTab); }
 fillForm(); renderTariffs(); bind(); renderExtras(); renderSettingsPanel(); setSettingsTab(state.ui.settingsTab); enhanceAccessibility(); recalc(); updateBackupReminder(); attemptIdbRecovery(); renderSyncStatus(); if($('versionBadge')) $('versionBadge').textContent=APP_VERSION; setupAccess();
 setTimeout(()=>checkRemoteConfig(false,false),800);
 let __lastRemoteConfigCheck=0;
