@@ -55,7 +55,7 @@ function contractDocumentHtml(order,d){
  <p>1.2. Вид уборки и перечень услуг Исполнителя включает в себя: <b>${contractSafe(q.label)}</b>.</p>
  ${importantNote}
  ${works.length?'<p>В услугу входят работы:</p><ul>'+works.map(x=>'<li>'+contractSafe(x)+'</li>').join('')+'</ul>':'<p>Перечень работ требуется уточнить по смете.</p>'}
- <p>Дата уборки: ${contractSafe(d.cleanDate||'не указана')}. Время начала: ${contractSafe(d.cleanStartTime||'не указано')}.</p>
+ <p>Дата уборки: ${contractSafe(d.cleanDate||'не указана')}${d.cleanStartTime?`. Время прибытия бригады: ${contractSafe(d.cleanStartTime)}`:''}.</p>
  <p>1.3. К дополнительным услугам относятся только работы, прямо отмеченные Сторонами в настоящем Договоре либо согласованные отдельно в письменной форме, в том числе в мессенджере, СМС или по электронной почте.</p>
  ${legal.join('')}
  <h3 class="contract-sign-heading">Реквизиты и подписи сторон</h3><table class="contract-signatures"><tr><td><b>Исполнитель</b><p><b>ИП Першко Дмитрий Олегович</b></p>ИНН: 504796653452<br>ОГРНИП: 322508100458280<br>Телефон: +7 993 635 60 64<br><br><br>____________ / Першко Д.О. /</td>
@@ -65,7 +65,7 @@ function contractQuoteMismatch(order,d){return Number(d.total)!==contractSnapsho
 function contractValidate(order,d){
  if(!String(d.customerName).trim()||!String(d.documentNo).trim()||!String(d.objectAddress).trim())return 'Укажите заказчика, номер договора и адрес объекта.';
  if(!Number.isFinite(Number(d.total))||Number(d.total)<0)return 'Некорректная стоимость договора.';
- if(d.cleanStartTime&&!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(d.cleanStartTime))return 'Некорректное время начала.';
+ if(!PROCHISTKA_CORE.isValidArrivalTime(d.cleanStartTime))return 'Некорректное время прибытия бригады.';
  if(d.customerType==='legal_entity'&&!String(d.customerInn).trim())return 'Для юридического лица необходим ИНН.';
  if(contractQuoteMismatch(order,d)&&(!d.changeApproved||!String(d.changeReason).trim()))return 'Изменение стоимости требует подтверждения и обязательной причины.';
  return '';
