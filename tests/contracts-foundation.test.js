@@ -10,7 +10,7 @@ function clone(x){return JSON.parse(JSON.stringify(x));}
 test('valid contract start time is allowed',()=>assert.equal(core.validateOrder(clone(base)).length,0));
 test('invalid contract start time is blocked',()=>{
  const x=clone(base);x.form.cleanStartTime='25:88';
- assert.match(core.validateOrder(x).join(' '),/Время начала/);
+ assert.match(core.validateOrder(x).join(' '),/время прибытия/i);
 });
 test('unbounded area is rejected before saving',()=>{
  const x=clone(base);x.form.area=1e308;
@@ -27,4 +27,29 @@ test('malformed backup area is rejected before state migration',()=>{
 test('backup preserves new start-time field',()=>{
  const x={type:'prochistka_full_backup',state:{form:{area:70,cleanStartTime:'09:30'},extras:[],savedOrders:[]}};
  assert.equal(core.validateBackup(x).ok,true);
+});
+
+test('hourly arrival windows are valid including midnight crossover',()=>{
+ for(const time of ['00:00–01:00','09:00–10:00','14:00–15:00','23:00–00:00']){
+  const x=clone(base);x.form.cleanStartTime=time;
+  assert.equal(core.validateOrder(x).length,0,time);
+  assert.equal(core.isValidArrivalTime(time),true);
+ }
+});
+test('invalid arrival slot lengths and values are rejected',()=>{
+ for(const value of ['09:00–11:00','09:30–10:30','23:00–24:00','25:00–26:00','bad']){
+  const x=clone(base);x.form.cleanStartTime=value;
+  assert.match(core.validateOrder(x).join(' '),/время прибытия/i,value);
+  assert.equal(core.isValidArrivalTime(value),false);
+ }
+});
+test('backup accepts hourly arrival window and preserves legacy exact time',()=>{
+ for(const value of ['09:00–10:00','23:00–00:00','09:30']){
+  const x={type:'prochistka_full_backup',state:{form:{area:70,cleanStartTime:value},extras:[],savedOrders:[]}};
+  assert.equal(core.validateBackup(x).ok,true,value);
+ }
+});
+test('backup rejects invalid arrival window',()=>{
+ const x={type:'prochistka_full_backup',state:{form:{area:70,cleanStartTime:'09:00–11:00'},extras:[],savedOrders:[]}};
+ assert.equal(core.validateBackup(x).ok,false);
 });
