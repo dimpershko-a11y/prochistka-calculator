@@ -20,8 +20,19 @@ test('contract editor, first-page letterhead, price lock, PDF and act',async()=>
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.goto('http://127.0.0.1:'+server.address().port+'/index.html',{waitUntil:'domcontentloaded'});
   await page.waitForTimeout(350);
+  assert.equal(await page.locator('#cleanStartTime option').count(),25,'hourly slots + optional blank');
+  assert.equal(await page.locator('#cleanStartTime option').nth(1).inputValue(),'00:00–01:00');
+  assert.equal(await page.locator('#cleanStartTime option').last().inputValue(),'23:00–00:00');
+  assert.ok(!(await page.evaluate(()=>estimateText())).includes('Время прибытия бригады:'),'empty slot must not appear in estimate');
+  await page.locator('#cleanStartTime').selectOption('09:00–10:00');
+  const estimateChecks=await page.evaluate(()=>({text:estimateText(),html:buildPrintHtml(),value:state.form.cleanStartTime}));
+  assert.equal(estimateChecks.value,'09:00–10:00');
+  assert.ok(estimateChecks.text.includes('Время прибытия бригады: 09:00–10:00'));
+  assert.ok(estimateChecks.html.includes('Время прибытия бригады</td><td style="padding:6px 0">09:00–10:00'));
+  await page.locator('#cleanStartTime').selectOption('');
+  assert.ok(!(await page.evaluate(()=>buildPrintHtml())).includes('Время прибытия бригады</td>'));
   await page.evaluate(()=>{
-   state.form.area=70;state.form.cleanType='general';state.form.cleanDate='2026-11-01';state.form.cleanStartTime='09:30';state.form.clientName='Тестовый заказчик';state.form.address='Санкт-Петербург, тестовый адрес';ensureFormCleanTypeAndCoefs(true);
+   state.form.area=70;state.form.cleanType='general';state.form.cleanDate='2026-11-01';state.form.cleanStartTime='10:00–11:00';state.form.clientName='Тестовый заказчик';state.form.address='Санкт-Петербург, тестовый адрес';ensureFormCleanTypeAndCoefs(true);
    const r=calc();
    state.savedOrders.unshift({id:919191,version:APP_VERSION,clientName:state.form.clientName,objectType:'Квартира',area:70,cleanType:r.rate.label,recommendedPrice:r.recommendedPrice,
     form:clone(state.form),extras:clone(r.selectedExtras),quoteSnapshot:{schemaVersion:1,form:clone(state.form),service:{label:r.rate.label,included:getTypeIncluded(state.form.cleanType)},extras:clone(r.selectedExtras),pricing:{total:r.recommendedPrice}}});
@@ -29,11 +40,13 @@ test('contract editor, first-page letterhead, price lock, PDF and act',async()=>
   });
   await page.locator('[data-order-contract="919191"]').click();
   assert.equal(await page.locator('#contractModal').isVisible(),true);
-  assert.equal(await page.locator('[data-contract-field="cleanStartTime"]').inputValue(),'09:30');
+  assert.equal(await page.locator('[data-contract-field="cleanStartTime"]').inputValue(),'10:00–11:00');
+  assert.ok((await page.locator('[data-contract-field="cleanStartTime"] option').allTextContents()).includes('10:00–11:00'));
   await page.locator('#contractPreviewBtn').click();
   assert.equal(await page.locator('.contract-preview .document-brand').count(),1);
   assert.ok((await page.locator('#contractPreviewArea').innerText()).includes('ДОГОВОР НА ОКАЗАНИЕ КЛИНИНГОВЫХ УСЛУГ'));
   assert.ok((await page.locator('#contractPreviewArea').innerText()).includes('2.1.1.'));
+  assert.ok((await page.locator('#contractPreviewArea').innerText()).includes('Время прибытия бригады: 10:00–11:00'));
   const initialPrice=await page.locator('[data-contract-field="total"]').inputValue();
   await page.locator('[data-contract-field="total"]').fill(String(Number(initialPrice)+3000));
   await page.locator('#contractDownloadPdf').click();
