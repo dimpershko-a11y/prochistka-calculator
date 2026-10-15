@@ -25,7 +25,7 @@ function contractEnsureEditor(){
  ${contractControl('Юридический адрес / регистрация','customerAddress')}
  ${contractControl('Адрес объекта уборки','objectAddress')}
  ${contractControl('Дата уборки','cleanDate','date')}
- ${contractControl('Время начала','cleanStartTime','time')}
+ <label class="contract-edit-field">Время прибытия бригады<select data-contract-field="cleanStartTime"><option value="">Не указано</option></select></label>
  ${contractControl('Стоимость договора, ₽','total','number')}
  </div>
  <label class="contract-edit-field">Дополнительные работы (каждая с новой строки)<textarea data-contract-field="additionalWorks" rows="3"></textarea></label>
@@ -72,7 +72,7 @@ function openContractEditor(id){
  const order=(state.savedOrders||[]).find(o=>String(o.id)===String(id));if(!order)return;
  contractEnsureEditor();contractActiveOrderId=id;
  const d=contractDraft(order),modal=$('contractModal');
- modal.querySelectorAll('[data-contract-field]').forEach(el=>el.value=d[el.dataset.contractField]??'');
+ modal.querySelectorAll('[data-contract-field]').forEach(el=>{const value=d[el.dataset.contractField]??'';if(el.dataset.contractField==='cleanStartTime')fillArrivalSlots(el,value);else el.value=value;});
  modal.querySelector('#contractApprovePrice').checked=!!d.changeApproved;
  modal.querySelector('#contractPreviewArea').classList.add('hidden');
  modal.classList.remove('hidden');contractUpdateWarning();
