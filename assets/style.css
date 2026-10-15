@@ -179,6 +179,7 @@ button{white-space:normal;line-height:1.25}
 
 /* v4.7.2: компактные доп. услуги и настройки в модальном окне */
 .icon-menu-btn{width:46px;min-width:46px;padding:10px 12px;font-size:20px;line-height:1;text-align:center}
+
 /* Видимый переход к договору на мобильном без сжатия кнопок. */
 @media(max-width:759px){
   .top-actions{grid-template-columns:minmax(0,1fr) 46px}
